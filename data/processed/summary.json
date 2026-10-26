@@ -1,0 +1,42 @@
+{
+  "zdroj_skoly": "https://crinfo.iedu.sk/RISPortal/register/ExportCSV?id=1",
+  "zdroj_zriadovatelia": "https://crinfo.iedu.sk/RISPortal/register/ExportCSV?id=2",
+  "zdroj_nazov": "Register škôl a školských zariadení + Register zriaďovateľov (RIS / MŠVVaM SR)",
+  "stav_filter": "v prevádzke",
+  "poznamka": "Bez osobných údajov riaditeľov a bez telefónov/e-mailov. ico_skoly = IČO školy (alebo nadradenej právnej entity). zriadovatel_ico = IČO zriaďovateľa (obec/súkromník/cirkev), nie IČO školy. Mnohé obecné MŠ nemajú v RIS vyplnené vlastné IČO.",
+  "generovane_utc": "2026-10-26T18:57:51Z",
+  "pocet_spolu": 6052,
+  "podla_druhu": {
+    "materská škola": 3428,
+    "základná škola": 2161,
+    "špeciálna materská škola": 102,
+    "špeciálna základná škola": 361
+  },
+  "podla_kraja": {
+    "Banskobystrický": 715,
+    "Bratislavský": 663,
+    "Košický": 905,
+    "Nitriansky": 762,
+    "Prešovský": 1088,
+    "Trenčiansky": 555,
+    "Trnavský": 617,
+    "Žilinský": 747
+  },
+  "podla_zriadovatel_typ": {
+    "obec, mesto": 4895,
+    "súkromník": 465,
+    "cirkev, náboženská spoločnosť": 273,
+    "regionálny úrad školskej správy": 407,
+    "zahraničný subjekt": 2,
+    "samosprávny kraj": 9,
+    "iný orgán štátnej správy": 1
+  },
+  "podla_forma_vlastnictva": {
+    "štátna": 5312,
+    "súkromná": 467,
+    "cirkevná": 273
+  },
+  "ico_skoly_vyplnene": 3866,
+  "ico_skoly_chybajuce": 2186,
+  "zriadovatel_ico_vyplnene": 6052
+}
