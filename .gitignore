@@ -1,0 +1,6 @@
+# Raw RIS exports contain personal data (director names, phones, emails).
+# Re-download via: python3 scripts/build_school_list.py
+data/raw/
+__pycache__/
+*.pyc
+.DS_Store
