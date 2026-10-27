@@ -119,7 +119,9 @@ def resolve_school_ico(row: dict[str, str], by_eduid: dict[str, dict[str, str]])
 
 def is_special_ms(typ: str) -> bool:
     text = typ.lower()
-    return any(key in text for key in ("matersk", "šmš"))
+    # RIS abbreviates some kindergartens as "MŠ …" (hospital sites) instead of
+    # "materská" / "ŠMŠ". The ZŠ classifier already accepts a "ZŠ" prefix.
+    return text.startswith("mš") or any(key in text for key in ("matersk", "šmš"))
 
 
 def is_special_zs(typ: str) -> bool:
@@ -127,6 +129,23 @@ def is_special_zs(typ: str) -> bool:
     if any(x in text for x in ("odborné učilište", "praktická škola", "soš", "gymnázium")):
         return False
     return any(key in text for key in ("základ", "šzš", "špeciálna základná")) or text.startswith("zš")
+
+
+SPECIAL_DRUH = "škola pre deti a žiakov so špeciálnymi výchovno-vzdelávacími potrebami"
+
+
+def classify_druh(druh: str, typ: str) -> str | None:
+    """Return the public list label for an operating school, or None to skip it."""
+    if druh == "materská škola":
+        return "materská škola"
+    if druh == "základná škola":
+        return "základná škola"
+    if druh == SPECIAL_DRUH:
+        if is_special_ms(typ):
+            return "špeciálna materská škola"
+        if is_special_zs(typ):
+            return "špeciálna základná škola"
+    return None
 
 
 def make_record(
@@ -191,17 +210,9 @@ def main() -> None:
     for row in all_rows:
         if clean(row.get("STAV")) != "v prevádzke":
             continue
-        druh = clean(row.get("DruhSaSZ"))
-        typ = clean(row.get("TypSaSZ"))
-        if druh == "materská škola":
-            records.append(make_record(row, "materská škola", by_eduid, founders))
-        elif druh == "základná škola":
-            records.append(make_record(row, "základná škola", by_eduid, founders))
-        elif druh == "škola pre deti a žiakov so špeciálnymi výchovno-vzdelávacími potrebami":
-            if is_special_ms(typ):
-                records.append(make_record(row, "špeciálna materská škola", by_eduid, founders))
-            elif is_special_zs(typ):
-                records.append(make_record(row, "špeciálna základná škola", by_eduid, founders))
+        label = classify_druh(clean(row.get("DruhSaSZ")), clean(row.get("TypSaSZ")))
+        if label:
+            records.append(make_record(row, label, by_eduid, founders))
 
     records.sort(
         key=lambda item: (

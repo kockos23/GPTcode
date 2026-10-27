@@ -4,39 +4,39 @@
   "zdroj_nazov": "Register škôl a školských zariadení + Register zriaďovateľov (RIS / MŠVVaM SR)",
   "stav_filter": "v prevádzke",
   "poznamka": "Bez osobných údajov riaditeľov a bez telefónov/e-mailov. ico_skoly = IČO školy (alebo nadradenej právnej entity). zriadovatel_ico = IČO zriaďovateľa (obec/súkromník/cirkev), nie IČO školy. Mnohé obecné MŠ nemajú v RIS vyplnené vlastné IČO.",
-  "generovane_utc": "2026-10-26T18:57:51Z",
-  "pocet_spolu": 6052,
+  "generovane_utc": "2026-10-27T11:06:19Z",
+  "pocet_spolu": 6074,
   "podla_druhu": {
     "materská škola": 3428,
     "základná škola": 2161,
-    "špeciálna materská škola": 102,
+    "špeciálna materská škola": 124,
     "špeciálna základná škola": 361
   },
   "podla_kraja": {
-    "Banskobystrický": 715,
-    "Bratislavský": 663,
-    "Košický": 905,
-    "Nitriansky": 762,
-    "Prešovský": 1088,
+    "Banskobystrický": 717,
+    "Bratislavský": 666,
+    "Košický": 908,
+    "Nitriansky": 764,
+    "Prešovský": 1094,
     "Trenčiansky": 555,
     "Trnavský": 617,
-    "Žilinský": 747
+    "Žilinský": 753
   },
   "podla_zriadovatel_typ": {
     "obec, mesto": 4895,
-    "súkromník": 465,
+    "súkromník": 469,
     "cirkev, náboženská spoločnosť": 273,
-    "regionálny úrad školskej správy": 407,
+    "regionálny úrad školskej správy": 425,
     "zahraničný subjekt": 2,
     "samosprávny kraj": 9,
     "iný orgán štátnej správy": 1
   },
   "podla_forma_vlastnictva": {
-    "štátna": 5312,
-    "súkromná": 467,
+    "štátna": 5330,
+    "súkromná": 471,
     "cirkevná": 273
   },
-  "ico_skoly_vyplnene": 3866,
-  "ico_skoly_chybajuce": 2186,
-  "zriadovatel_ico_vyplnene": 6052
+  "ico_skoly_vyplnene": 3886,
+  "ico_skoly_chybajuce": 2188,
+  "zriadovatel_ico_vyplnene": 6074
 }
