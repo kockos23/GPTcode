@@ -31,9 +31,9 @@ Use test copies, not the only copy of an accounting document.
 7. Verify the payment status, transaction reference, paid amount, and audit history in the `Doklady` sheet.
 8. Re-import the same CSV and confirm that duplicate transactions are not created.
 
-## Enabling scheduled operation
+## Production cutover
 
-Enable `WOF_FINANCE_EMAIL_CRON_ENABLED=true` only after the pilot passes. Scheduled checks run on workdays at 06:15 Europe/Bratislava. Keep the review queue monitored; a non-empty queue is expected for scans or unfamiliar invoice layouts and is safer than filing documents into the wrong month.
+Do not enable the current Convex/Composio email cron. Keep `WOF_FINANCE_EMAIL_CRON_ENABLED=false`. Scheduled intake moves to the direct-Google n8n workflows defined in `docs/ARCHITECTURE.md`; activate them only after their cutover gates and pilot pass. Keep the review queue monitored: a non-empty queue is expected for scans or unfamiliar invoice layouts and is safer than filing documents into the wrong month.
 
 ## Current deliberate limitations
 

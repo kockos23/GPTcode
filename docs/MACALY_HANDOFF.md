@@ -6,9 +6,9 @@ This package is an updated copy of the Macaly export. Keep Macaly as the primary
 
 1. Install the locked dependencies. The new production dependency is `unpdf`.
 2. Deploy the updated Convex schema and functions.
-3. Keep `WOF_FINANCE_EMAIL_CRON_ENABLED=false` during the pilot.
+3. Keep `WOF_FINANCE_EMAIL_CRON_ENABLED=false`; routine Gmail/Drive/Sheets automation is being moved to direct n8n Google connectors.
 4. Create the Gmail label `WOF_FINANCE_INTAKE`, or configure an equivalent restricted `WOF_FINANCE_GMAIL_QUERY`.
-5. Run the pilot in `docs/OPERATIONS.md` before enabling the cron.
+5. Follow the architecture and cutover gates in `docs/ARCHITECTURE.md`. Do not enable the transitional Composio cron.
 
 ## Implemented changes
 

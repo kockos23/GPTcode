@@ -1,6 +1,8 @@
 # Chief of Staff HQ / SARA WOF Finance
 
-Macaly project with a TanStack/React frontend and Convex backend. Macaly remains the primary runtime and supplies the protected Google/Composio integrations.
+Macaly project with a TanStack/React frontend and Convex backend. Macaly remains the product workspace and UI. The target production integration architecture uses n8n with native Google OAuth nodes for routine Gmail, Drive, Sheets, and Calendar operations; Composio is reserved for exceptional capabilities without a suitable direct connector.
+
+The current branch still contains transitional Macaly/Composio calls. Keep the finance email cron disabled until the n8n cutover gates in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pass.
 
 ## Local validation
 
@@ -26,7 +28,7 @@ Macaly/Convex already manage the secret values used by the project. Never commit
 - `MACALY_BYPASS_HEADER` (optional)
 - `OTP_ENDPOINT`, `CHAT_ID`, `APP_NAME`, `SECRET_KEY`
 - `WOF_FINANCE_GMAIL_QUERY` (optional; defaults to the `WOF_FINANCE_INTAKE` Gmail label)
-- `WOF_FINANCE_EMAIL_CRON_ENABLED` (`true` only after the pilot succeeds)
+- `WOF_FINANCE_EMAIL_CRON_ENABLED` (keep `false`; the target scheduler lives in n8n)
 
 ## Finance routing rules
 
