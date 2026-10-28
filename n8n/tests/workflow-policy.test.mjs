@@ -11,6 +11,7 @@ const serialized = JSON.stringify(workflow)
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
   assert.equal(/composio/i.test(serialized), false)
+  assert.equal(/spreadsheets\/1[A-Za-z0-9_-]{20,}\//.test(serialized), false)
 })
 
 test('Gmail intake is restricted and scheduled for 06:15 on workdays', () => {
@@ -27,6 +28,7 @@ test('routing uses delivery or explicit report-period date and never 00_INBOX', 
   assert.match(parser.parameters.jsCode, /deliveryDate/)
   assert.match(parser.parameters.jsCode, /periodEndDate/)
   assert.match(parser.parameters.jsCode, /targetFolderId/)
+  assert.equal(/:'1[A-Za-z0-9_-]{20,}'/.test(parser.parameters.jsCode), false)
   assert.equal(/00_INBOX/.test(serialized), false)
 })
 
@@ -45,5 +47,21 @@ test('unsafe documents branch to review while safe documents upload monthly', ()
   assert.equal(branch?.[0]?.[0]?.node, 'Nahraj do mesačného priečinka')
   assert.equal(branch?.[1]?.[0]?.node, 'Zapíš doklad do review registra')
   assert.ok(nodes.has('Zapíš zaradený doklad do registra'))
+})
+
+test('persistent register dedupe runs before OpenAI extraction', () => {
+  const lookup = nodes.get('Načítaj existujúce Doklad ID')
+  const check = nodes.get('Skontroluj trvalú deduplikáciu')
+  const branch = nodes.get('Doklad ešte nie je v registri?')
+  assert.ok(lookup)
+  assert.ok(check)
+  assert.ok(branch)
+  assert.match(lookup.parameters.url, /sheets\.googleapis\.com/)
+  assert.match(lookup.parameters.url, /Doklady%21A%3AA/)
+  assert.match(lookup.parameters.url, /REPLACE_WITH_WOF_FINANCE_SHEET_ID/)
+  assert.equal(
+    workflow.connections['Doklad ešte nie je v registri?'].main[0][0].node,
+    'Priprav extrakciu dokladu v2',
+  )
 })
 

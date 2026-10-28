@@ -24,7 +24,7 @@
       ],
       "name": "Gmail — WOF finance intake",
       "disabled": false,
-      "id": "3b7a5346-2cbf-4674-a8f5-aabd8deddaf1"
+      "id": "126e73b0-0370-4c05-a0f0-c632dc3431e9"
     },
     {
       "parameters": {
@@ -44,11 +44,11 @@
       "name": "Gmail — načítaj správu a prílohy",
       "webhookId": "ae613182-5a61-48c6-8efc-93e9bdaf7d21",
       "disabled": false,
-      "id": "2dd64ca1-9479-4867-869e-b43b9a427314"
+      "id": "d81516c8-bc9c-4b3c-9239-b1d123725041"
     },
     {
       "parameters": {
-        "jsCode": "const out = [];\nfor (const [messageIndex, item] of $input.all().entries()) {\n  const messageId = String(item.json.id || '');\n  if (!messageId) throw new Error('Gmail správa nemá ID');\n  for (const [key, file] of Object.entries(item.binary || {})) {\n    const mime = String(file.mimeType || '').toLowerCase();\n    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(mime)) continue;\n    const name = String(file.fileName || key);\n    const attachmentId = String(file.id || file.attachmentId || key);\n    out.push({\n      json: {\n        source: 'gmail',\n        sourceMessageId: messageId,\n        sourceThreadId: item.json.threadId || '',\n        originalFileName: name,\n        mimeType: mime,\n        attachmentKey: key,\n        attachmentId,\n        documentKey: 'gmail:' + messageId + ':' + attachmentId,\n        sender: item.json.From || item.json.from || '',\n        subject: item.json.Subject || item.json.subject || '',\n        receivedAt: item.json.internalDate || '',\n      },\n      binary: { data: file },\n      pairedItem: { item: messageIndex },\n    });\n  }\n}\nreturn out;"
+        "jsCode": "const out = [];\nfor (const [messageIndex, item] of $input.all().entries()) {\n  const messageId = String(item.json.id || '');\n  if (!messageId) throw new Error('Gmail správa nemá ID');\n  for (const [key, file] of Object.entries(item.binary || {})) {\n    const mime = String(file.mimeType || '').toLowerCase();\n    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(mime)) continue;\n    const name = String(file.fileName || key);\n    const attachmentId = String(file.id || file.attachmentId || key);\n    const documentKey = 'gmail:' + messageId + ':' + attachmentId;\n    out.push({\n      json: {\n        source: 'gmail',\n        sourceMessageId: messageId,\n        sourceThreadId: item.json.threadId || '',\n        originalFileName: name,\n        mimeType: mime,\n        attachmentKey: key,\n        attachmentId,\n        documentKey,\n        documentId: 'WOF-' + documentKey.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120),\n        sender: item.json.From || item.json.from || '',\n        subject: item.json.Subject || item.json.subject || '',\n        receivedAt: item.json.internalDate || '',\n      },\n      binary: { data: file },\n      pairedItem: { item: messageIndex },\n    });\n  }\n}\nreturn out;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -58,7 +58,7 @@
       ],
       "name": "Rozdeľ podporované prílohy",
       "disabled": false,
-      "id": "08a888bc-10d2-4ce9-b57d-8c9e39956b98"
+      "id": "0a34072d-c4a4-4182-9ff8-0c5c3ea85e40"
     },
     {
       "parameters": {
@@ -74,7 +74,86 @@
       ],
       "name": "Deduplikácia Gmail prílohy",
       "disabled": false,
-      "id": "3460052e-7069-4e21-95c5-9d1db42e93d7"
+      "id": "52825350-fa6b-4680-a5cc-65171533eb4a"
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/REPLACE_WITH_WOF_FINANCE_SHEET_ID/values/Doklady%21A%3AA",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "name": "Načítaj existujúce Doklad ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        960,
+        -100
+      ],
+      "id": "24adb304-a5af-4ee2-8dbc-75b3647584fd"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "name": "Spoj register a prílohu",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1200,
+        0
+      ],
+      "disabled": false,
+      "id": "90534f9d-b92c-4473-a6f7-f7370412083b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[]; for(const [index,item] of $input.all().entries()){const documentId=String(item.json.documentId||''); const registered=Array.isArray(item.json.values)&&item.json.values.some(row=>String(row?.[0]||'')===documentId); out.push({json:{...item.json,alreadyRegistered:registered},binary:item.binary,pairedItem:{item:index}})} return out;"
+      },
+      "name": "Skontroluj trvalú deduplikáciu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "id": "1cbaed9a-f4df-4120-b255-545ad823faec"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "not-registered",
+              "leftValue": "={{ $json.alreadyRegistered }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Doklad ešte nie je v registri?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        0
+      ],
+      "disabled": false,
+      "id": "f3cb6df7-f9e2-4910-88b0-5909b314cf34"
     },
     {
       "parameters": {
@@ -84,11 +163,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        960,
+        1920,
         0
       ],
       "disabled": false,
-      "id": "ca6c47f2-25a1-45ee-9331-2b240df66bc1"
+      "id": "f59a29c8-e284-4ed7-9fde-e1ce5491e8dc"
     },
     {
       "parameters": {
@@ -105,13 +184,13 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        2160,
         -100
       ],
       "executeOnce": false,
       "onError": "continueErrorOutput",
       "disabled": false,
-      "id": "c6e1bace-266e-481f-9d47-98ae18006962"
+      "id": "59ceb743-2582-4673-a3a1-f30c56252df0"
     },
     {
       "parameters": {
@@ -123,25 +202,25 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1440,
+        2400,
         0
       ],
       "disabled": false,
-      "id": "d79e574b-c320-4fe2-9599-ad1146501362"
+      "id": "26ad8c25-303e-49d3-8903-320e4dd09a1a"
     },
     {
       "parameters": {
-        "jsCode": "const folderMap = {\n  '2026-07': {Doklady:'1xBLtB_kKK-2CGszvw5qIijPvaimMcgYZ',Stripe:'1fPGEOm-e9dxC6f4VwZGN6BiYo7aLO9kK',Vystavene_FA:'1CB5ALMIwfkn-Ra3ofhSur004_qELuVfb',Vypisy:'1Fa3Q3nveiwBNuqNrk9Z36-ivgs7XW4H6'},\n  '2026-09': {Doklady:'1ENIbEKDU5-MB1OQdwahVxaX3QsmbOJ9P',Stripe:'1FnnoyRvHUZvIqt_6ubrqlKc7IizwIzoJ',Vystavene_FA:'1smwM_plG5R_TDKamgLXJ7FEgOVmk7v8F',Vypisy:'1GRCKWFpVLhlS9wNPQTBnInj9ilvRq1yM'},\n  '2026-10': {Doklady:'1-S5LCmm-gbY8HSP_LF2Ewk7OprS31ztM',Stripe:'1ddVXlQws6c_LJdk5adR_q_mDQCJgvgvd',Vystavene_FA:'10fglKBDhYYgcrI6IvXs4-yMcWlx93tLl',Vypisy:'1ei0M6b48vdRyYtWybhd4OVRlpGXjMcaU'},\n};\nconst allowedDestinations = new Set(['Doklady','Stripe','Vypisy','Vystavene_FA']);\nconst clean = v => typeof v === 'string' ? v.trim() : '';\nconst num = v => typeof v === 'number' && Number.isFinite(v) ? v : null;\nconst date = v => { const s=clean(v); if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return ''; const d=new Date(s+'T00:00:00Z'); return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===s?s:''; };\nconst safe = v => clean(v).replace(/[\\/:*?\"<>|]/g,'-').replace(/[\\r\\n]/g,' ').slice(0,100);\nconst out=[];\nfor(const [index,item] of $input.all().entries()){\n  const j=item.json||{}, meta=j.meta||{};\n  let text=j.output_text||j.choices?.[0]?.message?.content||'';\n  if(!text&&Array.isArray(j.output)) text=j.output.flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text||'').join('');\n  if(!text&&Array.isArray(j.content)) text=j.content.filter(x=>x.type==='text').map(x=>x.text||'').join('');\n  let d={}, parseError=false;\n  try { d=JSON.parse(String(text).replace(/^\\s*\\x60{3}(?:json)?/i,'').replace(/\\x60{3}\\s*$/,'').trim()); if(!d||typeof d!=='object'||Array.isArray(d)) throw Error('invalid'); }\n  catch { parseError=true; }\n  const docDate=date(d.docDate), deliveryDate=date(d.deliveryDate), dueDate=date(d.dueDate), periodEndDate=date(d.periodEndDate);\n  const destination=allowedDestinations.has(clean(d.destination))?clean(d.destination):'';\n  const periodDate=(destination==='Stripe'||destination==='Vypisy')?periodEndDate:deliveryDate;\n  const accountingPeriod=periodDate.slice(0,7);\n  const targetFolderId=folderMap[accountingPeriod]?.[destination]||'';\n  const totalAmount=num(d.totalAmount), netAmount=num(d.netAmount), vatAmount=num(d.vatAmount), vatRate=num(d.vatRate);\n  const supplier=clean(d.supplier), currency=/^[A-Z]{3}$/.test(clean(d.currency).toUpperCase())?clean(d.currency).toUpperCase():'';\n  const reportedConfidence=num(d.confidence)===null?0:Math.max(0,Math.min(100,d.confidence));\n  const issues=[];\n  if(parseError) issues.push('Odpoveď AI nie je platný JSON');\n  if(!destination) issues.push('Neurčený cieľ dokumentu');\n  if((destination==='Doklady'||destination==='Vystavene_FA')&&!deliveryDate) issues.push('Chýba dátum dodania/DUZP');\n  if((destination==='Stripe'||destination==='Vypisy')&&!periodEndDate) issues.push('Chýba koniec obdobia reportu');\n  if(!accountingPeriod) issues.push('Neurčené účtovné obdobie');\n  if(accountingPeriod&&!targetFolderId) issues.push('Pre obdobie neexistuje overený cieľový priečinok');\n  if(!supplier&&destination!=='Vypisy') issues.push('Chýba partner');\n  if(totalAmount===null&&destination!=='Vypisy') issues.push('Chýba suma');\n  if(reportedConfidence<80) issues.push('Istota extrakcie je nižšia ako 80 %');\n  if(netAmount!==null&&vatAmount!==null&&totalAmount!==null&&Math.abs(netAmount+vatAmount-totalAmount)>0.02) issues.push('Nesedí základ + DPH = celkom');\n  const routeReady=issues.length===0;\n  const processedAt=new Date().toISOString();\n  const originalFileName=clean(meta.originalFileName||item.binary?.data?.fileName)||'doklad';\n  const ext=originalFileName.match(/\\.([a-zA-Z0-9]{1,8})$/)?.[1]?.toLowerCase()||'pdf';\n  const documentKey=clean(meta.documentKey);\n  const stableId='WOF-'+documentKey.replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,120);\n  const fileName=[periodDate||'bez-datumu',safe(supplier)||destination||'Neznamy',safe(d.invoiceNumber)||'bez-cisla',totalAmount===null?'suma-neznama':totalAmount.toFixed(2),currency||'mena-neznama'].join('_').slice(0,180)+'.'+ext;\n  out.push({json:{\n    id:stableId, documentKey, processedAt, updatedAt:processedAt,\n    source:'gmail', sender:clean(meta.sender), sourceMessageId:clean(meta.sourceMessageId), sourceThreadId:clean(meta.sourceThreadId), attachmentId:clean(meta.attachmentId),\n    docType:clean(d.docType)||'Neurčené', destination, docDate, deliveryDate, dueDate, periodEndDate,\n    accountingPeriod, periodCandidate:accountingPeriod, year:accountingPeriod?Number(accountingPeriod.slice(0,4)):'', monthLabel:accountingPeriod,\n    supplier, ico:clean(d.ico), dic:clean(d.dic), icDph:clean(d.icDph), invoiceNumber:clean(d.invoiceNumber), variableSymbol:clean(d.variableSymbol),\n    netAmount, vatRate, vatAmount, totalAmount, currency, category:clean(d.category), description:clean(d.description),\n    confidence:reportedConfidence, reportedConfidence, parseError, routeReady, targetFolderId,\n    status:'Na kontrolu', reviewReason:issues.join('; '), fileName, originalFileName,\n    runId:String($execution.id), extractionVersion:'sara-v2-direct-google-20261028',\n  },binary:item.binary,pairedItem:{item:index}});\n}\nreturn out;"
+        "jsCode": "const folderMap = {\n  '2026-07': {Doklady:'REPLACE_WITH_2026_07_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_07_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_07_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_07_VYPISY_FOLDER_ID'},\n  '2026-09': {Doklady:'REPLACE_WITH_2026_09_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_09_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_09_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_09_VYPISY_FOLDER_ID'},\n  '2026-10': {Doklady:'REPLACE_WITH_2026_10_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_10_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_10_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_10_VYPISY_FOLDER_ID'},\n};\nconst allowedDestinations = new Set(['Doklady','Stripe','Vypisy','Vystavene_FA']);\nconst clean = v => typeof v === 'string' ? v.trim() : '';\nconst num = v => typeof v === 'number' && Number.isFinite(v) ? v : null;\nconst date = v => { const s=clean(v); if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return ''; const d=new Date(s+'T00:00:00Z'); return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===s?s:''; };\nconst safe = v => clean(v).replace(/[\\/:*?\"<>|]/g,'-').replace(/[\\r\\n]/g,' ').slice(0,100);\nconst out=[];\nfor(const [index,item] of $input.all().entries()){\n  const j=item.json||{}, meta=j.meta||{};\n  let text=j.output_text||j.choices?.[0]?.message?.content||'';\n  if(!text&&Array.isArray(j.output)) text=j.output.flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text||'').join('');\n  if(!text&&Array.isArray(j.content)) text=j.content.filter(x=>x.type==='text').map(x=>x.text||'').join('');\n  let d={}, parseError=false;\n  try { d=JSON.parse(String(text).replace(/^\\s*\\x60{3}(?:json)?/i,'').replace(/\\x60{3}\\s*$/,'').trim()); if(!d||typeof d!=='object'||Array.isArray(d)) throw Error('invalid'); }\n  catch { parseError=true; }\n  const docDate=date(d.docDate), deliveryDate=date(d.deliveryDate), dueDate=date(d.dueDate), periodEndDate=date(d.periodEndDate);\n  const destination=allowedDestinations.has(clean(d.destination))?clean(d.destination):'';\n  const periodDate=(destination==='Stripe'||destination==='Vypisy')?periodEndDate:deliveryDate;\n  const accountingPeriod=periodDate.slice(0,7);\n  const targetFolderId=folderMap[accountingPeriod]?.[destination]||'';\n  const totalAmount=num(d.totalAmount), netAmount=num(d.netAmount), vatAmount=num(d.vatAmount), vatRate=num(d.vatRate);\n  const supplier=clean(d.supplier), currency=/^[A-Z]{3}$/.test(clean(d.currency).toUpperCase())?clean(d.currency).toUpperCase():'';\n  const reportedConfidence=num(d.confidence)===null?0:Math.max(0,Math.min(100,d.confidence));\n  const issues=[];\n  if(parseError) issues.push('Odpoveď AI nie je platný JSON');\n  if(!destination) issues.push('Neurčený cieľ dokumentu');\n  if((destination==='Doklady'||destination==='Vystavene_FA')&&!deliveryDate) issues.push('Chýba dátum dodania/DUZP');\n  if((destination==='Stripe'||destination==='Vypisy')&&!periodEndDate) issues.push('Chýba koniec obdobia reportu');\n  if(!accountingPeriod) issues.push('Neurčené účtovné obdobie');\n  if(accountingPeriod&&!targetFolderId) issues.push('Pre obdobie neexistuje overený cieľový priečinok');\n  if(!supplier&&destination!=='Vypisy') issues.push('Chýba partner');\n  if(totalAmount===null&&destination!=='Vypisy') issues.push('Chýba suma');\n  if(reportedConfidence<80) issues.push('Istota extrakcie je nižšia ako 80 %');\n  if(netAmount!==null&&vatAmount!==null&&totalAmount!==null&&Math.abs(netAmount+vatAmount-totalAmount)>0.02) issues.push('Nesedí základ + DPH = celkom');\n  const routeReady=issues.length===0;\n  const processedAt=new Date().toISOString();\n  const originalFileName=clean(meta.originalFileName||item.binary?.data?.fileName)||'doklad';\n  const ext=originalFileName.match(/\\.([a-zA-Z0-9]{1,8})$/)?.[1]?.toLowerCase()||'pdf';\n  const documentKey=clean(meta.documentKey);\n  const stableId='WOF-'+documentKey.replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,120);\n  const fileName=[periodDate||'bez-datumu',safe(supplier)||destination||'Neznamy',safe(d.invoiceNumber)||'bez-cisla',totalAmount===null?'suma-neznama':totalAmount.toFixed(2),currency||'mena-neznama'].join('_').slice(0,180)+'.'+ext;\n  out.push({json:{\n    id:stableId, documentKey, processedAt, updatedAt:processedAt,\n    source:'gmail', sender:clean(meta.sender), sourceMessageId:clean(meta.sourceMessageId), sourceThreadId:clean(meta.sourceThreadId), attachmentId:clean(meta.attachmentId),\n    docType:clean(d.docType)||'Neurčené', destination, docDate, deliveryDate, dueDate, periodEndDate,\n    accountingPeriod, periodCandidate:accountingPeriod, year:accountingPeriod?Number(accountingPeriod.slice(0,4)):'', monthLabel:accountingPeriod,\n    supplier, ico:clean(d.ico), dic:clean(d.dic), icDph:clean(d.icDph), invoiceNumber:clean(d.invoiceNumber), variableSymbol:clean(d.variableSymbol),\n    netAmount, vatRate, vatAmount, totalAmount, currency, category:clean(d.category), description:clean(d.description),\n    confidence:reportedConfidence, reportedConfidence, parseError, routeReady, targetFolderId,\n    status:'Na kontrolu', reviewReason:issues.join('; '), fileName, originalFileName,\n    runId:String($execution.id), extractionVersion:'sara-v2-direct-google-20261028',\n  },binary:item.binary,pairedItem:{item:index}});\n}\nreturn out;"
       },
       "name": "Validuj a zaraď podľa dodania",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
+        2640,
         0
       ],
       "disabled": false,
-      "id": "66a7a39e-6f56-4945-b2b0-1c6414d5b4a6"
+      "id": "e2e15883-dbdb-425d-8c28-2054910abf83"
     },
     {
       "parameters": {
@@ -171,11 +250,11 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1920,
+        2880,
         0
       ],
       "disabled": false,
-      "id": "1dc976c4-cc94-459e-9306-a8fea682ff0d"
+      "id": "98b83371-ce1e-45ec-9bb3-700d9b524796"
     },
     {
       "parameters": {
@@ -196,18 +275,18 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        2160,
+        3120,
         -120
       ],
       "disabled": false,
-      "id": "5d32bfb2-ecf9-40e2-9a2d-172aed5292a4"
+      "id": "7d989bbc-448c-4d3c-bb71-28c465b7a53b"
     },
     {
       "parameters": {
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "1KOEhMOA6IgjS71w6DC5YCPzMNdWj4lX6Kkbor22cxm8",
+          "value": "REPLACE_WITH_WOF_FINANCE_SHEET_ID",
           "mode": "id"
         },
         "sheetName": {
@@ -616,18 +695,18 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        2400,
+        3360,
         -120
       ],
       "disabled": false,
-      "id": "e0666504-584d-455d-8476-dab86aec5f80"
+      "id": "31d329a6-b148-457a-adbe-e61f4e3b77c9"
     },
     {
       "parameters": {
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "1KOEhMOA6IgjS71w6DC5YCPzMNdWj4lX6Kkbor22cxm8",
+          "value": "REPLACE_WITH_WOF_FINANCE_SHEET_ID",
           "mode": "id"
         },
         "sheetName": {
@@ -1036,11 +1115,11 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        2160,
+        3120,
         160
       ],
       "disabled": false,
-      "id": "8531c59e-4270-40be-85cd-c337d3fc02e0"
+      "id": "c17fa469-870b-401c-9f9a-78498671316f"
     }
   ],
   "connections": {
@@ -1081,11 +1160,61 @@
       "main": [
         [
           {
-            "node": "Priprav extrakciu dokladu v2",
+            "node": "Načítaj existujúce Doklad ID",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spoj register a prílohu",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Načítaj existujúce Doklad ID": {
+      "main": [
+        [
+          {
+            "node": "Spoj register a prílohu",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Spoj register a prílohu": {
+      "main": [
+        [
+          {
+            "node": "Skontroluj trvalú deduplikáciu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skontroluj trvalú deduplikáciu": {
+      "main": [
+        [
+          {
+            "node": "Doklad ešte nie je v registri?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doklad ešte nie je v registri?": {
+      "main": [
+        [
+          {
+            "node": "Priprav extrakciu dokladu v2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Priprav extrakciu dokladu v2": {

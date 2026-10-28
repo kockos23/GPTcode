@@ -8,7 +8,7 @@
 
 ## Verziovaný export
 
-`workflows/sara-v2-direct-google.pilot.json` je sanitizovaný export bez credential ID. Live workflow v n8n má credentials pripojené; po importe exportu do inej inštancie treba ručne vybrať:
+`workflows/sara-v2-direct-google.pilot.json` je sanitizovaný export bez credential ID a bez konkrétnych Google resource ID. Live workflow v n8n má credentials a reálne ID pripojené; po importe exportu do inej inštancie treba nahradiť pomenované `REPLACE_WITH_...` hodnoty a ručne vybrať:
 
 - Gmail OAuth: `SARA Gmail — wof.alliance.sk@gmail.com`
 - Google Drive OAuth: `Google Drive account`
@@ -45,6 +45,8 @@ Dočasný fixture workflow bol po jedinom úspešnom behu deaktivovaný a odstr�
 Testovacia správa z 28. 10. 2026 obsahovala dve podporované prílohy. Gmail download, deduplikácia a OpenAI volanie prebehli. Obe prílohy skončili bezpečne v review registri a do Drive sa nič neuložilo: prvá AI odpoveď nedodržala enum cieľa a druhá minula pôvodný tokenový limit.
 
 Následná oprava používa strict JSON Schema, presný enum destinácie, `confidence` ako integer 0–100, nízky reasoning budget a `max_output_tokens: 4096`. Syntetická faktúra potom v live n8n správne vrátila `Doklady`, dátum vystavenia `2026-10-02`, dátum dodania `2026-09-30` a confidence `90`. Opätovné spracovanie reálnych príloh vyžaduje explicitný súhlas na ich ďalšie odoslanie do OpenAI.
+
+Pred OpenAI volaním teraz workflow načíta stĺpec `Doklad ID` z registra a porovná stabilný ID Gmail prílohy. Interný read-only test potvrdil obe vetvy: už zapísaný pilotný doklad sa zastavil ako `existing`, syntetický neexistujúci ID pokračoval ako `new`. Táto kontrola dopĺňa stavový Remove Duplicates node a zostáva účinná aj po reštarte alebo importe workflowu.
 
 ## Lokálny policy test
 

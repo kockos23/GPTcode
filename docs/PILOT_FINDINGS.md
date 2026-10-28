@@ -10,6 +10,7 @@
 - Gmail label `WOF_FINANCE_INTAKE` bol vytvorený v SARA Gmail účte cez natívny OAuth bez zmeny správ.
 - Kontrolovaný Gmail pilot načítal jednu správu s dvoma prílohami; obe bezpečne zapísal do review a nevykonal Drive upload.
 - AI požiadavka bola následne sprísnená na strict JSON Schema, integer confidence 0–100, low reasoning a vyšší output limit. Syntetický live test opravy prešiel.
+- Pred OpenAI bola doplnená trvalá Sheets deduplikácia podľa `Doklad ID`; read-only live test rozlíšil existujúci a nový dokument.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
