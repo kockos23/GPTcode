@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { summaryNumber } from "../../convex/bankStatements"
+import { parseStatement, summaryNumber } from "../../convex/bankStatements"
 
 describe("bank statement summary parsing", () => {
   it("parses a space-separated thousands amount", () => {
@@ -12,6 +12,48 @@ describe("bank statement summary parsing", () => {
 
   it("keeps negative balances", () => {
     expect(summaryNumber(["Začiatočný stav účtu: -250,10 EUR"], "Začiatočný stav účtu")).toBe(-250.1)
+  })
+})
+
+describe("bank statement CSV", () => {
+  const header = [
+    "ID operácie", "Dátum zaúčtovania", "Suma", "Mena", "Protiúčet", "Názov protiúčtu",
+    "Názov banky protiúčtu", "Banka", "Konštantný symbol", "Variabilný symbol",
+    "Špecifický symbol", "Poznámka", "Správa pre prijímateľa", "Typ transakcie",
+    "Pole 14", "Pole 15", "Pole 16", "BIC", "ID pokynu",
+  ].join(";")
+
+  const csv = [
+    "Výpis č. 10/2026 z účtu 1234567890/1100",
+    "Obdobie: 01.10.2026 - 31.10.2026",
+    "Začiatočný stav účtu: 1 000,00 EUR",
+    "Konečný stav účtu: 850,00 EUR",
+    "Suma príjmov: 50,00 EUR",
+    "Suma výdavkov: 200,00 EUR",
+    header,
+    ["op-1", "05.10.2026", "200,00", "EUR", "SK001", "Dodávateľ", "", "Banka", "", "26231243", "", "Faktúra", "Úhrada", "Výdaj", "", "", "", "TATRSKBX", "instr-1"].join(";"),
+    ["op-2", "10.10.2026", "50,00", "EUR", "SK002", "Klient", "", "Banka", "", "", "", "Platba", "Príjem", "Príjem", "", "", "", "TATRSKBX", "instr-2"].join(";"),
+  ].join("\n")
+
+  it("parses period, masked account, balances and signed transactions", () => {
+    const parsed = parseStatement(csv)
+    expect(parsed.periodStart).toBe("2026-10-01")
+    expect(parsed.periodEnd).toBe("2026-10-31")
+    expect(parsed.accountNumberMasked).toBe("•••• 1100")
+    expect(parsed.openingBalance).toBe(1000)
+    expect(parsed.closingBalance).toBe(850)
+    expect(parsed.transactions.map(row => row.amount)).toEqual([-200, 50])
+    expect(parsed.transactions[0].variableSymbol).toBe("26231243")
+  })
+
+  it("rejects a statement without an explicit period", () => {
+    expect(() => parseStatement(csv.replace("Obdobie: 01.10.2026 - 31.10.2026", "Obdobie neuvedené")))
+      .toThrow("Výpis nemá rozpoznateľnú hlavičku alebo obdobie.")
+  })
+
+  it("rejects mixed transaction currencies", () => {
+    expect(() => parseStatement(csv.replace("50,00;EUR;SK002", "50,00;USD;SK002")))
+      .toThrow("Mena transakcií sa nezhoduje s menou účtu.")
   })
 })
 

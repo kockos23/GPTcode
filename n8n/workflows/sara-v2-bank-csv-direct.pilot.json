@@ -1,0 +1,181 @@
+{
+  "name": "SARA v2 — Bank CSV Direct Import",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7,17 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Bank CSV — twice daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "('REPLACE_WITH_2026_01_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_02_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_03_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_04_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_05_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_06_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_07_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_08_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_09_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_10_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_11_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_12_VYPISY_FOLDER_ID' in parents) and trashed = false and name contains '.csv'",
+        "filter": {},
+        "options": {
+          "fields": [
+            "*"
+          ]
+        }
+      },
+      "name": "Drive — list monthly CSV statements",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter(item=>String(item.json.name||'').toLowerCase().endsWith('.csv')).map((item,index)=>({json:{sourceFileId:String(item.json.id||''),sourceFileName:String(item.json.name||''),sourceFileUrl:String(item.json.webViewLink||('https://drive.google.com/file/d/'+item.json.id+'/view')),modifiedTime:String(item.json.modifiedTime||'')},pairedItem:{item:index}}));"
+      },
+      "name": "CSV — prepare Drive metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.sourceFileId }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "name": "Drive — download CSV statement",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[];for(const [index,item] of $input.all().entries()){const buf=await this.helpers.getBinaryDataBuffer(index,'data');if(buf.length>10*1024*1024)throw new Error('CSV výpis presahuje 10 MB');const text=buf.toString('utf8').replace(/^\\uFEFF/,'');out.push({json:{sourceFileId:String(item.json.sourceFileId||item.json.id||''),sourceFileName:String(item.json.sourceFileName||item.binary?.data?.fileName||''),sourceFileUrl:String(item.json.sourceFileUrl||''),csvText:text},pairedItem:{item:index}})}return out;"
+      },
+      "name": "CSV — prepare Convex payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/bank-statements' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Convex — import bank statement",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1200,
+        0
+      ],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Bank CSV — twice daily": {
+      "main": [
+        [
+          {
+            "node": "Drive — list monthly CSV statements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive — list monthly CSV statements": {
+      "main": [
+        [
+          {
+            "node": "CSV — prepare Drive metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CSV — prepare Drive metadata": {
+      "main": [
+        [
+          {
+            "node": "Drive — download CSV statement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive — download CSV statement": {
+      "main": [
+        [
+          {
+            "node": "CSV — prepare Convex payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CSV — prepare Convex payload": {
+      "main": [
+        [
+          {
+            "node": "Convex — import bank statement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

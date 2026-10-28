@@ -155,7 +155,7 @@ type ParsedStatement = {
   expenseTotal: number
   transactions: ParsedTransaction[]
 }
-function parseStatement(text: string): ParsedStatement {
+export function parseStatement(text: string): ParsedStatement {
   const source = text.replace(/^\uFEFF/, "").replace(/\r/g, "")
   const lines = source.split("\n")
   const metadataLines = lines.map(line => csvRow(line)[0]?.trim() ?? line.trim())

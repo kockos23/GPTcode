@@ -7,6 +7,11 @@ const workflow = JSON.parse(
 )
 const nodes = new Map(workflow.nodes.map((node) => [node.name, node]))
 const serialized = JSON.stringify(workflow)
+const bankCsvWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/sara-v2-bank-csv-direct.pilot.json', import.meta.url), 'utf8'),
+)
+const bankCsvNodes = new Map(bankCsvWorkflow.nodes.map((node) => [node.name, node]))
+const bankCsvSerialized = JSON.stringify(bankCsvWorkflow)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -107,6 +112,18 @@ test('persistent register dedupe runs before OpenAI extraction', () => {
   assert.equal(
     workflow.connections['Doklad ešte nie je v registri?'].main[0][0].node,
     'Priprav extrakciu dokladu v2',
+  )
+})
+
+test('bank CSV export is direct, sanitized and inert before Convex cutover', () => {
+  assert.equal(bankCsvWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.equal(/composio|openai/i.test(bankCsvSerialized), false)
+  assert.equal(/1[A-Za-z0-9_-]{20,}/.test(bankCsvSerialized), false)
+  assert.equal((bankCsvSerialized.match(/REPLACE_WITH_2026_\d{2}_VYPISY_FOLDER_ID/g) ?? []).length, 12)
+  assert.equal(bankCsvNodes.get('Convex — import bank statement')?.disabled, true)
+  assert.equal(
+    bankCsvNodes.get('Bank CSV — twice daily')?.parameters.rule.interval[0].expression,
+    '30 7,17 * * *',
   )
 })
 
