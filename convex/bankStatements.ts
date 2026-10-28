@@ -113,6 +113,20 @@ function decimal(value: string): number {
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : 0
 }
+
+// Slovak bank exports use "platba" for both directions ("prijatá platba",
+// "prichádzajúca platba", "odchádzajúca platba", "platba kartou"). Incoming
+// labels have to win, otherwise a received payment is stored as an expense
+// and can be confirmed against a supplier invoice.
+const INCOMING_TRANSACTION = /(?<!ne)(?:príjem|prijem|vratka|prichádz|prichadz|prijatá|prijata)/
+
+export function signedTransactionAmount(rawAmount: number, transactionType: string): number {
+  const normalizedType = transactionType.toLocaleLowerCase("sk")
+  if (normalizedType.startsWith("poplat")) return -Math.abs(rawAmount)
+  if (INCOMING_TRANSACTION.test(normalizedType)) return Math.abs(rawAmount)
+  if (/výdaj|vydaj|odchádz|odchaz|platba/.test(normalizedType)) return -Math.abs(rawAmount)
+  return rawAmount
+}
 function isoDate(value: string): string {
   const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
   return match ? match[3] + "-" + match[2] + "-" + match[1] : ""
@@ -155,7 +169,7 @@ type ParsedStatement = {
   expenseTotal: number
   transactions: ParsedTransaction[]
 }
-function parseStatement(text: string): ParsedStatement {
+export function parseStatement(text: string): ParsedStatement {
   const source = text.replace(/^\uFEFF/, "").replace(/\r/g, "")
   const lines = source.split("\n")
   const metadataLines = lines.map(line => csvRow(line)[0]?.trim() ?? line.trim())
@@ -173,10 +187,7 @@ function parseStatement(text: string): ParsedStatement {
     const row = csvRow(line)
     if (row.length < 19 || !row[0].trim()) continue
     const type = row[13].trim()
-    let amount = decimal(row[2])
-    const normalizedType = type.toLocaleLowerCase("sk")
-    if (/výdaj|vydaj|odchádz|odchaz|platba/.test(normalizedType)) amount = -Math.abs(amount)
-    else if (/príjem|prijem|vratka/.test(normalizedType)) amount = Math.abs(amount)
+    const amount = signedTransactionAmount(decimal(row[2]), type)
     transactions.push({
       operationId: row[0].trim(),
       bookedOn: isoDate(row[1].trim()),
