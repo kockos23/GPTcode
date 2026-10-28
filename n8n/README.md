@@ -3,11 +3,12 @@
 ## Aktuálny stav
 
 - Pôvodný workflow `d6twgMlkoiJSa4o0` (`SARA — WOF Finance...`) je deaktivovaný. Sledoval všetky Gmail prílohy a ukladal ich do `00_INBOX`.
-- Nový workflow `ajAP0czttC0c9syg` (`SARA v2 — WOF Finance (DIRECT Google, PILOT)`) je vytvorený, ale zámerne neaktívny do ukončenia pilotu.
+- Workflow `ajAP0czttC0c9syg` (`SARA v2 — WOF Finance (DIRECT Google, PILOT)`) je po úspešnom piloting aktívny.
 - Rutinné operácie používajú natívne n8n credentials pre Gmail, Google Drive a Google Sheets. Workflow nepoužíva Composio.
 - Produkčný Gmail intake je aktívny. Drive intake `JcLXUmhJ0Kevytvi` je aktívny pre nový priečinok `01_NA_SPRACOVANIE` a beží denne o 07:15 a 17:15 Europe/Bratislava.
 - Drive intake úspešný zdrojový súbor presúva do cieľového mesačného priečinka bez vytvorenia druhej kópie. Historický `00_INBOX` ignoruje.
 - Samostatný Telegram intake `9Ynr2a9IaT5m0UJy` je aktívny s credentialom `SARA Telegram Bot`; NORA Telegram Bot sa nepoužíva. Pilotný PDF doklad prešiel celým tokom a live workflow je obmedzený na overený Telegram chat vlastníka.
+- Priamy CSV workflow `Rog0Z5TIQ6qSpzFX` je pripravený pre všetkých 12 mesačných priečinkov `Vypisy`, ale zostáva neaktívny a jeho Convex zápisový krok je vypnutý do nasadenia platnej `CONVEX_SITE_URL` a `N8N_INTEGRATION_SECRET`. Read-only pilot prešiel; v mesačných priečinkoch nebol žiadny CSV súbor.
 
 ## Verziovaný export
 

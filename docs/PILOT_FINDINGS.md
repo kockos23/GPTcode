@@ -18,6 +18,9 @@
 - Dokument bol raz nahraný do Drive, raz zapísaný do registra, Gmail správa dostala label `WOF_FINANCE_INTAKE` a čerstvá kontrola potvrdila `1 existing`, `0 new` bez opakovaného OpenAI volania.
 - Read-only test presného produkčného dotazu `label:WOF_FINANCE_INTAKE has:attachment` našiel presne označenú pilotnú správu.
 - Drive rok `2026` bol doplnený o deväť chýbajúcich mesiacov a 36 kategórií. Nezávislý audit potvrdil 12 mesiacov × presne štyri kategórie; live SARA mapa obsahuje všetkých 48 cieľov.
+- Telegram SARY prešiel end-to-end pilotom s PDF faktúrou, následne bol obmedzený na overený chat vlastníka a odpovede už nepridávajú n8n attribution.
+- Drive intake je aktívny pre `01_NA_SPRACOVANIE` o 07:15 a 17:15; úspešný súbor presúva bez vytvorenia duplicitnej kópie.
+- Priamy CSV bankový workflow má overenú read-only Drive vetvu a zostáva zámerne neaktívny, kým nebude nasadený autentizovaný Convex endpoint a secret.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
@@ -44,4 +47,4 @@ Kontrolovaný Gmail pilot potvrdil všetky technické body aktivačnej brány:
 - bezpečný review tok pri chýbajúcom alebo neistom dátume,
 - nulové použitie Composio.
 
-SARA v2 zostáva neaktívna do overenia reálneho forwardingu z `finance@wofevents.com`.
+SARA v2 je po overení reálneho forwardingu z `finance@wofevents.com` aktívna.
