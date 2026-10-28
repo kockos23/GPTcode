@@ -1,6 +1,6 @@
 import { v } from "convex/values"
 import { api, internal } from "./_generated/api"
-import { action, internalMutation, internalQuery } from "./_generated/server"
+import { action, internalAction, internalMutation, internalQuery } from "./_generated/server"
 import { callMacalyJson } from "./macaly"
 import { findBestPayableMatch } from "./paymentMatching"
 
@@ -355,6 +355,68 @@ export const finishBankStatement = internalMutation({
       transactionCount: args.transactionCount, duplicateCount: args.duplicateCount, status: "NAČÍTANÝ",
     })
     return null
+  },
+})
+
+export const importBankStatementFromN8n = internalAction({
+  args: {
+    sourceFileId: v.string(),
+    sourceFileName: v.string(),
+    sourceFileUrl: v.string(),
+    csvText: v.string(),
+    pdfFileId: v.optional(v.string()),
+    pdfFileName: v.optional(v.string()),
+  },
+  returns: v.object({
+    ok: v.boolean(), code: v.string(), message: v.string(),
+    statementId: v.optional(v.id("bankStatements")), transactionCount: v.number(),
+    duplicateCount: v.number(), currency: v.string(), period: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const existing = await ctx.runQuery(internal.bankStatements.getBankStatementBySource, {
+      sourceFileId: args.sourceFileId,
+    })
+    if (existing) return {
+      ok: true, code: "ALREADY_IMPORTED", message: "Tento CSV výpis už bol importovaný.",
+      statementId: existing.id, transactionCount: existing.transactionCount,
+      duplicateCount: existing.duplicateCount, currency: existing.currency,
+      period: existing.periodStart.slice(0, 7),
+    }
+    const parsed = parseStatement(args.csvText)
+    const accountDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(parsed.accountNumberRaw))
+    const accountKey = parsed.currency + "_" + Array.from(new Uint8Array(accountDigest)).slice(0, 10)
+      .map(byte => byte.toString(16).padStart(2, "0")).join("")
+    const statementResult = await ctx.runMutation(internal.bankStatements.createBankStatement, {
+      sourceFileId: args.sourceFileId, sourceFileName: args.sourceFileName,
+      sourceFileUrl: args.sourceFileUrl, pdfFileId: args.pdfFileId, pdfFileName: args.pdfFileName,
+      accountKey, accountLabel: parsed.currency + " účet · " + parsed.accountNumberMasked,
+      currency: parsed.currency, accountNumberMasked: parsed.accountNumberMasked,
+      statementNumber: parsed.statementNumber, periodStart: parsed.periodStart, periodEnd: parsed.periodEnd,
+      openingBalance: parsed.openingBalance, closingBalance: parsed.closingBalance,
+      incomeTotal: parsed.incomeTotal, expenseTotal: parsed.expenseTotal,
+    })
+    if (statementResult.alreadyImported) return {
+      ok: true, code: "ALREADY_IMPORTED", message: "Tento CSV výpis už bol importovaný.",
+      statementId: statementResult.id, transactionCount: 0, duplicateCount: 0,
+      currency: parsed.currency, period: parsed.periodStart.slice(0, 7),
+    }
+    let inserted = 0
+    let duplicates = 0
+    for (let offset = 0; offset < parsed.transactions.length; offset += 100) {
+      const result = await ctx.runMutation(internal.bankStatements.addBankTransactionBatch, {
+        statementId: statementResult.id, accountKey, rows: parsed.transactions.slice(offset, offset + 100),
+      })
+      inserted += result.inserted
+      duplicates += result.duplicates
+    }
+    await ctx.runMutation(internal.bankStatements.finishBankStatement, {
+      statementId: statementResult.id, transactionCount: inserted, duplicateCount: duplicates,
+    })
+    return {
+      ok: true, code: "IMPORTED", message: "Výpis " + parsed.periodStart.slice(0, 7) + " importovaný.",
+      statementId: statementResult.id, transactionCount: inserted, duplicateCount: duplicates,
+      currency: parsed.currency, period: parsed.periodStart.slice(0, 7),
+    }
   },
 })
 export const listStatementRows = internalQuery({

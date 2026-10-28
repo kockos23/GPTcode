@@ -47,6 +47,8 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 - Trigger: nový CSV/PDF súbor vo vyhradenom priečinku Drive alebo plánované kontrolné vyhľadanie.
 - Stiahne súbor natívnym Drive node, zachová zdrojový súbor a odovzdá normalizované údaje do Convex.
 - Párovanie vytvára iba návrhy. Potvrdenie používateľom je samostatná auditovaná udalosť.
+- Convex obsahuje autentizovaný endpoint `POST /integrations/n8n/bank-statements`, ktorý prijíma CSV iba od n8n cez `N8N_INTEGRATION_SECRET`, používa existujúci parser a zapisuje do existujúcich tabuliek `bankStatements` a `bankTransactions`.
+- Endpoint a n8n CSV workflow sa aktivujú až po nasadení platnej Convex deployment/site URL a rovnakého integračného secretu na oboch stranách; dovtedy zostáva stará Composio cesta vypnutá.
 
 ### Aktívny Drive intake
 
