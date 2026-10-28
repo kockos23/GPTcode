@@ -27,6 +27,17 @@ Credential hodnoty ani API kľúče nesmú byť uložené v Gite.
 - Každý doklad zostáva v stave `Na kontrolu`; automatizácia nepotvrdzuje úhradu.
 - Workflow sa neaktivuje, kým neprejde fixture testom a kontrolovaným Gmail pilotom.
 
+## Overený n8n fixture test
+
+Interný test bez Gmail/Drive/Sheets zápisov prešiel 28. 10. 2026 priamo v n8n runtime:
+
+- faktúra vystavená v októbri s dátumom dodania `2026-09-30` → `09/2026/Doklady`,
+- faktúra bez dátumu dodania → review bez automatického uploadu,
+- bankový výpis s koncom obdobia `2026-10-31` → `10/2026/Vypisy`,
+- Stripe report s koncom obdobia `2026-09-30` → `09/2026/Stripe`.
+
+Dočasný fixture workflow bol po jedinom úspešnom behu deaktivovaný a odstránený. Tento test overuje routing a review vetvu, nie reálny Gmail download, OpenAI extrakciu ani externý zápis.
+
 ## Lokálny policy test
 
 ```bash

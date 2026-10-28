@@ -84,4 +84,6 @@ n8n API na `n8n.viaczakaznikov.sk` je pripojené. Audit potvrdil funkčné natí
 
 Neaktívny pilot `SARA v2 — WOF Finance (DIRECT Google, PILOT)` je vytvorený priamo v n8n a jeho sanitizovaný export je verziovaný v `n8n/workflows/`. Pilot používa existujúce priečinky `07/2026`, `09/2026` a `10/2026`; neznáme obdobie smeruje do review namiesto automatického vytvorenia alebo nesprávneho uloženia. Pred aktiváciou zostáva vykonať kontrolovaný test na označenom Gmail vlákne a následne doplniť bezpečné dynamické provisionovanie budúcich mesiacov.
 
+Routing prešiel interným n8n fixture testom pre septembrovú faktúru doručenú v októbri, chýbajúce DUZP, bankový výpis a Stripe report. Test nevykonal externé zápisy. Pred aktiváciou naďalej zostáva end-to-end pilot s označenou Gmail správou.
+
 Repozitár stále obsahuje prechodné Macaly/Convex volania `composio-execute`. Nie sú cieľovým produkčným riešením a zostávajú vypnuté, kým ich nenahradia autentizované Convex endpointy a n8n synchronizácia.
