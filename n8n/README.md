@@ -27,6 +27,8 @@ Credential hodnoty ani API kľúče nesmú byť uložené v Gite.
 - Každý doklad zostáva v stave `Na kontrolu`; automatizácia nepotvrdzuje úhradu.
 - Workflow sa neaktivuje, kým neprejde fixture testom a kontrolovaným Gmail pilotom.
 
+Label `WOF_FINANCE_INTAKE` bol 28. 10. 2026 vytvorený priamo v pripojenom SARA Gmail účte. Jeho vytvorenie nepoužilo Composio a nezmenilo žiadnu správu.
+
 ## Overený n8n fixture test
 
 Interný test bez Gmail/Drive/Sheets zápisov prešiel 28. 10. 2026 priamo v n8n runtime:

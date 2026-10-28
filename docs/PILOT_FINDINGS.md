@@ -7,6 +7,7 @@
 - Neaktívny pilot SARA v2 `ajAP0czttC0c9syg` bol vytvorený priamo v n8n.
 - Sanitizovaný export bez credential ID je v `n8n/workflows/sara-v2-direct-google.pilot.json`.
 - Fixture test priamo v n8n overil routing podľa dátumu dodania/konca obdobia a review vetvu.
+- Gmail label `WOF_FINANCE_INTAKE` bol vytvorený v SARA Gmail účte cez natívny OAuth bez zmeny správ.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
@@ -18,7 +19,7 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 ## Zostávajúce jednorazové vstupy
 
 1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
-2. Potvrdiť alebo vytvoriť Gmail label `WOF_FINANCE_INTAKE` a označiť ním jednu testovaciu správu. Pilot má použiť kópiu dokladu, nie jediný originál.
+2. Označiť jednu testovaciu správu už vytvoreným Gmail labelom `WOF_FINANCE_INTAKE`. Pilot má použiť kópiu dokladu, nie jediný originál.
 3. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
 4. Rozhodnúť, či dva vyššie uvedené testovacie súbory predstavujú duplikát. Až potom je bezpečné upratať Drive a Sheets.
 
