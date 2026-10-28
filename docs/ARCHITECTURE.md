@@ -61,6 +61,7 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 - Workflow `SARA v2 — WOF Finance Telegram Intake` je pripravený oddelene od NORY.
 - Aktivuje sa až po pripojení samostatného credentialu `SARA Telegram Bot`; credential NORY sa nesmie použiť.
 - Telegram dokumenty používajú rovnakú extrakciu, validáciu, SHA-256 deduplikáciu a register ako Gmail.
+- Live workflow prijíma dokumenty iba z Telegram chatu vlastníka overeného pilotným testom; konkrétne chat ID zostáva iba v n8n a nie je v Gite.
 
 ### `wof-finance-04-sheets-sync`
 
