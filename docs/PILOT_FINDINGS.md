@@ -10,7 +10,9 @@
 - Gmail label `WOF_FINANCE_INTAKE` bol vytvorený v SARA Gmail účte cez natívny OAuth bez zmeny správ.
 - Kontrolovaný Gmail pilot načítal jednu správu s dvoma prílohami; obe bezpečne zapísal do review a nevykonal Drive upload.
 - AI požiadavka bola následne sprísnená na strict JSON Schema, integer confidence 0–100, low reasoning a vyšší output limit. Syntetický live test opravy prešiel.
-- Pred OpenAI bola doplnená trvalá Sheets deduplikácia podľa `Doklad ID`; read-only live test rozlíšil existujúci a nový dokument.
+- Po výslovnom súhlase boli obe reálne prílohy znovu odoslané do OpenAI v izolovanom extraction-only behu. Obe sa spracovali bez parse chyby, ale chýbal im explicitný dátum dodania/DUZP, preto zostali `Na kontrolu` bez Drive uploadu.
+- Pilot odhalil nestabilitu n8n `binary.file.id`. `Doklad ID` teraz používa Gmail message ID a stabilný binárny kľúč prílohy; dva pilotné review riadky boli bezpečne zmigrované a aktualizované.
+- Opakovaný read-only test rovnakého Gmail e-mailu zastavil obe prílohy na trvalej Sheets deduplikácii (`2 existing`, `0 new`) pred OpenAI.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
@@ -22,9 +24,8 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 ## Zostávajúce jednorazové vstupy
 
 1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
-2. Výslovne potvrdiť, či sa dve reálne testovacie prílohy môžu po oprave ešte raz odoslať do OpenAI. Prvý pilot už vytvoril dva review riadky; opakovanie preto bude extraction-only a nevytvorí ďalší Drive/Sheets zápis.
-3. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
-4. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; hash test potvrdil, že ide o rozdielny binárny obsah.
+2. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
+3. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; OpenAI ho nenašiel a hash test potvrdil, že ide o rozdielny binárny obsah.
 
 ## Aktivačná brána
 

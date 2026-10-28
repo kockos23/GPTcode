@@ -22,6 +22,14 @@ test('Gmail intake is restricted and scheduled for 06:15 on workdays', () => {
   assert.equal(trigger.parameters.pollTimes.item[0].cronExpression, '0 15 6 * * 1-5')
 })
 
+test('Gmail document IDs use the stable binary key instead of transient n8n file IDs', () => {
+  const split = nodes.get('Rozdeľ podporované prílohy')
+  assert.ok(split)
+  assert.match(split.parameters.jsCode, /attachmentId = String\(key\)/)
+  assert.doesNotMatch(split.parameters.jsCode, /file\.id|file\.attachmentId/)
+  assert.match(split.parameters.jsCode, /'gmail:' \+ messageId \+ ':' \+ attachmentId/)
+})
+
 test('routing uses delivery or explicit report-period date and never 00_INBOX', () => {
   const parser = nodes.get('Validuj a zaraď podľa dodania')
   assert.ok(parser)
