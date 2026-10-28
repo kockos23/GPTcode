@@ -30,6 +30,16 @@ test('routing uses delivery or explicit report-period date and never 00_INBOX', 
   assert.equal(/00_INBOX/.test(serialized), false)
 })
 
+test('OpenAI extraction is schema constrained and preserves output budget', () => {
+  const prepare = nodes.get('Priprav extrakciu dokladu v2')
+  assert.ok(prepare)
+  assert.match(prepare.parameters.jsCode, /type:'json_schema'/)
+  assert.match(prepare.parameters.jsCode, /strict:true/)
+  assert.match(prepare.parameters.jsCode, /confidence:\{type:'integer',minimum:0,maximum:100\}/)
+  assert.match(prepare.parameters.jsCode, /max_output_tokens:4096/)
+  assert.match(prepare.parameters.jsCode, /reasoning:\{effort:'low'\}/)
+})
+
 test('unsafe documents branch to review while safe documents upload monthly', () => {
   const branch = workflow.connections['Je bezpečné automaticky zaradiť?']?.main
   assert.equal(branch?.[0]?.[0]?.node, 'Nahraj do mesačného priečinka')

@@ -40,6 +40,12 @@ Interný test bez Gmail/Drive/Sheets zápisov prešiel 28. 10. 2026 priamo v n8n
 
 Dočasný fixture workflow bol po jedinom úspešnom behu deaktivovaný a odstránený. Tento test overuje routing a review vetvu, nie reálny Gmail download, OpenAI extrakciu ani externý zápis.
 
+## Kontrolovaný Gmail pilot
+
+Testovacia správa z 28. 10. 2026 obsahovala dve podporované prílohy. Gmail download, deduplikácia a OpenAI volanie prebehli. Obe prílohy skončili bezpečne v review registri a do Drive sa nič neuložilo: prvá AI odpoveď nedodržala enum cieľa a druhá minula pôvodný tokenový limit.
+
+Následná oprava používa strict JSON Schema, presný enum destinácie, `confidence` ako integer 0–100, nízky reasoning budget a `max_output_tokens: 4096`. Syntetická faktúra potom v live n8n správne vrátila `Doklady`, dátum vystavenia `2026-10-02`, dátum dodania `2026-09-30` a confidence `90`. Opätovné spracovanie reálnych príloh vyžaduje explicitný súhlas na ich ďalšie odoslanie do OpenAI.
+
 ## Lokálny policy test
 
 ```bash

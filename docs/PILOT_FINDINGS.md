@@ -8,6 +8,8 @@
 - Sanitizovaný export bez credential ID je v `n8n/workflows/sara-v2-direct-google.pilot.json`.
 - Fixture test priamo v n8n overil routing podľa dátumu dodania/konca obdobia a review vetvu.
 - Gmail label `WOF_FINANCE_INTAKE` bol vytvorený v SARA Gmail účte cez natívny OAuth bez zmeny správ.
+- Kontrolovaný Gmail pilot načítal jednu správu s dvoma prílohami; obe bezpečne zapísal do review a nevykonal Drive upload.
+- AI požiadavka bola následne sprísnená na strict JSON Schema, integer confidence 0–100, low reasoning a vyšší output limit. Syntetický live test opravy prešiel.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
@@ -19,7 +21,7 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 ## Zostávajúce jednorazové vstupy
 
 1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
-2. Označiť jednu testovaciu správu už vytvoreným Gmail labelom `WOF_FINANCE_INTAKE`. Pilot má použiť kópiu dokladu, nie jediný originál.
+2. Výslovne potvrdiť, či sa dve reálne testovacie prílohy môžu po oprave ešte raz odoslať do OpenAI. Prvý pilot už vytvoril dva review riadky; opakovanie preto bude extraction-only a nevytvorí ďalší Drive/Sheets zápis.
 3. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
 4. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; hash test potvrdil, že ide o rozdielny binárny obsah.
 
