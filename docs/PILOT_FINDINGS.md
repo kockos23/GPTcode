@@ -12,7 +12,7 @@
 
 ## Kandidáti na upratanie zo starého manuálneho testu
 
-Starý manuálny test vytvoril v `00_INBOX` dva súbory s rovnakým názvom a v registri `Doklady` dva zodpovedajúce review riadky. Konkrétne Drive a register ID sú zámerne vynechané z Git repozitára a zostávajú iba v internom auditnom výstupe.
+Starý manuálny test vytvoril v `00_INBOX` dva súbory s rovnakým názvom a v registri `Doklady` dva zodpovedajúce review riadky. Priame SHA-256 porovnanie cez natívny Drive a Crypto node potvrdilo, že súbory nie sú bitovo totožné. Nesmú sa preto automaticky zlúčiť ani zmazať ako duplikát. Konkrétne Drive a register ID sú zámerne vynechané z Git repozitára a zostávajú iba v internom auditnom výstupe.
 
 Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez kontroly obsahu sa nesmú automaticky presunúť ani zmazať. Potrebné je určiť dátum dodania z faktúry a overiť, či ide o dve prílohy alebo duplikát.
 
@@ -21,7 +21,7 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
 2. Označiť jednu testovaciu správu už vytvoreným Gmail labelom `WOF_FINANCE_INTAKE`. Pilot má použiť kópiu dokladu, nie jediný originál.
 3. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
-4. Rozhodnúť, či dva vyššie uvedené testovacie súbory predstavujú duplikát. Až potom je bezpečné upratať Drive a Sheets.
+4. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; hash test potvrdil, že ide o rozdielny binárny obsah.
 
 ## Aktivačná brána
 
