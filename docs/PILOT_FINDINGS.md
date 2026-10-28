@@ -11,8 +11,8 @@
 - Kontrolovaný Gmail pilot načítal jednu správu s dvoma prílohami; obe bezpečne zapísal do review a nevykonal Drive upload.
 - AI požiadavka bola následne sprísnená na strict JSON Schema, integer confidence 0–100, low reasoning a vyšší output limit. Syntetický live test opravy prešiel.
 - Po výslovnom súhlase boli obe reálne prílohy znovu odoslané do OpenAI v izolovanom extraction-only behu. Obe sa spracovali bez parse chyby, ale chýbal im explicitný dátum dodania/DUZP, preto zostali `Na kontrolu` bez Drive uploadu.
-- Pilot odhalil nestabilitu n8n `binary.file.id`. `Doklad ID` teraz používa Gmail message ID a stabilný binárny kľúč prílohy; dva pilotné review riadky boli bezpečne zmigrované a aktualizované.
-- Opakovaný read-only test rovnakého Gmail e-mailu zastavil obe prílohy na trvalej Sheets deduplikácii (`2 existing`, `0 new`) pred OpenAI.
+- Pilot odhalil nestabilitu n8n `binary.file.id`. Finálny `Doklad ID` teraz používa SHA-256 obsahu prílohy; Gmail message ID a stabilný binárny kľúč zostávajú iba zdrojovou identitou. Dva pilotné review riadky boli bezpečne zmigrované, doplnené o SHA-256 a aktualizované.
+- Čerstvý read-only workflow s prázdnym stavom zastavil obe prílohy na trvalej Sheets deduplikácii (`2 existing`, `0 new`) pred OpenAI. Rovnaký súbor sa zachytí aj po preposlaní v inom e-maile.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu

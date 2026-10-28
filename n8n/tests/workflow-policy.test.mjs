@@ -22,12 +22,30 @@ test('Gmail intake is restricted and scheduled for 06:15 on workdays', () => {
   assert.equal(trigger.parameters.pollTimes.item[0].cronExpression, '0 15 6 * * 1-5')
 })
 
-test('Gmail document IDs use the stable binary key instead of transient n8n file IDs', () => {
+test('Gmail source attachment identity avoids transient n8n file IDs', () => {
   const split = nodes.get('Rozdeľ podporované prílohy')
   assert.ok(split)
   assert.match(split.parameters.jsCode, /attachmentId = String\(key\)/)
   assert.doesNotMatch(split.parameters.jsCode, /file\.id|file\.attachmentId/)
   assert.match(split.parameters.jsCode, /'gmail:' \+ messageId \+ ':' \+ attachmentId/)
+})
+
+test('content SHA-256 becomes the persistent document identity before dedupe', () => {
+  const hash = nodes.get('SHA-256 obsahu prílohy')
+  const identity = nodes.get('Nastav identitu podľa SHA-256')
+  const validate = nodes.get('Validuj a zaraď podľa dodania')
+  assert.ok(hash)
+  assert.ok(identity)
+  assert.ok(validate)
+  assert.equal(hash.type, 'n8n-nodes-base.crypto')
+  assert.equal(hash.parameters.type, 'SHA256')
+  assert.equal(hash.parameters.binaryData, true)
+  assert.match(identity.parameters.jsCode, /documentKey = 'sha256:' \+ sha256/)
+  assert.match(identity.parameters.jsCode, /documentId = 'WOF-' \+ documentKey/)
+  assert.match(validate.parameters.jsCode, /sha256:clean\(meta\.sha256\)/)
+  assert.equal(workflow.connections['Rozdeľ podporované prílohy'].main[0][0].node, hash.name)
+  assert.equal(workflow.connections[hash.name].main[0][0].node, identity.name)
+  assert.equal(workflow.connections[identity.name].main[0][0].node, 'Deduplikácia Gmail prílohy')
 })
 
 test('routing uses delivery or explicit report-period date and never 00_INBOX', () => {
