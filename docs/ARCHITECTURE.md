@@ -48,6 +48,20 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 - Stiahne súbor natívnym Drive node, zachová zdrojový súbor a odovzdá normalizované údaje do Convex.
 - Párovanie vytvára iba návrhy. Potvrdenie používateľom je samostatná auditovaná udalosť.
 
+### Aktívny Drive intake
+
+- n8n workflow `SARA v2 — WOF Finance Drive Intake` sleduje výhradne `01_NA_SPRACOVANIE` o 07:15 a 17:15 Europe/Bratislava.
+- Úspešne overený dokument sa presunie a premenuje priamo v cieľovom mesačnom priečinku; nevytvára sa archívna kópia.
+- Nejednoznačný dokument zostane vo vstupnom priečinku a zapíše sa do review registra.
+- Gmail a Drive používajú rovnaký obsahový SHA-256 identifikátor, takže rovnaký súbor z dvoch kanálov sa nespracuje dvakrát.
+- Historický `00_INBOX` nie je zdrojom tohto workflowu.
+
+### Telegram intake
+
+- Workflow `SARA v2 — WOF Finance Telegram Intake` je pripravený oddelene od NORY.
+- Aktivuje sa až po pripojení samostatného credentialu `SARA Telegram Bot`; credential NORY sa nesmie použiť.
+- Telegram dokumenty používajú rovnakú extrakciu, validáciu, SHA-256 deduplikáciu a register ako Gmail.
+
 ### `wof-finance-04-sheets-sync`
 
 - Trigger: Convex outbox + pravidelná reconciliation kontrola.
