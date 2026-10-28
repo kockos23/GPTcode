@@ -7,6 +7,7 @@
 3. If a different Gmail search is required, set `WOF_FINANCE_GMAIL_QUERY` explicitly. Keep spam and trash excluded.
 4. Back up the `Doklady` sheet before the first live payment confirmation.
 5. Deploy the Convex schema and functions from Macaly before testing the updated dashboard.
+6. Keep both n8n SARA workflows inactive until the controlled pilot. The legacy workflow must remain inactive permanently; activate only SARA v2 after the pilot gates pass.
 
 ## Document intake pilot
 
@@ -34,6 +35,8 @@ Use test copies, not the only copy of an accounting document.
 ## Production cutover
 
 Do not enable the current Convex/Composio email cron. Keep `WOF_FINANCE_EMAIL_CRON_ENABLED=false`. Scheduled intake moves to the direct-Google n8n workflows defined in `docs/ARCHITECTURE.md`; activate them only after their cutover gates and pilot pass. Keep the review queue monitored: a non-empty queue is expected for scans or unfamiliar invoice layouts and is safer than filing documents into the wrong month.
+
+The n8n pilot workflow ID is `ajAP0czttC0c9syg`. Its legacy predecessor `d6twgMlkoiJSa4o0` must remain inactive because it scans all Gmail attachments and targets `00_INBOX`.
 
 ## Current deliberate limitations
 

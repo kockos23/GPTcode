@@ -78,6 +78,10 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 5. Pilot potvrdí správny mesiac podľa dátumu dodania, idempotenciu, review tok a bezpečný retry.
 6. Až potom sa aktivujú n8n workflowy. Pôvodný Composio cron sa neaktivuje.
 
-## Aktuálny stav a blokátor
+## Aktuálny stav
 
-Repozitár zatiaľ obsahuje prechodné volania `composio-execute`; nie sú cieľovým produkčným riešením. V tomto cloudovom prostredí nie je dostupná n8n URL ani API credential a export Macaly neobsahuje n8n workflowy. Reálne vytvorenie, import, konfigurácia a test workflowov preto začne po jednorazovom pripojení n8n API; generické workflow JSON bez znalosti verzie a existujúcich credentials sa nepovažuje za hotové riešenie.
+n8n API na `n8n.viaczakaznikov.sk` je pripojené. Audit potvrdil funkčné natívne Gmail, Google Drive, Google Sheets a OpenAI credentials. Pôvodný aktívny workflow bol deaktivovaný, pretože používal široký Gmail filter a pevný `00_INBOX` cieľ.
+
+Neaktívny pilot `SARA v2 — WOF Finance (DIRECT Google, PILOT)` je vytvorený priamo v n8n a jeho sanitizovaný export je verziovaný v `n8n/workflows/`. Pilot používa existujúce priečinky `07/2026`, `09/2026` a `10/2026`; neznáme obdobie smeruje do review namiesto automatického vytvorenia alebo nesprávneho uloženia. Pred aktiváciou zostáva vykonať kontrolovaný test na označenom Gmail vlákne a následne doplniť bezpečné dynamické provisionovanie budúcich mesiacov.
+
+Repozitár stále obsahuje prechodné Macaly/Convex volania `composio-execute`. Nie sú cieľovým produkčným riešením a zostávajú vypnuté, kým ich nenahradia autentizované Convex endpointy a n8n synchronizácia.
