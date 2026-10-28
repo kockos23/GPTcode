@@ -17,6 +17,7 @@
 - Pilot odhalil, že n8n Crypto node po SHA-256 odstráni binary payload. Tok preto hash a pôvodnú prílohu znovu spája Merge uzlom pred deduplikáciou; opravený extraction beh prešiel.
 - Dokument bol raz nahraný do Drive, raz zapísaný do registra, Gmail správa dostala label `WOF_FINANCE_INTAKE` a čerstvá kontrola potvrdila `1 existing`, `0 new` bez opakovaného OpenAI volania.
 - Read-only test presného produkčného dotazu `label:WOF_FINANCE_INTAKE has:attachment` našiel presne označenú pilotnú správu.
+- Drive rok `2026` bol doplnený o deväť chýbajúcich mesiacov a 36 kategórií. Nezávislý audit potvrdil 12 mesiacov × presne štyri kategórie; live SARA mapa obsahuje všetkých 48 cieľov.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
@@ -30,8 +31,7 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
 2. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
 3. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; OpenAI ho nenašiel a hash test potvrdil, že ide o rozdielny binárny obsah.
-4. Určiť pravidlo automatického označovania finančných e-mailov labelom `WOF_FINANCE_INTAKE` (dedikovaný príjemca/alias alebo schválený zoznam odosielateľov). Bez pravidla je spracovanie bezpečné, ale vyžaduje ručné označenie.
-5. Doplniť overené Drive mapovanie pre chýbajúce mesiace; workflow pri neznámom mesiaci bezpečne pošle doklad do review namiesto nesprávneho priečinka.
+4. Na hostingu nastaviť forwarding `finance@wofevents.com` do pripojeného Gmailu a jedným testom potvrdiť, že sa zachová pôvodný príjemca. Live trigger už prijíma `to:finance@wofevents.com`; label `WOF_FINANCE_INTAKE` ostáva ako záloha.
 
 ## Aktivačná brána
 
@@ -44,4 +44,4 @@ Kontrolovaný Gmail pilot potvrdil všetky technické body aktivačnej brány:
 - bezpečný review tok pri chýbajúcom alebo neistom dátume,
 - nulové použitie Composio.
 
-SARA v2 zostáva neaktívna do rozhodnutia o automatickom Gmail labelovaní a doplnenia mesačných Drive cieľov.
+SARA v2 zostáva neaktívna do overenia reálneho forwardingu z `finance@wofevents.com`.

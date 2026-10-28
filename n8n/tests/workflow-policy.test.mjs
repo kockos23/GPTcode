@@ -18,6 +18,7 @@ test('Gmail intake is restricted and scheduled for 06:15 on workdays', () => {
   const trigger = nodes.get('Gmail — WOF finance intake')
   assert.ok(trigger)
   assert.match(trigger.parameters.filters.q, /label:WOF_FINANCE_INTAKE/)
+  assert.match(trigger.parameters.filters.q, /to:finance@wofevents\.com/)
   assert.match(trigger.parameters.filters.q, /has:attachment/)
   assert.equal(trigger.parameters.pollTimes.item[0].cronExpression, '0 15 6 * * 1-5')
 })
@@ -62,6 +63,18 @@ test('routing uses delivery or explicit report-period date and never 00_INBOX', 
   assert.match(parser.parameters.jsCode, /targetFolderId/)
   assert.equal(/:'1[A-Za-z0-9_-]{20,}'/.test(parser.parameters.jsCode), false)
   assert.equal(/00_INBOX/.test(serialized), false)
+})
+
+test('all twelve 2026 months have four sanitized Drive destinations', () => {
+  const parser = nodes.get('Validuj a zaraď podľa dodania')
+  const entries = [...parser.parameters.jsCode.matchAll(
+    /'(2026-\d{2})': \{Doklady:'(REPLACE_[^']+)',Stripe:'(REPLACE_[^']+)',Vystavene_FA:'(REPLACE_[^']+)',Vypisy:'(REPLACE_[^']+)'\}/g,
+  )]
+  assert.deepEqual(
+    entries.map((entry) => entry[1]),
+    Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`),
+  )
+  assert.equal(entries.flatMap((entry) => entry.slice(2)).length, 48)
 })
 
 test('OpenAI extraction is schema constrained and preserves output budget', () => {

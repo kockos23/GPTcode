@@ -19,7 +19,7 @@ Credential hodnoty ani API kľúče nesmú byť uložené v Gite.
 
 ## Bezpečnostné pravidlá pilotu
 
-- Gmail trigger používa výhradne label `WOF_FINANCE_INTAKE`.
+- Gmail trigger prijíma iba správy s prílohou, ktoré sú adresované na `finance@wofevents.com` alebo majú záložný label `WOF_FINANCE_INTAKE`.
 - Doklady sa smerujú podľa dátumu dodania/DUZP; Stripe a bankové výpisy podľa konca explicitného obdobia.
 - Dátum emailu, predmet a názov súboru neurčujú účtovný mesiac.
 - Automatické uloženie vyžaduje kompletné údaje, confidence aspoň 80 a existujúci overený cieľový priečinok.
@@ -28,6 +28,8 @@ Credential hodnoty ani API kľúče nesmú byť uložené v Gite.
 - Workflow sa neaktivuje, kým neprejde fixture testom a kontrolovaným Gmail pilotom.
 
 Label `WOF_FINANCE_INTAKE` bol 28. 10. 2026 vytvorený priamo v pripojenom SARA Gmail účte. Jeho vytvorenie nepoužilo Composio a nezmenilo žiadnu správu.
+
+Adresa `finance@wofevents.com` môže zostať na klasickom hostingu a preposielať poštu do pripojeného Gmailu. SARA trigger filtruje priamo podľa pôvodného príjemcu; label ostáva ako manuálna záložná cesta. Gmail OAuth nemá scope na správu filtrov, preto nie je potrebný Gmail filter ani rozšírenie OAuth. Po nastavení forwardingu treba jediným testom potvrdiť, že hosting zachová `To` alebo ekvivalentnú hlavičku príjemcu.
 
 ## Overený n8n fixture test
 
@@ -49,6 +51,8 @@ Následná oprava používa strict JSON Schema, presný enum destinácie, `confi
 Pred OpenAI volaním workflow vypočíta SHA-256 obsahu každej prílohy, použije ho ako `Doklad ID` a porovná ho so stĺpcom registra. Pilot odhalil, že n8n `binary.file.id` sa medzi načítaniami mení; stabilný binárny kľúč `attachment_0`, `attachment_1`, … sa preto používa iba ako zdrojová identita v rámci Gmail správy, nie ako finálna identita dokladu. Dva existujúce review riadky boli migrované na obsahové SHA-256 ID, doplnené o hash a aktualizované opravenou extrakciou. Čerstvý read-only workflow s prázdnym stavom zastavil obe prílohy podľa Sheets registra ako `existing` (`2 existing`, `0 new`) ešte pred OpenAI. Rovnaký súbor sa tak deduplikuje aj po preposlaní v inom e-maile a kontrola zostáva účinná po reštarte alebo importe workflowu.
 
 Druhý Gmail pilot použil PDF faktúru s explicitným dátumom dodania. OpenAI vrátil dátum vystavenia `2026-10-24`, dátum dodania `2026-10-21`, cieľ `Doklady`, confidence `90` a routeReady bez dôvodu kontroly. Pilot zároveň odhalil, že Crypto node po výpočte hashu neodovzdával binárny súbor ďalej; paralelná vetva a Merge node teraz spoja hash s pôvodnou prílohou pred deduplikáciou. Opravený beh nahral dokument do `2026-10/Doklady`, pridal presne jeden register riadok, označil Gmail správu labelom `WOF_FINANCE_INTAKE` a čerstvá kontrola potvrdila `1 existing`, `0 new` bez ďalšieho OpenAI volania. Samostatný read-only test produkčného Gmail dotazu našiel presne túto jednu označenú správu.
+
+Drive štruktúra pre rok 2026 je kompletná. Audit najprv potvrdil iba existujúce `07/2026`, `09/2026` a `10/2026`; následne bolo vytvorených presne deväť chýbajúcich mesiacov a 36 kategórií. Nezávislá kontrola potvrdila všetkých 12 mesiacov a v každom presne štyri priečinky `Doklady`, `Stripe`, `Vystavene_FA`, `Vypisy`. Live n8n obsahuje 48 reálnych Drive ID, Git export iba 48 placeholderov.
 
 ## Lokálny policy test
 
