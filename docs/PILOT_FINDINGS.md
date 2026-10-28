@@ -13,6 +13,10 @@
 - Po výslovnom súhlase boli obe reálne prílohy znovu odoslané do OpenAI v izolovanom extraction-only behu. Obe sa spracovali bez parse chyby, ale chýbal im explicitný dátum dodania/DUZP, preto zostali `Na kontrolu` bez Drive uploadu.
 - Pilot odhalil nestabilitu n8n `binary.file.id`. Finálny `Doklad ID` teraz používa SHA-256 obsahu prílohy; Gmail message ID a stabilný binárny kľúč zostávajú iba zdrojovou identitou. Dva pilotné review riadky boli bezpečne zmigrované, doplnené o SHA-256 a aktualizované.
 - Čerstvý read-only workflow s prázdnym stavom zastavil obe prílohy na trvalej Sheets deduplikácii (`2 existing`, `0 new`) pred OpenAI. Rovnaký súbor sa zachytí aj po preposlaní v inom e-maile.
+- Druhý Gmail pilot spracoval jednu PDF faktúru s dátumom vystavenia `2026-10-24` a dátumom dodania `2026-10-21`; správne vybral `2026-10/Doklady`, confidence `90` a bezpečný route bez dôvodu kontroly.
+- Pilot odhalil, že n8n Crypto node po SHA-256 odstráni binary payload. Tok preto hash a pôvodnú prílohu znovu spája Merge uzlom pred deduplikáciou; opravený extraction beh prešiel.
+- Dokument bol raz nahraný do Drive, raz zapísaný do registra, Gmail správa dostala label `WOF_FINANCE_INTAKE` a čerstvá kontrola potvrdila `1 existing`, `0 new` bez opakovaného OpenAI volania.
+- Read-only test presného produkčného dotazu `label:WOF_FINANCE_INTAKE has:attachment` našiel presne označenú pilotnú správu.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu
@@ -26,10 +30,12 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
 2. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
 3. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; OpenAI ho nenašiel a hash test potvrdil, že ide o rozdielny binárny obsah.
+4. Určiť pravidlo automatického označovania finančných e-mailov labelom `WOF_FINANCE_INTAKE` (dedikovaný príjemca/alias alebo schválený zoznam odosielateľov). Bez pravidla je spracovanie bezpečné, ale vyžaduje ručné označenie.
+5. Doplniť overené Drive mapovanie pre chýbajúce mesiace; workflow pri neznámom mesiaci bezpečne pošle doklad do review namiesto nesprávneho priečinka.
 
 ## Aktivačná brána
 
-SARA v2 zostáva neaktívna, kým kontrolovaný Gmail pilot nepotvrdí:
+Kontrolovaný Gmail pilot potvrdil všetky technické body aktivačnej brány:
 
 - spracovanie iba označenej správy,
 - správny mesiac podľa dátumu dodania,
@@ -37,3 +43,5 @@ SARA v2 zostáva neaktívna, kým kontrolovaný Gmail pilot nepotvrdí:
 - jeden a iba jeden register row,
 - bezpečný review tok pri chýbajúcom alebo neistom dátume,
 - nulové použitie Composio.
+
+SARA v2 zostáva neaktívna do rozhodnutia o automatickom Gmail labelovaní a doplnenia mesačných Drive cieľov.

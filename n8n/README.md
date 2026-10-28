@@ -48,6 +48,8 @@ Následná oprava používa strict JSON Schema, presný enum destinácie, `confi
 
 Pred OpenAI volaním workflow vypočíta SHA-256 obsahu každej prílohy, použije ho ako `Doklad ID` a porovná ho so stĺpcom registra. Pilot odhalil, že n8n `binary.file.id` sa medzi načítaniami mení; stabilný binárny kľúč `attachment_0`, `attachment_1`, … sa preto používa iba ako zdrojová identita v rámci Gmail správy, nie ako finálna identita dokladu. Dva existujúce review riadky boli migrované na obsahové SHA-256 ID, doplnené o hash a aktualizované opravenou extrakciou. Čerstvý read-only workflow s prázdnym stavom zastavil obe prílohy podľa Sheets registra ako `existing` (`2 existing`, `0 new`) ešte pred OpenAI. Rovnaký súbor sa tak deduplikuje aj po preposlaní v inom e-maile a kontrola zostáva účinná po reštarte alebo importe workflowu.
 
+Druhý Gmail pilot použil PDF faktúru s explicitným dátumom dodania. OpenAI vrátil dátum vystavenia `2026-10-24`, dátum dodania `2026-10-21`, cieľ `Doklady`, confidence `90` a routeReady bez dôvodu kontroly. Pilot zároveň odhalil, že Crypto node po výpočte hashu neodovzdával binárny súbor ďalej; paralelná vetva a Merge node teraz spoja hash s pôvodnou prílohou pred deduplikáciou. Opravený beh nahral dokument do `2026-10/Doklady`, pridal presne jeden register riadok, označil Gmail správu labelom `WOF_FINANCE_INTAKE` a čerstvá kontrola potvrdila `1 existing`, `0 new` bez ďalšieho OpenAI volania. Samostatný read-only test produkčného Gmail dotazu našiel presne túto jednu označenú správu.
+
 ## Lokálny policy test
 
 ```bash

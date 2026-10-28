@@ -32,9 +32,11 @@ test('Gmail source attachment identity avoids transient n8n file IDs', () => {
 
 test('content SHA-256 becomes the persistent document identity before dedupe', () => {
   const hash = nodes.get('SHA-256 obsahu prílohy')
+  const merge = nodes.get('Spoj hash a prílohu')
   const identity = nodes.get('Nastav identitu podľa SHA-256')
   const validate = nodes.get('Validuj a zaraď podľa dodania')
   assert.ok(hash)
+  assert.ok(merge)
   assert.ok(identity)
   assert.ok(validate)
   assert.equal(hash.type, 'n8n-nodes-base.crypto')
@@ -44,7 +46,11 @@ test('content SHA-256 becomes the persistent document identity before dedupe', (
   assert.match(identity.parameters.jsCode, /documentId = 'WOF-' \+ documentKey/)
   assert.match(validate.parameters.jsCode, /sha256:clean\(meta\.sha256\)/)
   assert.equal(workflow.connections['Rozdeľ podporované prílohy'].main[0][0].node, hash.name)
-  assert.equal(workflow.connections[hash.name].main[0][0].node, identity.name)
+  assert.equal(workflow.connections['Rozdeľ podporované prílohy'].main[0][1].node, merge.name)
+  assert.equal(workflow.connections['Rozdeľ podporované prílohy'].main[0][1].index, 1)
+  assert.equal(workflow.connections[hash.name].main[0][0].node, merge.name)
+  assert.equal(workflow.connections[hash.name].main[0][0].index, 0)
+  assert.equal(workflow.connections[merge.name].main[0][0].node, identity.name)
   assert.equal(workflow.connections[identity.name].main[0][0].node, 'Deduplikácia Gmail prílohy')
 })
 

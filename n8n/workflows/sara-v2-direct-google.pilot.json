@@ -69,7 +69,7 @@
       "type": "n8n-nodes-base.removeDuplicates",
       "typeVersion": 2,
       "position": [
-        1200,
+        1440,
         0
       ],
       "name": "Deduplikácia Gmail prílohy",
@@ -87,7 +87,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        1440,
+        1680,
         -100
       ],
       "id": "24adb304-a5af-4ee2-8dbc-75b3647584fd"
@@ -102,7 +102,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1680,
+        1920,
         0
       ],
       "disabled": false,
@@ -116,7 +116,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1920,
+        2160,
         0
       ],
       "id": "1cbaed9a-f4df-4120-b255-545ad823faec"
@@ -149,7 +149,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2160,
+        2400,
         0
       ],
       "disabled": false,
@@ -163,7 +163,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2400,
+        2640,
         0
       ],
       "disabled": false,
@@ -184,7 +184,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2640,
+        2880,
         -100
       ],
       "executeOnce": false,
@@ -202,7 +202,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        2880,
+        3120,
         0
       ],
       "disabled": false,
@@ -216,7 +216,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        3360,
         0
       ],
       "disabled": false,
@@ -250,7 +250,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3360,
+        3600,
         0
       ],
       "disabled": false,
@@ -275,7 +275,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        3600,
+        3840,
         -120
       ],
       "disabled": false,
@@ -695,7 +695,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        3840,
+        4080,
         -120
       ],
       "disabled": false,
@@ -1115,7 +1115,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        3600,
+        3840,
         160
       ],
       "disabled": false,
@@ -1146,6 +1146,20 @@
       "name": "Nastav identitu podľa SHA-256",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "name": "Spoj hash a prílohu",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
       "position": [
         960,
         0
@@ -1182,6 +1196,11 @@
             "node": "SHA-256 obsahu prílohy",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Spoj hash a prílohu",
+            "type": "main",
+            "index": 1
           }
         ]
       ]
@@ -1329,7 +1348,7 @@
       "main": [
         [
           {
-            "node": "Nastav identitu podľa SHA-256",
+            "node": "Spoj hash a prílohu",
             "type": "main",
             "index": 0
           }
@@ -1341,6 +1360,17 @@
         [
           {
             "node": "Deduplikácia Gmail prílohy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spoj hash a prílohu": {
+      "main": [
+        [
+          {
+            "node": "Nastav identitu podľa SHA-256",
             "type": "main",
             "index": 0
           }
