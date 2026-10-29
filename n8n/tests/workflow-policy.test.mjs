@@ -55,6 +55,17 @@ test('content SHA-256 becomes the persistent document identity before dedupe', (
   assert.equal(workflow.connections[identity.name].main[0][0].node, 'Deduplikácia Gmail prílohy')
 })
 
+test('same-content duplicates are collapsed only inside the current run', () => {
+  const dedupe = nodes.get('Deduplikácia Gmail prílohy')
+  assert.ok(dedupe)
+  assert.equal(dedupe.parameters.operation, 'removeDuplicateInputItems')
+  assert.equal(dedupe.parameters.compare, 'selectedFields')
+  assert.equal(dedupe.parameters.fieldsToCompare, 'documentKey')
+  assert.equal(dedupe.parameters.dedupeValue, undefined)
+  assert.equal(workflow.connections[dedupe.name].main[0][0].node, 'Načítaj existujúce Doklad ID')
+  assert.equal(workflow.connections[dedupe.name].main[0][1].node, 'Spoj register a prílohu')
+})
+
 test('routing uses delivery or explicit report-period date and never 00_INBOX', () => {
   const parser = nodes.get('Validuj a zaraď podľa dodania')
   assert.ok(parser)

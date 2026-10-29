@@ -62,8 +62,9 @@
     },
     {
       "parameters": {
-        "operation": "removeItemsSeenInPreviousExecutions",
-        "dedupeValue": "={{ $json.documentKey }}",
+        "operation": "removeDuplicateInputItems",
+        "compare": "selectedFields",
+        "fieldsToCompare": "documentKey",
         "options": {}
       },
       "type": "n8n-nodes-base.removeDuplicates",
