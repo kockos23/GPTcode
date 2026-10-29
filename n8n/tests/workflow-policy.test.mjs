@@ -99,6 +99,24 @@ test('unsafe documents branch to review while safe documents upload monthly', ()
   assert.ok(nodes.has('Zapíš zaradený doklad do registra'))
 })
 
+test('routing preserves the actual intake channel and requires invoice currency', () => {
+  const validate = nodes.get('Validuj a zaraď podľa dodania')
+  assert.ok(validate)
+  assert.match(validate.parameters.jsCode, /source:clean\(meta\.source\)\|\|'unknown'/)
+  assert.doesNotMatch(validate.parameters.jsCode, /source:'gmail'/)
+  assert.match(validate.parameters.jsCode, /Chýba alebo je neplatná mena/)
+  assert.match(validate.parameters.jsCode, /destination==='Doklady'\|\|destination==='Vystavene_FA'/)
+})
+
+test('review rows retain a direct link to the original Drive file', () => {
+  const review = nodes.get('Zapíš doklad do review registra')
+  assert.ok(review)
+  assert.match(review.parameters.columns.value['Originál Drive ID'], /sourceMessageId/)
+  assert.match(review.parameters.columns.value['Originál \/ link'], /drive\.google\.com\/file\/d\//)
+  assert.match(review.parameters.columns.value.Poznámka, /Zdroj ID:/)
+  assert.doesNotMatch(review.parameters.columns.value.Poznámka, /Gmail message:/)
+})
+
 test('persistent register dedupe runs before OpenAI extraction', () => {
   const lookup = nodes.get('Načítaj existujúce Doklad ID')
   const check = nodes.get('Skontroluj trvalú deduplikáciu')
