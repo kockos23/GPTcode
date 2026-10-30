@@ -18,6 +18,7 @@
 - [x] Pripraviť Convex tabuľku a autentizované n8n endpointy pre review udalosti, rozhodnutia a potvrdenie dokončenia.
 - [x] Validovať skutočný dátum, povolenú kategóriu a povinnú menu faktúr; opakovaná udalosť nesmie vytvoriť druhú review položku.
 - Po sprístupnení platnej Convex URL pripojiť review vetvu Drive/Gmail/Telegram workflowov a backfillovať šesť aktuálnych položiek.
+- [x] Pripraviť neaktívny live n8n review resolution workflow s reálnymi Drive/Sheets credentials a bez Composio; aktivovať ho až po 401/auth pilote Convex endpointov.
 - Až po kontrolovanom pilote prepnúť Macaly review formulár zo starej Composio cesty na nový outbox.
 
 ## 3. Bankový výpis

@@ -1,0 +1,269 @@
+{
+  "name": "SARA v2 — Finance Review Resolution",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "25 7,17 * * *"
+            }
+          ]
+        }
+      },
+      "id": "review-schedule",
+      "name": "Review — twice daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/finance-review-resolutions' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-ready",
+      "name": "Convex — načítaj READY rozhodnutia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "rows",
+        "options": {}
+      },
+      "id": "split-ready",
+      "name": "Rozdeľ review rozhodnutia",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const folderMap = {\n  '2026-01': {Doklady:'REPLACE_WITH_2026_01_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_01_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_01_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_01_VYPISY_FOLDER_ID'},\n  '2026-02': {Doklady:'REPLACE_WITH_2026_02_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_02_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_02_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_02_VYPISY_FOLDER_ID'},\n  '2026-03': {Doklady:'REPLACE_WITH_2026_03_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_03_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_03_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_03_VYPISY_FOLDER_ID'},\n  '2026-04': {Doklady:'REPLACE_WITH_2026_04_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_04_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_04_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_04_VYPISY_FOLDER_ID'},\n  '2026-05': {Doklady:'REPLACE_WITH_2026_05_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_05_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_05_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_05_VYPISY_FOLDER_ID'},\n  '2026-06': {Doklady:'REPLACE_WITH_2026_06_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_06_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_06_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_06_VYPISY_FOLDER_ID'},\n  '2026-07': {Doklady:'REPLACE_WITH_2026_07_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_07_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_07_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_07_VYPISY_FOLDER_ID'},\n  '2026-08': {Doklady:'REPLACE_WITH_2026_08_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_08_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_08_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_08_VYPISY_FOLDER_ID'},\n  '2026-09': {Doklady:'REPLACE_WITH_2026_09_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_09_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_09_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_09_VYPISY_FOLDER_ID'},\n  '2026-10': {Doklady:'REPLACE_WITH_2026_10_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_10_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_10_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_10_VYPISY_FOLDER_ID'},\n  '2026-11': {Doklady:'REPLACE_WITH_2026_11_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_11_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_11_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_11_VYPISY_FOLDER_ID'},\n  '2026-12': {Doklady:'REPLACE_WITH_2026_12_DOKLADY_FOLDER_ID',Stripe:'REPLACE_WITH_2026_12_STRIPE_FOLDER_ID',Vystavene_FA:'REPLACE_WITH_2026_12_VYSTAVENE_FA_FOLDER_ID',Vypisy:'REPLACE_WITH_2026_12_VYPISY_FOLDER_ID'},\n};\nconst categories=new Set(['Doklady','Stripe','Vypisy','Vystavene_FA']);\nconst date=value=>{const text=String(value||'');if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(text))return '';const parsed=new Date(text+'T00:00:00Z');return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===text?text:'';};\nreturn $input.all().map((item,index)=>{\n  const row=item.json;\n  const deliveryDate=date(row.resolvedDeliveryDate);\n  const category=String(row.resolvedCategory||'');\n  const currency=String(row.resolvedCurrency||'').toUpperCase();\n  if(!row.documentId||!row.sourceFileId)throw new Error('Review položke chýba identita dokumentu alebo Drive súboru');\n  if(!deliveryDate||!categories.has(category))throw new Error('Review rozhodnutie nemá platný dátum alebo kategóriu');\n  if((category==='Doklady'||category==='Vystavene_FA')&&!/^[A-Z]{3}$/.test(currency))throw new Error('Faktúra nemá potvrdenú menu');\n  const period=deliveryDate.slice(0,7);\n  const targetFolderId=folderMap[period]?.[category]||'';\n  if(!targetFolderId)throw new Error('Pre review rozhodnutie neexistuje cieľový priečinok');\n  const safe=value=>String(value||'').trim().replace(/[\\/:*?\"<>|]/g,'-').replace(/[\\r\\n]/g,' ').slice(0,100);\n  const ext=String(row.sourceFileName||'doklad.pdf').match(/\\.([a-zA-Z0-9]{1,8})$/)?.[1]?.toLowerCase()||'pdf';\n  const fileName=[deliveryDate,safe(row.supplier)||category,safe(row.invoiceNumber)||'bez-cisla',typeof row.totalAmount==='number'?row.totalAmount.toFixed(2):'suma-neznama',currency||'mena-neznama'].join('_').slice(0,180)+'.'+ext;\n  return {json:{...row,deliveryDate,category,currency,period,targetFolderId,fileName},pairedItem:{item:index}};\n});"
+      },
+      "id": "validate-review",
+      "name": "Validuj review rozhodnutie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $json.sourceFileId + '?addParents=' + $json.targetFolderId + '&removeParents=REPLACE_WITH_DRIVE_INTAKE_FOLDER_ID&fields=id,name,mimeType,parents' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({name:$json.fileName}) }}",
+        "options": {}
+      },
+      "id": "move-original",
+      "name": "Drive — presuň existujúci originál",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/REPLACE_WITH_WOF_FINANCE_SHEET_ID/values/Doklady%21A%3AAI",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "read-register",
+      "name": "Sheets — načítaj register",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const decision=$('Validuj review rozhodnutie').item.json;\nconst moved=$('Drive — presuň existujúci originál').item.json;\nconst rows=$json.values||[];\nconst index=rows.findIndex(row=>String(row?.[0]||'')===String(decision.documentId));\nif(index<1)throw new Error('Register neobsahuje Doklad ID '+decision.documentId);\nconst row=index+1;\nconst now=new Date().toISOString();\nconst url='https://drive.google.com/file/d/'+moved.id+'/view';\nconst data=[\n  {range:'Doklady!C'+row,values:[[decision.period]]},\n  {range:'Doklady!E'+row,values:[['Zaradené']]},\n  {range:'Doklady!H'+row,values:[[decision.deliveryDate]]},\n  {range:'Doklady!P'+row,values:[[decision.currency]]},\n  {range:'Doklady!W'+row,values:[[moved.id]]},\n  {range:'Doklady!X'+row,values:[[url]]},\n  {range:'Doklady!AB'+row,values:[['']]},\n  {range:'Doklady!AF'+row,values:[[decision.resolutionNote||'Manuálne potvrdené v Macaly']]},\n  {range:'Doklady!AH'+row,values:[['sara-review-outbox-v1']]},\n  {range:'Doklady!AI'+row,values:[[now]]},\n];\nreturn [{json:{documentId:decision.documentId,targetFileId:moved.id,targetFileUrl:url,body:{valueInputOption:'RAW',data}}}];"
+      },
+      "id": "prepare-register",
+      "name": "Priprav aktualizáciu existujúceho riadku",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/REPLACE_WITH_WOF_FINANCE_SHEET_ID/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "update-register",
+      "name": "Sheets — aktualizuj existujúci riadok",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/finance-review-resolutions/complete' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({documentId:$('Priprav aktualizáciu existujúceho riadku').item.json.documentId,ok:true,targetFileId:$('Priprav aktualizáciu existujúceho riadku').item.json.targetFileId,targetFileUrl:$('Priprav aktualizáciu existujúceho riadku').item.json.targetFileUrl}) }}",
+        "options": {}
+      },
+      "id": "complete-review",
+      "name": "Convex — potvrď dokončenie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Review — twice daily": {
+      "main": [
+        [
+          {
+            "node": "Convex — načítaj READY rozhodnutia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convex — načítaj READY rozhodnutia": {
+      "main": [
+        [
+          {
+            "node": "Rozdeľ review rozhodnutia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rozdeľ review rozhodnutia": {
+      "main": [
+        [
+          {
+            "node": "Validuj review rozhodnutie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validuj review rozhodnutie": {
+      "main": [
+        [
+          {
+            "node": "Drive — presuň existujúci originál",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive — presuň existujúci originál": {
+      "main": [
+        [
+          {
+            "node": "Sheets — načítaj register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets — načítaj register": {
+      "main": [
+        [
+          {
+            "node": "Priprav aktualizáciu existujúceho riadku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priprav aktualizáciu existujúceho riadku": {
+      "main": [
+        [
+          {
+            "node": "Sheets — aktualizuj existujúci riadok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets — aktualizuj existujúci riadok": {
+      "main": [
+        [
+          {
+            "node": "Convex — potvrď dokončenie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

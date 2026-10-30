@@ -16,6 +16,11 @@ const noraMonitorWorkflow = JSON.parse(
   fs.readFileSync(new URL('../workflows/nora-error-monitoring.pilot.json', import.meta.url), 'utf8'),
 )
 const noraMonitorSerialized = JSON.stringify(noraMonitorWorkflow)
+const reviewWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/sara-v2-review-resolution.pilot.json', import.meta.url), 'utf8'),
+)
+const reviewNodes = new Map(reviewWorkflow.nodes.map((node) => [node.name, node]))
+const reviewSerialized = JSON.stringify(reviewWorkflow)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -163,5 +168,20 @@ test('NORA monitoring export is isolated and sanitized', () => {
   assert.match(noraMonitorSerialized, /REPLACE_WITH_OWNER_CHAT_ID/)
   assert.match(noraMonitorSerialized, /NORA Telegram Bot|NORA Chief of Staff|NORA workflow error/)
   assert.doesNotMatch(noraMonitorSerialized, /SARA|ajAP0czttC0c9syg|JcLXUmhJ0Kevytvi|9Ynr2a9IaT5m0UJy|Rog0Z5TIQ6qSpzFX/)
+})
+
+test('finance review resolution updates the original file and register row', () => {
+  assert.equal(reviewWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.equal(/composio/i.test(reviewSerialized), false)
+  assert.equal(/["']1[A-Za-z0-9_-]{20,}["']/.test(reviewSerialized), false)
+  assert.equal((reviewSerialized.match(/REPLACE_WITH_2026_\d{2}_[A-Z_]+_FOLDER_ID/g) ?? []).length, 48)
+  assert.match(reviewNodes.get('Drive — presuň existujúci originál')?.parameters.url, /removeParents=REPLACE_WITH_DRIVE_INTAKE_FOLDER_ID/)
+  assert.match(reviewNodes.get('Priprav aktualizáciu existujúceho riadku')?.parameters.jsCode, /Doklad ID|documentId/)
+  assert.match(reviewNodes.get('Priprav aktualizáciu existujúceho riadku')?.parameters.jsCode, /findIndex/)
+  assert.doesNotMatch(reviewSerialized, /append/i)
+  assert.equal(
+    reviewNodes.get('Review — twice daily')?.parameters.rule.interval[0].expression,
+    '25 7,17 * * *',
+  )
 })
 
