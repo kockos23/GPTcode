@@ -93,12 +93,8 @@ type BankImportResult = { ok:boolean; code:string; message:string; statementId?:
 type BankMatchResult = { ok:boolean; message:string; evaluated:number; proposed:number }
 type BankMatchActionResult = { ok:boolean; message:string }
 type FinanceCategory = 'Doklady'|'Stripe'|'Vypisy'|'Vystavene_FA'
-type FinanceIntakeRun = { id:string; startedAt:number; completedAt?:number; status:string; checkedEmails:number; savedFiles:number; skippedFiles:number; failedFiles:number; reviewFiles:number; error?:string; trigger:string }
-type FinanceIntakeFailure = { id:string; fileName:string; sender:string; subject:string; error?:string; updatedAt:number }
-type FinanceIntakeReview = { id:string; fileName:string; sender:string; subject:string; receivedAt:number; category?:string; reviewReason?:string; updatedAt:number }
-type FinanceIntakeStatus = { runs:FinanceIntakeRun[]; failures:FinanceIntakeFailure[]; reviews:FinanceIntakeReview[] }
-type FinanceIntakeResult = { ok:boolean; message:string; checkedEmails:number; savedFiles:number; skippedFiles:number; failedFiles:number; reviewFiles:number }
-type FinanceIntakeResolveResult = { ok:boolean; message:string; driveUrl?:string }
+type FinanceReview = { id:string; documentId:string; source:string; sourceFileId:string; sourceFileName:string; fileUrl:string; supplier:string; invoiceNumber:string; totalAmount?:number; extractedDeliveryDate?:string; extractedCategory?:string; extractedCurrency?:string; reviewReason:string; status:string; resolvedDeliveryDate?:string; resolvedCategory?:string; resolvedCurrency?:string; completionError?:string; updatedAt:number }
+type FinanceReviewResolveResult = { ok:boolean; message:string; status:string }
 const bankStatementsApi = {
   listDriveStatementFiles: makeFunctionReference<'action', Record<string, never>, BankFilesResult>('bankStatements:listDriveStatementFiles'),
   listBankStatements: makeFunctionReference<'action', Record<string, never>, BankStatementsResult>('bankStatements:listBankStatements'),
@@ -107,10 +103,9 @@ const bankStatementsApi = {
   confirmPaymentMatch: makeFunctionReference<'action', { transactionId:string }, BankMatchActionResult>('bankStatements:confirmPaymentMatch'),
   rejectPaymentMatch: makeFunctionReference<'action', { transactionId:string }, BankMatchActionResult>('bankStatements:rejectPaymentMatch'),
 }
-const financeIntakeApi = {
-  getEmailIntakeStatus: makeFunctionReference<'action', Record<string, never>, FinanceIntakeStatus>('financeIntake:getEmailIntakeStatus'),
-  syncEmailAttachments: makeFunctionReference<'action', Record<string, never>, FinanceIntakeResult>('financeIntake:syncEmailAttachments'),
-  resolveEmailImport: makeFunctionReference<'action', { id:string; deliveryDate:string; category:FinanceCategory }, FinanceIntakeResolveResult>('financeIntake:resolveEmailImport'),
+const financeReviewsApi = {
+  listFinanceReviews: makeFunctionReference<'action', Record<string, never>, FinanceReview[]>('financeReviews:listFinanceReviews'),
+  resolveFinanceReview: makeFunctionReference<'action', { id:string; deliveryDate:string; category:FinanceCategory; currency?:string; note?:string }, FinanceReviewResolveResult>('financeReviews:resolveFinanceReview'),
 }
 const wofFinanceApi = {
   listPayables: makeFunctionReference<'action', { force?: boolean }, WofPayablesResult>('wofFinance:listPayables'),
@@ -498,9 +493,8 @@ function FinanceView() {
   const proposePaymentMatches = useAction(bankStatementsApi.proposePaymentMatches)
   const confirmPaymentMatch = useAction(bankStatementsApi.confirmPaymentMatch)
   const rejectPaymentMatch = useAction(bankStatementsApi.rejectPaymentMatch)
-  const getEmailIntakeStatus = useAction(financeIntakeApi.getEmailIntakeStatus)
-  const syncEmailAttachments = useAction(financeIntakeApi.syncEmailAttachments)
-  const resolveEmailImport = useAction(financeIntakeApi.resolveEmailImport)
+  const listFinanceReviews = useAction(financeReviewsApi.listFinanceReviews)
+  const resolveFinanceReview = useAction(financeReviewsApi.resolveFinanceReview)
   const [rows,setRows] = useState<WofPayable[]>([])
   const [bankFiles,setBankFiles] = useState<BankDriveFile[]>([])
   const [bankStatements,setBankStatements] = useState<BankStatementRecord[]>([])
@@ -511,12 +505,11 @@ function FinanceView() {
   const [bankFeedback,setBankFeedback] = useState('')
   const [bankMatchRunning,setBankMatchRunning] = useState(false)
   const [bankMatchAction,setBankMatchAction] = useState('')
-  const [intakeStatus,setIntakeStatus] = useState<FinanceIntakeStatus>({runs:[],failures:[],reviews:[]})
+  const [financeReviews,setFinanceReviews] = useState<FinanceReview[]>([])
   const [intakeLoading,setIntakeLoading] = useState(false)
-  const [intakeRunning,setIntakeRunning] = useState(false)
   const [intakeFeedback,setIntakeFeedback] = useState('')
   const [reviewSaving,setReviewSaving] = useState('')
-  const [reviewDrafts,setReviewDrafts] = useState<Record<string,{deliveryDate:string;category:FinanceCategory}>>({})
+  const [reviewDrafts,setReviewDrafts] = useState<Record<string,{deliveryDate:string;category:FinanceCategory;currency:string;note:string}>>({})
   const [loading,setLoading] = useState(true)
   const [saving,setSaving] = useState(false)
   const [showForm,setShowForm] = useState(false)
@@ -561,36 +554,28 @@ function FinanceView() {
       setBankError('Výpisy sa nepodarilo obnoviť. Skontroluj pripojenie WOF Drive.')
     } finally { setBankLoading(false) }
   }
-  const refreshEmailIntake = async () => {
+  const refreshFinanceReviews = async () => {
     setIntakeLoading(true)
-    try { setIntakeStatus(await getEmailIntakeStatus({})) }
-    catch { setIntakeFeedback('Stav e-mailovej kontroly sa nepodarilo načítať.') }
+    try { setFinanceReviews(await listFinanceReviews({})) }
+    catch { setIntakeFeedback('Review front SARY sa nepodarilo načítať.') }
     finally { setIntakeLoading(false) }
   }
-  const runEmailIntake = async () => {
-    setIntakeRunning(true); setIntakeFeedback('')
-    try {
-      const result = await syncEmailAttachments({})
-      setIntakeFeedback(result.message)
-      await refreshEmailIntake()
-    } catch { setIntakeFeedback('Kontrola WOF Gmailu zlyhala. Skontroluj stav a skús to znova.') }
-    finally { setIntakeRunning(false) }
-  }
-  const resolveReview = async (item:FinanceIntakeReview) => {
-    const draft=reviewDrafts[item.id]??{deliveryDate:'',category:(item.category as FinanceCategory)||'Doklady'}
+  const resolveReview = async (item:FinanceReview) => {
+    const draft=reviewDrafts[item.id]??{deliveryDate:item.extractedDeliveryDate||'',category:(item.extractedCategory as FinanceCategory)||'Doklady',currency:item.extractedCurrency||'',note:''}
     if (!draft.deliveryDate) { setIntakeFeedback('Pred uložením potvrď dátum dodania.'); return }
+    if ((draft.category==='Doklady'||draft.category==='Vystavene_FA')&&!/^[A-Z]{3}$/.test(draft.currency)) { setIntakeFeedback('Pri faktúre potvrď trojpísmenovú menu, napríklad EUR.'); return }
     setReviewSaving(item.id); setIntakeFeedback('')
     try {
-      const result=await resolveEmailImport({id:item.id,deliveryDate:draft.deliveryDate,category:draft.category})
+      const result=await resolveFinanceReview({id:item.id,deliveryDate:draft.deliveryDate,category:draft.category,currency:draft.currency||undefined,note:draft.note||undefined})
       setIntakeFeedback(result.message)
       if (result.ok) {
         setReviewDrafts(current=>{const next={...current};delete next[item.id];return next})
-        await refreshEmailIntake()
+        await refreshFinanceReviews()
       }
-    } catch { setIntakeFeedback('Prílohu sa nepodarilo zaradiť. Skontroluj dátum a pripojenie.') }
+    } catch { setIntakeFeedback('Rozhodnutie sa nepodarilo uložiť do review frontu.') }
     finally { setReviewSaving('') }
   }
-  useEffect(() => { void refresh(); void refreshBankStatements(); void refreshEmailIntake() }, [])
+  useEffect(() => { void refresh(); void refreshBankStatements(); void refreshFinanceReviews() }, [])
 
   const payableGroups = groupPayables(rows)
   const openGroups = payableGroups.filter(group => !isPaid(group.primary))
@@ -750,23 +735,23 @@ function FinanceView() {
 
     <section className="finance-table-panel panel bank-statements-panel email-intake-panel">
       <div className="section-title">
-        <div><p className="eyebrow">SARA · Príjem dokladov</p><h2>E-mailové prílohy</h2></div>
-        <button className="button-primary" type="button" onClick={()=>void runEmailIntake()} disabled={intakeRunning||intakeLoading}>{intakeRunning?<RefreshCw className="spin" size={14}/>:<Mail size={14}/>} {intakeRunning?'Kontrolujem…':'Skontrolovať teraz'}</button>
+        <div><p className="eyebrow">SARA · Kontrola dokladov</p><h2>Review front</h2></div>
+        <button className="icon-button light" type="button" onClick={()=>void refreshFinanceReviews()} disabled={intakeLoading} aria-label="Obnoviť review front"><RefreshCw className={intakeLoading?'spin':''} size={16}/></button>
       </div>
-      <p className="bank-statement-help">Sara spracúva prílohy doručené na finance@wofevents.com a dokumenty nahrané do Drive priečinka 01_NA_SPRACOVANIE. Gmail kontroluje o 06:15 v pracovné dni a Drive o 07:15 a 17:15 každý deň. Dokument zaradí podľa dátumu dodania alebo obdobia výpisu, nikdy podľa dátumu prijatia. Nejednoznačný Drive dokument zostane vo vstupnom priečinku na kontrolu.</p>
+      <p className="bank-statement-help">Gmail, Drive a Telegram spracúva n8n. Nejednoznačný dokument zostane v pôvodnom Drive priečinku. Tu potvrdíš skutočný dátum dodania, cieľ a menu; n8n potom presunie existujúci súbor a aktualizuje rovnaký register riadok bez vytvorenia kópie.</p>
       {intakeFeedback&&<div aria-live="polite" role="status" className={'source-notice '+(intakeFeedback.includes('zlyhala')||intakeFeedback.includes('nepodarilo')?'finance-warning':'connected')}><Mail size={15}/><span>{intakeFeedback}</span></div>}
-      {intakeStatus.runs[0]&&<div className="email-intake-last-run"><span><strong>Posledná kontrola:</strong> {new Date(intakeStatus.runs[0].startedAt).toLocaleString('sk-SK',{timeZone:'Europe/Bratislava',dateStyle:'medium',timeStyle:'short'})} · {intakeStatus.runs[0].status}</span><span>{intakeStatus.runs[0].checkedEmails} e-mailov · {intakeStatus.runs[0].savedFiles} uložených · {intakeStatus.runs[0].reviewFiles} na kontrolu · {intakeStatus.runs[0].skippedFiles} preskočených · {intakeStatus.runs[0].failedFiles} chýb</span></div>}
-      {intakeLoading&&!intakeStatus.runs.length&&<p className="bank-empty-note">Načítavam stav kontroly…</p>}
-      {!!intakeStatus.reviews.length&&<div className="email-intake-review"><strong>Dokumenty čakajúce na zaradenie</strong><p>Sara ich neuloží do nesprávneho mesiaca. Skontroluj doklad, potvrď dátum dodania a cieľový priečinok.</p>{intakeStatus.reviews.map(item=>{
-        const draft=reviewDrafts[item.id]??{deliveryDate:'',category:(item.category as FinanceCategory)||'Doklady'}
+      {intakeLoading&&!financeReviews.length&&<p className="bank-empty-note">Načítavam review front…</p>}
+      {!intakeLoading&&!financeReviews.filter(item=>item.status!=='RESOLVED').length&&<p className="bank-empty-note">Žiadny doklad nečaká na rozhodnutie.</p>}
+      {!!financeReviews.filter(item=>item.status!=='RESOLVED').length&&<div className="email-intake-review"><strong>Dokumenty čakajúce na zaradenie</strong><p>SARA ich neuloží do nesprávneho mesiaca. Otvor originál a potvrď iba údaje, ktoré sú na doklade.</p>{financeReviews.filter(item=>item.status!=='RESOLVED').map(item=>{
+        const draft=reviewDrafts[item.id]??{deliveryDate:item.extractedDeliveryDate||'',category:(item.extractedCategory as FinanceCategory)||'Doklady',currency:item.extractedCurrency||'',note:''}
         return <div className="email-intake-review-row" key={item.id}>
-          <div><strong>{item.fileName}</strong><small>{item.sender} · {item.subject||'bez predmetu'}</small><small className="review-reason">{item.reviewReason||'Dátum dodania sa nepodarilo určiť.'}</small></div>
+          <div><strong><a href={item.fileUrl} target="_blank" rel="noreferrer">{item.sourceFileName} ↗</a></strong><small>{item.supplier||'Neurčený partner'} · {item.invoiceNumber||item.documentId}</small><small className="review-reason">{item.completionError||item.reviewReason}</small></div>
           <label>Dátum dodania<input type="date" value={draft.deliveryDate} onChange={event=>setReviewDrafts(current=>({...current,[item.id]:{...draft,deliveryDate:event.target.value}}))}/></label>
           <label>Priečinok<select value={draft.category} onChange={event=>setReviewDrafts(current=>({...current,[item.id]:{...draft,category:event.target.value as FinanceCategory}}))}><option value="Doklady">Doklady</option><option value="Stripe">Stripe</option><option value="Vypisy">Vypisy</option><option value="Vystavene_FA">Vystavene_FA</option></select></label>
-          <button className="button-primary" type="button" disabled={!draft.deliveryDate||reviewSaving===item.id} onClick={()=>void resolveReview(item)}>{reviewSaving===item.id?<RefreshCw className="spin" size={14}/>:<Check size={14}/>} {reviewSaving===item.id?'Ukladám…':'Potvrdiť'}</button>
+          <label>Mena<input value={draft.currency} maxLength={3} placeholder="EUR" onChange={event=>setReviewDrafts(current=>({...current,[item.id]:{...draft,currency:event.target.value.toUpperCase().replace(/[^A-Z]/g,'')}}))}/></label>
+          <button className="button-primary" type="button" disabled={!draft.deliveryDate||reviewSaving===item.id||item.status==='READY'} onClick={()=>void resolveReview(item)}>{reviewSaving===item.id?<RefreshCw className="spin" size={14}/>:<Check size={14}/>} {item.status==='READY'?'Čaká na n8n':reviewSaving===item.id?'Ukladám…':'Potvrdiť'}</button>
         </div>
       })}</div>}
-      {!!intakeStatus.failures.length&&<div className="email-intake-errors"><strong>Prílohy vyžadujú pozornosť</strong>{intakeStatus.failures.slice(0,5).map(item=><div key={item.id}><span>{item.fileName} · {item.sender}</span><small>{item.error||item.subject}</small></div>)}</div>}
     </section>
     <section className="finance-table-panel panel bank-statements-panel">
       <div className="section-title">
