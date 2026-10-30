@@ -78,6 +78,13 @@ describe("bank statement CSV", () => {
       .toThrow("Nesedí počiatočný stav + príjmy - výdavky = konečný stav.")
   })
 
+  it("normalizes a bank-provided negative expense summary", () => {
+    const negativeExpense = csv.replace("Suma výdavkov: 200,00 EUR", "Suma výdavkov: -200,00 EUR")
+    const parsed = parseStatement(negativeExpense)
+    expect(parsed.expenseTotal).toBe(200)
+    expect(parsed.closingBalance).toBe(850)
+  })
+
   it("treats an explicitly received payment as income", () => {
     const received = csv.replace(";Príjem;;;;TATRSKBX", ";Prijatá platba;;;;TATRSKBX")
     expect(received).not.toBe(csv)

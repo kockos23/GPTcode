@@ -148,6 +148,10 @@ test('bank CSV export is direct, sanitized and inert before Convex cutover', () 
   assert.match(bankCsvNodes.get('CSV — pair with PDF')?.parameters.jsCode, /parent\(item\).*stem\(name\)/s)
   assert.match(bankCsvNodes.get('CSV — prepare Convex payload')?.parameters.jsCode, /pdfFileName/)
   assert.equal(
+    bankCsvWorkflow.connections['Bank CSV — twice daily']?.main?.[0]?.[0]?.node,
+    'Drive — list monthly bank files',
+  )
+  assert.equal(
     bankCsvNodes.get('Bank CSV — twice daily')?.parameters.rule.interval[0].expression,
     '30 7,17 * * *',
   )

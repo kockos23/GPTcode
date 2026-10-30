@@ -24,6 +24,7 @@
 - Produkčný Drive pilot 29. 10. 2026 našiel 20 dokumentov, 15 zaradil a 5 ponechal na kontrolu. Oprava následne vrátila do intake aj automaticky zaradený doklad bez určenej meny, opravila kanál všetkých 20 riadkov na `drive` a doplnila odkazy na originály. Budúce faktúry bez platnej meny sa automaticky nezaradia.
 - Read-only audit 30. 10. 2026 potvrdil úspešné následné Drive behy, aktívnu NORU a všetky tri vstupy SARY, bez aktívnych dočasných workflowov a bez nových produkčných chýb.
 - Convex review outbox a tri autentizované n8n endpointy sú pripravené v kóde, ale zostávajú nenasadené do získania platnej Convex URL a integračného secretu.
+- Read-only bankový pilot 30. 10. 2026 našiel presne jeden CSV/PDF pár v rovnakom mesačnom priečinku a správne ho spároval podľa názvu. Reálny CSV výpis za september 2026 prešiel po oprave normalizácie záporného súčtu výdavkov: maskovaný EUR účet, 75 transakcií a konzistentná rovnica zostatkov. Convex zápis sa nevykonal a produkčný bankový workflow zostal neaktívny.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu

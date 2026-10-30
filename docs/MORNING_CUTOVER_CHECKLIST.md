@@ -23,7 +23,8 @@
 ## 3. Bankový výpis
 
 - Pripraviť zodpovedajúci PDF a CSV výpis s rovnakým základom názvu.
-- PDF archivovať v správnom mesačnom `Vypisy`; CSV vložiť do rovnakého priečinka.
+- [x] PDF archivovať v správnom mesačnom `Vypisy`; CSV vložiť do rovnakého priečinka.
+- [x] Read-only pilot overil jeden PDF/CSV pár, obdobie, maskovaný účet, menu, zostatky a 75 transakcií bez Convex zápisu.
 - Najprv spustiť CSV workflow kontrolovane. Overiť obdobie, maskovaný účet, zostatky, počet transakcií a nulové opakovanie pri druhom importe.
 - Až potom zapnúť plán 07:30 a 17:30 Europe/Bratislava.
 

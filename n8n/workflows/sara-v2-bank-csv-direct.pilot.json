@@ -118,7 +118,7 @@
       "main": [
         [
           {
-            "node": "Drive — list monthly CSV statements",
+            "node": "Drive — list monthly bank files",
             "type": "main",
             "index": 0
           }

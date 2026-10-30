@@ -223,8 +223,8 @@ export function parseStatement(text: string): ParsedStatement {
   }
   const openingBalance = summaryNumber(metadataLines, "Začiatočný stav účtu")
   const closingBalance = summaryNumber(metadataLines, "Konečný stav účtu")
-  const incomeTotal = summaryNumber(metadataLines, "Suma príjmov")
-  const expenseTotal = summaryNumber(metadataLines, "Suma výdavkov")
+  const incomeTotal = Math.abs(summaryNumber(metadataLines, "Suma príjmov"))
+  const expenseTotal = Math.abs(summaryNumber(metadataLines, "Suma výdavkov"))
   if (![openingBalance, closingBalance, incomeTotal, expenseTotal].every(Number.isFinite)) {
     throw new Error("Niektorá súhrnná hodnota výpisu nie je platná.")
   }
