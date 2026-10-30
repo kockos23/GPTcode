@@ -14,6 +14,7 @@
 - Review resolution workflow `OXvMtU4eUHGuGqw2` je pripravený s reálnymi Drive/Sheets credentials a 48 cieľovými priečinkami, ale zostáva neaktívny. Po cutover načíta `READY` rozhodnutia z Convexu, presunie existujúci originál, aktualizuje register podľa `Doklad ID` a potvrdí výsledok; nepoužíva Composio ani `append`.
 - Finance Register Sync `kp5UV1ZLKe5XjPWP` načíta register `Doklady` priamo cez Google Sheets a synchronizuje ohraničený snapshot do Convex cache o 07:20 a 17:20. Zostáva neaktívny do bezpečného Convex publishu.
 - Finance Command Processor `R0bTgnf4bcPX41tG` spracuje o 07:18 a 17:18 ručne pridané záväzky a potvrdené úhrady z Convex fronty. Zápisy sú idempotentné podľa `commandId`; workflow je pripravený s reálnym Sheets credentialom, bez Composio, ale zatiaľ neaktívny.
+- Billdu Read-only Probe `GYjLHpte4wi3g06L` je manuálny, neaktívny a monitorovaný. Po nasadení Billdu proxy endpointov načíta maximálne desať metadát dokladov, aby sa overila reálna schéma dát; nevykonáva Drive ani Sheets zápis a nesťahuje PDF.
 
 ## Verziovaný export
 

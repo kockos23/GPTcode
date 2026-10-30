@@ -1,0 +1,51 @@
+{
+  "name": "SARA v2 — Billdu Read-only Probe",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "billdu-manual-trigger",
+      "name": "Billdu probe — manual only",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/billdu/documents' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({page: 1, limit: 10}) }}",
+        "options": {}
+      },
+      "id": "billdu-list-documents",
+      "name": "Convex — Billdu zoznam 10 dokladov",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "if($json.ok!==true)throw new Error('Billdu proxy nevrátil úspešnú odpoveď');\nconst root=$json.data;\nconst rows=Array.isArray(root)?root:Array.isArray(root?.data)?root.data:Array.isArray(root?.documents)?root.documents:Array.isArray(root?.items)?root.items:[];\nreturn [{json:{ok:true,documentCount:rows.length,topLevelKeys:root&&typeof root==='object'&&!Array.isArray(root)?Object.keys(root).sort():[],documentKeys:rows[0]&&typeof rows[0]==='object'?Object.keys(rows[0]).sort():[],sampleTypes:rows.slice(0,10).map(row=>({idType:typeof(row?.id??row?.documentId??row?.document_id),type:row?.type??row?.documentType??row?.document_type??null,status:row?.status??null,hasDeliveryDate:Boolean(row?.deliveryDate??row?.delivery_date??row?.dateOfSupply??row?.date_of_supply),hasIssueDate:Boolean(row?.issueDate??row?.issue_date??row?.date)}))}}];"
+      },
+      "id": "billdu-inspect-schema",
+      "name": "Skontroluj schému bez účtovného zápisu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "Billdu probe — manual only": { "main": [[{ "node": "Convex — Billdu zoznam 10 dokladov", "type": "main", "index": 0 }]] },
+    "Convex — Billdu zoznam 10 dokladov": { "main": [[{ "node": "Skontroluj schému bez účtovného zápisu", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

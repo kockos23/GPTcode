@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server"
 import { auth } from "./auth"
 import { internal } from "./_generated/api"
 import { httpAction } from "./_generated/server"
+import { downloadBillduDocument, listBillduDocuments } from "./billdu"
 
 const http = httpRouter()
 
@@ -95,6 +96,50 @@ http.route({
     } catch (error) {
       console.error("[n8n finance register] Sync failed", error)
       return Response.json({ ok: false, code: "SYNC_FAILED" }, { status: 422 })
+    }
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/billdu/documents",
+  method: "POST",
+  handler: httpAction(async (_ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const page = typeof body?.page === "number" && Number.isInteger(body.page) ? body.page : 1
+    const limit = typeof body?.limit === "number" && Number.isInteger(body.limit) ? body.limit : 100
+    if (page < 1 || page > 10_000 || limit < 1 || limit > 100) {
+      return Response.json({ ok: false, code: "INVALID_PAGINATION" }, { status: 400 })
+    }
+    try {
+      return Response.json({ ok: true, data: await listBillduDocuments(page, limit) })
+    } catch (error) {
+      console.error("[n8n Billdu] List failed", error)
+      return Response.json({ ok: false, code: "BILLDU_LIST_FAILED" }, { status: 502 })
+    }
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/billdu/documents/download",
+  method: "POST",
+  handler: httpAction(async (_ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const id = typeof body?.id === "string" ? body.id.trim() : ""
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(id)) return Response.json({ ok: false, code: "INVALID_DOCUMENT_ID" }, { status: 400 })
+    try {
+      const document = await downloadBillduDocument(id)
+      return new Response(document.bytes, {
+        headers: {
+          "content-type": document.contentType,
+          "content-disposition": `attachment; filename="billdu-${id}.pdf"`,
+          "cache-control": "no-store",
+        },
+      })
+    } catch (error) {
+      console.error("[n8n Billdu] Download failed", error)
+      return Response.json({ ok: false, code: "BILLDU_DOWNLOAD_FAILED" }, { status: 502 })
     }
   }),
 })

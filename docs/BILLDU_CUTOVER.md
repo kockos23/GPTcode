@@ -4,6 +4,10 @@
 
 Issued invoices from Billdu must arrive in the existing WOF finance system without a second dashboard or Composio. n8n is the integration layer, Drive stores the PDF original, Sheets keeps the operational register and Convex/Macaly provides status and review.
 
+Billdu authenticates requests with `apiKey`, Unix timestamp and an HMAC-SHA512 signature generated with `apiSecret`. Both secrets live only in the Convex environment. n8n calls authenticated Convex proxy endpoints and never receives either Billdu secret. The official client exposes `/documents` and `/documents/{id}/download`; it does not expose a webhook API, so the target design uses bounded twice-daily polling without OpenAI extraction.
+
+Before enabling writes, run the inactive manual workflow `SARA v2 — Billdu Read-only Probe`. It reads at most ten records and reports only field names/types. It performs no Drive or Sheets write. Use the observed schema to lock the issued-invoice status and delivery-date mapping; never fall back to email receipt time or import time.
+
 ## Required Billdu capability check
 
 Before implementation, verify in the current Billdu plan whether it provides one of these supported mechanisms:

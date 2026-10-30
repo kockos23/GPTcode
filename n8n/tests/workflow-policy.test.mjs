@@ -34,6 +34,11 @@ const commandWorkflow = JSON.parse(
 )
 const commandNodes = new Map(commandWorkflow.nodes.map((node) => [node.name, node]))
 const commandSerialized = JSON.stringify(commandWorkflow)
+const billduProbeWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/sara-v2-billdu-readonly-probe.pilot.json', import.meta.url), 'utf8'),
+)
+const billduProbeNodes = new Map(billduProbeWorkflow.nodes.map((node) => [node.name, node]))
+const billduProbeSerialized = JSON.stringify(billduProbeWorkflow)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -185,7 +190,7 @@ test('NORA monitoring export is isolated and sanitized', () => {
 
 test('SARA monitoring covers every finance workflow and remains isolated from NORA', () => {
   assert.equal(saraMonitorWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
-  assert.equal((saraMonitorSerialized.match(/REPLACE_[A-Z_]+_WORKFLOW_ID/g) ?? []).length, 7)
+  assert.equal((saraMonitorSerialized.match(/REPLACE_[A-Z_]+_WORKFLOW_ID/g) ?? []).length, 8)
   assert.match(saraMonitorSerialized, /REPLACE_WITH_OWNER_CHAT_ID/)
   assert.match(saraMonitorSerialized, /SARA Finance|SARA finance/)
   assert.doesNotMatch(saraMonitorSerialized, /NORA|976VfstjatIijTZx|NORA Telegram Bot/)
@@ -225,5 +230,14 @@ test('finance command processor is direct, idempotent and ordered before registe
   assert.equal(commandNodes.get('Convex — načítaj príkazy')?.parameters.method, 'POST')
   assert.equal(commandNodes.get('Finance commands — twice daily')?.parameters.rule.interval[0].expression, '18 7,17 * * *')
   assert.equal(registerSyncWorkflow.nodes[0].parameters.rule.interval[0].expression, '20 7,17 * * *')
+})
+
+test('Billdu pilot is read-only, bounded and manual until the response schema is verified', () => {
+  assert.equal(billduProbeWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.equal(billduProbeWorkflow.nodes[0].type, 'n8n-nodes-base.manualTrigger')
+  assert.equal(/googleDrive|googleSheets|append|upload/i.test(billduProbeSerialized), false)
+  assert.match(billduProbeNodes.get('Convex — Billdu zoznam 10 dokladov')?.parameters.jsonBody, /limit: 10/)
+  assert.match(billduProbeNodes.get('Skontroluj schému bez účtovného zápisu')?.parameters.jsCode, /documentKeys/)
+  assert.match(billduProbeSerialized, /httpHeaderAuth/)
 })
 
