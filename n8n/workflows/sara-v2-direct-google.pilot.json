@@ -188,7 +188,7 @@
         -100
       ],
       "executeOnce": false,
-      "onError": "continueErrorOutput",
+      "onError": "continueRegularOutput",
       "disabled": false,
       "id": "59ceb743-2582-4673-a3a1-f30c56252df0"
     },
