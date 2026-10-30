@@ -1,87 +1,11 @@
 import { v } from "convex/values"
 import { api, internal } from "./_generated/api"
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server"
-import { callMacalyJson } from "./macaly"
 import { findBestPayableMatch } from "./paymentMatching"
 
-type Row = Record<string, unknown>
-const WOF_FINANCE_ROOT_ID = "1vkbIi3cQpyN-xkXG3-As2PCYwJaAz0uS"
-const WOF_FINANCE_ROOT_URL = "https://drive.google.com/drive/folders/" + WOF_FINANCE_ROOT_ID
-function record(value: unknown): Row {
-  return value && typeof value === "object" ? value as Row : {}
+export function paymentMatchIsLocked(status: string): boolean {
+  return ["ČAKÁ NA ZÁPIS", "POTVRDENÁ", "ZAMIETNUTÁ"].includes(status)
 }
-function str(value: unknown): string {
-  return value == null ? "" : String(value).trim()
-}
-function dataFrom(value: unknown): Row {
-  const root = record(value)
-  const result = record(root.result)
-  return record(result.data ?? root.data ?? result)
-}
-function isFailure(value: unknown): boolean {
-  const root = record(value)
-  const result = record(root.result)
-  return root.successful === false || result.successful === false
-}
-
-async function driveMetadata(fileId: string): Promise<Row> {
-  const response = await callMacalyJson("/api/client-app/composio-execute", {
-    action: "execute", toolName: "GOOGLEDRIVE_GET_FILE_METADATA", appName: "GOOGLEDRIVE",
-    params: { fileId, fields: "id,name,mimeType,parents,trashed,webViewLink,modifiedTime" },
-  })
-  if (isFailure(response)) throw new Error("WOF Drive metadata lookup failed")
-  return dataFrom(response)
-}
-
-async function monthlyStatementFiles(): Promise<(Row & { folderId: string })[]> {
-  const [csvResponse, pdfResponse] = await Promise.all([
-    callMacalyJson("/api/client-app/composio-execute", {
-      action: "execute", toolName: "GOOGLEDRIVE_FIND_FILE", appName: "GOOGLEDRIVE",
-      params: { q: "name contains '.csv' and trashed = false", fields: "files(id,name,mimeType,webViewLink,modifiedTime,parents),nextPageToken", pageSize: 1000 },
-    }),
-    callMacalyJson("/api/client-app/composio-execute", {
-      action: "execute", toolName: "GOOGLEDRIVE_FIND_FILE", appName: "GOOGLEDRIVE",
-      params: { q: "name contains '.pdf' and trashed = false", fields: "files(id,name,mimeType,webViewLink,modifiedTime,parents),nextPageToken", pageSize: 1000 },
-    }),
-  ])
-  if (isFailure(csvResponse) || isFailure(pdfResponse)) throw new Error("WOF Drive file search failed")
-  const candidates = [
-    ...(Array.isArray(dataFrom(csvResponse).files) ? dataFrom(csvResponse).files as unknown[] : []),
-    ...(Array.isArray(dataFrom(pdfResponse).files) ? dataFrom(pdfResponse).files as unknown[] : []),
-  ].map(record).filter(file => {
-    const name = str(file.name).toLowerCase()
-    return name.endsWith(".csv") || name.endsWith(".pdf")
-  })
-
-  const metadataCache = new Map<string, Promise<Row>>()
-  const metadata = (folderId: string) => {
-    if (!metadataCache.has(folderId)) metadataCache.set(folderId, driveMetadata(folderId))
-    return metadataCache.get(folderId)!
-  }
-  const folderIds = [...new Set(candidates.map(file => Array.isArray(file.parents) ? str(file.parents[0]) : "").filter(Boolean))]
-  const validFolders = new Set<string>()
-  await Promise.all(folderIds.map(async folderId => {
-    try {
-      const monthFolder = await metadata(folderId)
-      if (str(monthFolder.name) !== "Vypisy" || !Array.isArray(monthFolder.parents)) return
-      const monthId = str(monthFolder.parents[0])
-      if (!monthId) return
-      const month = await metadata(monthId)
-      if (!/^(0[1-9]|1[0-2])\/20\d{2}$/.test(str(month.name)) || !Array.isArray(month.parents)) return
-      const yearId = str(month.parents[0])
-      if (!yearId) return
-      const year = await metadata(yearId)
-      if (!/^20\d{2}$/.test(str(year.name)) || !Array.isArray(year.parents)) return
-      if (year.parents.map(str).includes(WOF_FINANCE_ROOT_ID)) validFolders.add(folderId)
-    } catch {
-      // Ignore search results outside the WOF monthly archive or inaccessible folders.
-    }
-  }))
-  return candidates
-    .filter(file => validFolders.has(Array.isArray(file.parents) ? str(file.parents[0]) : ""))
-    .map(file => ({ ...file, folderId: str(Array.isArray(file.parents) ? file.parents[0] : "") }))
-}
-
 function csvRow(line: string): string[] {
   const fields: string[] = []
   let current = ""
@@ -246,15 +170,6 @@ export function parseStatement(text: string): ParsedStatement {
   }
 }
 
-const driveFileValidator = v.object({
-  id: v.string(),
-  name: v.string(),
-  mimeType: v.string(),
-  modifiedTime: v.string(),
-  webViewLink: v.string(),
-  pairedPdfId: v.optional(v.string()),
-  pairedPdfName: v.optional(v.string()),
-})
 const transactionValidator = v.object({
   operationId: v.string(),
   bookedOn: v.string(),
@@ -485,7 +400,7 @@ export const setMatchProposals = internalMutation({
     const proposals = new Map(args.proposals.map(proposal => [proposal.transactionId, proposal]))
     for (const id of args.evaluatedIds) {
       const current = await ctx.db.get(id)
-      if (!current || ["POTVRDENÁ", "ZAMIETNUTÁ"].includes(current.matchStatus)) continue
+      if (!current || paymentMatchIsLocked(current.matchStatus)) continue
       const proposal = proposals.get(id)
       if (proposal) {
         await ctx.db.patch(id, {
@@ -518,61 +433,6 @@ export const setMatchStatus = internalMutation({
   },
 })
 
-export const listDriveStatementFiles = action({
-  args: {},
-  returns: v.object({
-    ok: v.boolean(), message: v.string(), folderUrl: v.string(), files: v.array(driveFileValidator),
-  }),
-  handler: async (ctx) => {
-    const access = await ctx.runQuery(api.authz.currentAccess, {})
-    if (!access.allowed) return { ok: false, message: "Nemáš prístup k WOF financiám.", folderUrl: WOF_FINANCE_ROOT_URL, files: [] }
-    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") return { ok: false, message: "Pôvodné Drive načítanie je vypnuté; výpisy spracúva priamy n8n workflow.", folderUrl: WOF_FINANCE_ROOT_URL, files: [] }
-    try {
-      const allFiles = await monthlyStatementFiles()
-      const csvs = allFiles.filter(file => str(file.name).toLowerCase().endsWith(".csv"))
-      const pdfs = allFiles.filter(file => str(file.name).toLowerCase().endsWith(".pdf"))
-      return {
-        ok: true,
-        message: csvs.length ? "Našiel som CSV výpisy v mesačných priečinkoch Vypisy." : "V mesačných priečinkoch Vypisy zatiaľ nie je CSV výpis.",
-        folderUrl: WOF_FINANCE_ROOT_URL,
-        files: csvs.map(csv => {
-          const stem = str(csv.name).replace(/\.csv$/i, "").toLocaleLowerCase("sk")
-          const pdf = pdfs.find(item => item.folderId === csv.folderId && str(item.name).replace(/\.pdf$/i, "").toLocaleLowerCase("sk") === stem)
-          return {
-            id: str(csv.id), name: str(csv.name), mimeType: str(csv.mimeType),
-            modifiedTime: str(csv.modifiedTime), webViewLink: str(csv.webViewLink) || WOF_FINANCE_ROOT_URL,
-            pairedPdfId: pdf ? str(pdf.id) : undefined,
-            pairedPdfName: pdf ? str(pdf.name) : undefined,
-          }
-        }),
-      }
-    } catch (error) {
-      console.error("[WOF bank statement] Monthly Drive scan failed", error)
-      return { ok: false, message: "Mesačné priečinky s výpismi sa nepodarilo načítať. Skontroluj pripojenie WOF Drive.", folderUrl: WOF_FINANCE_ROOT_URL, files: [] }
-    }
-  },
-})
-
-function extractedCsv(response: unknown): Promise<string> | string {
-  const root = record(response)
-  const result = record(root.result)
-  const data = dataFrom(response)
-  const downloaded = record(data.downloaded_file_content ?? result.downloaded_file_content ?? root.downloaded_file_content)
-  const inline = downloaded.content ?? downloaded.text ?? downloaded.data
-  if (typeof inline === "string" && inline.length > 20) return inline
-  const base64 = downloaded.base64 ?? downloaded.content_base64
-  if (typeof base64 === "string") {
-    const binary = atob(base64)
-    return new TextDecoder().decode(Uint8Array.from(binary, char => char.charCodeAt(0)))
-  }
-  const url = str(downloaded.s3url ?? downloaded.url ?? downloaded.download_url)
-  if (url) return fetch(url).then(async res => {
-    if (!res.ok) throw new Error("Drive file download failed")
-    return res.text()
-  })
-  throw new Error("Drive nevrátil obsah CSV súboru.")
-}
-
 export const listBankStatements = action({
   args: {},
   returns: v.object({ statements: v.array(statementValidator), transactions: v.array(statementTransactionValidator) }),
@@ -595,7 +455,7 @@ export const proposePaymentMatches = action({
     ])
     if (!payableResult.ok) return { ok: false, message: payableResult.message, evaluated: 0, proposed: 0 }
     const candidates = statementRows.transactions.filter(transaction =>
-      !["POTVRDENÁ", "ZAMIETNUTÁ"].includes(transaction.matchStatus),
+      !paymentMatchIsLocked(transaction.matchStatus),
     )
     const proposals = candidates.flatMap(transaction => {
       const match = findBestPayableMatch({
@@ -674,77 +534,5 @@ export const rejectPaymentMatch = action({
       id: args.transactionId, status: "ZAMIETNUTÁ", reason: "Návrh zamietnutý používateľom.",
     })
     return { ok: true, message: "Návrh bol zamietnutý; register zostal nezmenený." }
-  },
-})
-
-export const importBankStatementCsv = action({
-  args: { fileId: v.string(), accountKey: v.optional(v.string()), pdfFileId: v.optional(v.string()), pdfFileName: v.optional(v.string()) },
-  returns: v.object({
-    ok: v.boolean(), code: v.string(), message: v.string(), statementId: v.optional(v.id("bankStatements")),
-    transactionCount: v.number(), duplicateCount: v.number(), currency: v.string(), period: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.authz.currentAccess, {})
-    if (!access.allowed) return { ok: false, code: "FORBIDDEN", message: "Nemáš prístup k WOF financiám.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
-    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") return { ok: false, code: "LEGACY_DISABLED", message: "Pôvodný Composio import je vypnutý; výpis spracuje priamy n8n workflow.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
-    if (args.accountKey && !/^(EUR_[12]|USD|CZK)$/.test(args.accountKey)) {
-      return { ok: false, code: "INVALID_ACCOUNT_HINT", message: "Zadaný účet výpisu nie je rozpoznaný.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
-    }
-    try {
-      const sourceFiles = await monthlyStatementFiles()
-      const source = sourceFiles.find(file => str(file.id) === args.fileId && str(file.name).toLowerCase().endsWith(".csv"))
-      if (!source) return { ok: false, code: "FILE_NOT_IN_FOLDER", message: "CSV sa nenašlo v mesačnom priečinku WOF Finance/Vypisy.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
-      if (args.pdfFileId && !sourceFiles.some(file => str(file.id) === args.pdfFileId && str(file.name).toLowerCase().endsWith(".pdf") && file.folderId === source.folderId)) {
-        return { ok: false, code: "PDF_NOT_IN_FOLDER", message: "Priradené PDF sa v rovnakom mesačnom priečinku Vypisy nenašlo.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
-      }
-      const existing = await ctx.runQuery(internal.bankStatements.getBankStatementBySource, { sourceFileId: args.fileId, accountKey: args.accountKey })
-      if (existing) {
-        return { ok: true, code: "ALREADY_IMPORTED", message: "Tento CSV výpis už bol importovaný.", statementId: existing.id, transactionCount: existing.transactionCount, duplicateCount: existing.duplicateCount, currency: existing.currency, period: existing.periodStart.slice(0, 7) }
-      }
-      const downloaded = await callMacalyJson("/api/client-app/composio-execute", {
-        action: "execute", toolName: "GOOGLEDRIVE_DOWNLOAD_FILE", appName: "GOOGLEDRIVE",
-        params: { fileId: args.fileId },
-      })
-      if (isFailure(downloaded)) throw new Error("Download failed")
-      const csvText = await extractedCsv(downloaded)
-      const parsed = parseStatement(csvText)
-      const accountDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(parsed.accountNumberRaw))
-      if (args.accountKey && args.accountKey.split("_")[0] !== parsed.currency) {
-        return { ok: false, code: "CURRENCY_MISMATCH", message: "Mena v CSV sa nezhoduje s účtom uvedeným pri tomto importe.", transactionCount: 0, duplicateCount: 0, currency: parsed.currency, period: parsed.periodStart.slice(0, 7) }
-      }
-      const accountKey = parsed.currency + "_" + Array.from(new Uint8Array(accountDigest)).slice(0, 10).map(byte => byte.toString(16).padStart(2, "0")).join("")
-      const statementResult = await ctx.runMutation(internal.bankStatements.createBankStatement, {
-        sourceFileId: args.fileId, sourceFileName: str(source.name),
-        sourceFileUrl: str(source.webViewLink) || WOF_FINANCE_ROOT_URL,
-        pdfFileId: args.pdfFileId, pdfFileName: args.pdfFileName,
-        accountKey, accountLabel: parsed.currency + " účet · " + parsed.accountNumberMasked, currency: parsed.currency,
-        accountNumberMasked: parsed.accountNumberMasked, statementNumber: parsed.statementNumber,
-        periodStart: parsed.periodStart, periodEnd: parsed.periodEnd,
-        openingBalance: parsed.openingBalance, closingBalance: parsed.closingBalance,
-        incomeTotal: parsed.incomeTotal, expenseTotal: parsed.expenseTotal,
-      })
-      if (statementResult.alreadyImported) return { ok: true, code: "ALREADY_IMPORTED", message: "Tento výpis už bol importovaný.", statementId: statementResult.id, transactionCount: 0, duplicateCount: 0, currency: parsed.currency, period: parsed.periodStart.slice(0, 7) }
-      let inserted = 0
-      let duplicates = 0
-      for (let offset = 0; offset < parsed.transactions.length; offset += 100) {
-        const result = await ctx.runMutation(internal.bankStatements.addBankTransactionBatch, {
-          statementId: statementResult.id, accountKey, rows: parsed.transactions.slice(offset, offset + 100),
-        })
-        inserted += result.inserted
-        duplicates += result.duplicates
-      }
-      await ctx.runMutation(internal.bankStatements.finishBankStatement, {
-        statementId: statementResult.id, transactionCount: inserted, duplicateCount: duplicates,
-      })
-      return {
-        ok: true, code: "IMPORTED",
-        message: "Výpis " + parsed.periodStart.slice(0, 7) + " importovaný.",
-        statementId: statementResult.id, transactionCount: inserted, duplicateCount: duplicates,
-        currency: parsed.currency, period: parsed.periodStart.slice(0, 7),
-      }
-    } catch (error) {
-      console.error("[WOF bank statement] Import failed", error)
-      return { ok: false, code: "IMPORT_FAILED", message: "CSV sa nepodarilo bezpečne importovať. Skontroluj formát súboru alebo skús obnoviť zoznam.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
-    }
   },
 })

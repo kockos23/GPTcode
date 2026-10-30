@@ -11,6 +11,7 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/finance-commands' }}",
         "sendHeaders": true,
         "headerParameters": { "parameters": [{ "name": "Authorization", "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}" }] },

@@ -101,12 +101,12 @@ http.route({
 
 http.route({
   path: "/integrations/n8n/finance-commands",
-  method: "GET",
+  method: "POST",
   handler: httpAction(async (ctx, request) => {
     if (!authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
-    const rows = await ctx.runQuery(internal.financeCommands.listPending, {})
+    const rows = await ctx.runMutation(internal.financeCommands.claimPending, {})
     return Response.json({ ok: true, rows })
   }),
 })

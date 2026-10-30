@@ -64,7 +64,7 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 - Macaly číta review položky z Convexu. Rozhodnutie vlastníka uloží dátum dodania, kategóriu a pri faktúrach povinnú ISO menu a zmení stav na `READY`.
 - n8n číta pripravené rozhodnutia cez `GET /integrations/n8n/finance-review-resolutions`, presunie pôvodný Drive súbor, aktualizuje existujúci register riadok a výsledok potvrdí cez `POST /integrations/n8n/finance-review-resolutions/complete`.
 - Endpointy používajú rovnaký `N8N_INTEGRATION_SECRET` ako bankový import. Bez secretu vracajú 401. Táto cesta nepoužíva Composio.
-- Dashboard číta záväzky iba z Convex cache synchronizovanej workflowom Finance Register Sync. Ručné záväzky a úhrady zapisuje do auditovanej Convex fronty; Finance Command Processor ich idempotentne vykoná v Google Sheets a až následne potvrdí výsledok. Poradie behov je príkazy 07:18/17:18, register sync 07:20/17:20 a review resolution 07:25/17:25.
+- Dashboard číta záväzky iba z Convex cache synchronizovanej workflowom Finance Register Sync. Ručné záväzky a úhrady zapisuje do auditovanej Convex fronty; Finance Command Processor si príkazy atómovo rezervuje cez 30-minútový lease, idempotentne ich vykoná v Google Sheets a až následne potvrdí výsledok. Po páde workera sa lease bezpečne obnoví. Poradie behov je príkazy 07:18/17:18, register sync 07:20/17:20 a review resolution 07:25/17:25.
 - Kým nie je nasadená platná Convex URL a dokončený kontrolovaný pilot, existujúci Macaly review formulár ostáva iba legacy UI a nesmie sa používať na produkčné Drive položky.
 - Historický `00_INBOX` nie je zdrojom tohto workflowu.
 

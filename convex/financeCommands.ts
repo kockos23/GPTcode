@@ -1,6 +1,12 @@
 import { v } from "convex/values"
 import { api, internal } from "./_generated/api"
-import { action, internalMutation, internalQuery } from "./_generated/server"
+import { action, internalMutation } from "./_generated/server"
+
+const COMMAND_LEASE_MS = 30 * 60 * 1000
+
+export function commandEligible(status: string, updatedAt: number, now: number): boolean {
+  return status === "PENDING" || (status === "PROCESSING" && updatedAt <= now - COMMAND_LEASE_MS)
+}
 
 const paymentMethods = ["Bankový prevod", "Platobná karta", "Trvalý príkaz / paušál", "Hotovosť", "Iné"]
 
@@ -25,12 +31,31 @@ export const enqueue = internalMutation({
   },
 })
 
-export const listPending = internalQuery({
+export const claimPending = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const rows = await ctx.db.query("financeRegisterCommands")
+    const now = Date.now()
+    const pending = await ctx.db.query("financeRegisterCommands")
       .withIndex("by_status", query => query.eq("status", "PENDING")).take(50)
-    return rows.map(({ _id, _creationTime, ...fields }) => ({ id: _id, ...fields }))
+    const stale = pending.length < 50
+      ? await ctx.db.query("financeRegisterCommands")
+        .withIndex("by_status", query => query.eq("status", "PROCESSING")).take(50)
+      : []
+    const rows = [...pending, ...stale.filter(row => commandEligible(row.status, row.updatedAt, now))].slice(0, 50)
+    for (const row of rows) {
+      await ctx.db.patch(row._id, {
+        status: "PROCESSING",
+        attempts: (row.attempts ?? 0) + 1,
+        updatedAt: now,
+      })
+    }
+    return rows.map(({ _id, _creationTime, ...fields }) => ({
+      id: _id,
+      ...fields,
+      status: "PROCESSING",
+      attempts: (fields.attempts ?? 0) + 1,
+      updatedAt: now,
+    }))
   },
 })
 
@@ -42,6 +67,7 @@ export const complete = internalMutation({
       .withIndex("by_command_id", query => query.eq("commandId", args.commandId)).unique()
     if (!row) return { ok: false, status: "NOT_FOUND" }
     if (row.status === "COMPLETED") return { ok: true, status: "COMPLETED" }
+    if (row.status !== "PROCESSING") return { ok: false, status: "INVALID_STATE" }
     const status = args.ok ? "COMPLETED" : "FAILED"
     await ctx.db.patch(row._id, {
       status, resultMessage: args.message?.slice(0, 500), error: args.error?.slice(0, 500),

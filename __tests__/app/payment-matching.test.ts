@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { findBestPayableMatch, type MatchablePayable, type MatchableTransaction } from "../../convex/paymentMatching"
+import { paymentMatchIsLocked } from "../../convex/bankStatements"
 
 const transaction: MatchableTransaction = {
   id: "tx-1", amount: -120, currency: "EUR", bookedOn: "2026-10-05",
@@ -47,6 +48,23 @@ describe("payment matching", () => {
     const result = findBestPayableMatch({ ...transaction, amount: -60 }, [payable])
     expect(result?.payableId).toBe("doc-1")
     expect(findBestPayableMatch({ ...transaction, amount: -60, variableSymbol: "", recipientMessage: "" }, [payable])).toBeNull()
+  })
+
+  it("uses only the remaining balance after a previous partial payment", () => {
+    expect(findBestPayableMatch({ ...transaction, amount: -40 }, [{ ...payable, paidAmount: "80,00" }])?.payableId).toBe("doc-1")
+    expect(findBestPayableMatch({ ...transaction, amount: -40.02 }, [{ ...payable, paidAmount: "80,00" }])).toBeNull()
+  })
+
+  it("parses grouped European amounts without rounding them to the wrong value", () => {
+    const large = { ...payable, amount: "1.535,00" }
+    expect(findBestPayableMatch({ ...transaction, amount: -1535 }, [large])?.payableId).toBe("doc-1")
+  })
+
+  it("locks a bank match while its register command is pending", () => {
+    expect(paymentMatchIsLocked("ČAKÁ NA ZÁPIS")).toBe(true)
+    expect(paymentMatchIsLocked("POTVRDENÁ")).toBe(true)
+    expect(paymentMatchIsLocked("ZAMIETNUTÁ")).toBe(true)
+    expect(paymentMatchIsLocked("NAVRHNUTÁ")).toBe(false)
   })
 })
 

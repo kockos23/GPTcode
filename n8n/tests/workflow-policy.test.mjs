@@ -16,6 +16,10 @@ const noraMonitorWorkflow = JSON.parse(
   fs.readFileSync(new URL('../workflows/nora-error-monitoring.pilot.json', import.meta.url), 'utf8'),
 )
 const noraMonitorSerialized = JSON.stringify(noraMonitorWorkflow)
+const saraMonitorWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/sara-error-monitoring.pilot.json', import.meta.url), 'utf8'),
+)
+const saraMonitorSerialized = JSON.stringify(saraMonitorWorkflow)
 const reviewWorkflow = JSON.parse(
   fs.readFileSync(new URL('../workflows/sara-v2-review-resolution.pilot.json', import.meta.url), 'utf8'),
 )
@@ -179,6 +183,14 @@ test('NORA monitoring export is isolated and sanitized', () => {
   assert.doesNotMatch(noraMonitorSerialized, /SARA|ajAP0czttC0c9syg|JcLXUmhJ0Kevytvi|9Ynr2a9IaT5m0UJy|Rog0Z5TIQ6qSpzFX/)
 })
 
+test('SARA monitoring covers every finance workflow and remains isolated from NORA', () => {
+  assert.equal(saraMonitorWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.equal((saraMonitorSerialized.match(/REPLACE_[A-Z_]+_WORKFLOW_ID/g) ?? []).length, 7)
+  assert.match(saraMonitorSerialized, /REPLACE_WITH_OWNER_CHAT_ID/)
+  assert.match(saraMonitorSerialized, /SARA Finance|SARA finance/)
+  assert.doesNotMatch(saraMonitorSerialized, /NORA|976VfstjatIijTZx|NORA Telegram Bot/)
+})
+
 test('finance review resolution updates the original file and register row', () => {
   assert.equal(reviewWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
   assert.equal(/composio/i.test(reviewSerialized), false)
@@ -210,6 +222,7 @@ test('finance command processor is direct, idempotent and ordered before registe
   assert.match(commandSerialized, /N8N_INTEGRATION_SECRET/)
   assert.match(commandNodes.get('Priprav idempotentné zápisy')?.parameters.jsCode, /history\.includes\(command\.commandId\)/)
   assert.match(commandNodes.get('Priprav idempotentné zápisy')?.parameters.jsCode, /existing>=1/)
+  assert.equal(commandNodes.get('Convex — načítaj príkazy')?.parameters.method, 'POST')
   assert.equal(commandNodes.get('Finance commands — twice daily')?.parameters.rule.interval[0].expression, '18 7,17 * * *')
   assert.equal(registerSyncWorkflow.nodes[0].parameters.rule.interval[0].expression, '20 7,17 * * *')
 })

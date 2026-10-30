@@ -34,7 +34,7 @@ Use test copies, not the only copy of an accounting document.
 
 ## Production cutover
 
-Do not enable the current Convex/Composio email cron. Keep `WOF_FINANCE_EMAIL_CRON_ENABLED=false`. Scheduled intake moves to the direct-Google n8n workflows defined in `docs/ARCHITECTURE.md`; activate them only after their cutover gates and pilot pass. Keep the review queue monitored: a non-empty queue is expected for scans or unfamiliar invoice layouts and is safer than filing documents into the wrong month.
+The legacy Convex/Composio email cron has been removed. `WOF_FINANCE_EMAIL_CRON_ENABLED` remains false only for backward-compatible environment configuration. Scheduled intake belongs to the direct-Google n8n workflows defined in `docs/ARCHITECTURE.md`; activate new cutover workflows only after their gates and pilot pass. Keep the review queue monitored: a non-empty queue is expected for scans or unfamiliar invoice layouts and is safer than filing documents into the wrong month.
 
 The n8n pilot workflow ID is `ajAP0czttC0c9syg`. Its legacy predecessor `d6twgMlkoiJSa4o0` must remain inactive because it scans all Gmail attachments and targets `00_INBOX`.
 

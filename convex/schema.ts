@@ -157,6 +157,7 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    attempts: v.optional(v.number()),
     processedAt: v.optional(v.number()),
     resultMessage: v.optional(v.string()),
     error: v.optional(v.string()),
