@@ -24,7 +24,7 @@
       "parameters": {
         "resource": "fileFolder",
         "searchMethod": "query",
-        "queryString": "('REPLACE_WITH_2026_01_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_02_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_03_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_04_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_05_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_06_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_07_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_08_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_09_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_10_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_11_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_12_VYPISY_FOLDER_ID' in parents) and trashed = false and name contains '.csv'",
+        "queryString": "('REPLACE_WITH_2026_01_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_02_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_03_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_04_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_05_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_06_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_07_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_08_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_09_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_10_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_11_VYPISY_FOLDER_ID' in parents or 'REPLACE_WITH_2026_12_VYPISY_FOLDER_ID' in parents) and trashed = false and (name contains '.csv' or name contains '.pdf')",
         "filter": {},
         "options": {
           "fields": [
@@ -32,7 +32,7 @@
           ]
         }
       },
-      "name": "Drive — list monthly CSV statements",
+      "name": "Drive — list monthly bank files",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -42,9 +42,9 @@
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().filter(item=>String(item.json.name||'').toLowerCase().endsWith('.csv')).map((item,index)=>({json:{sourceFileId:String(item.json.id||''),sourceFileName:String(item.json.name||''),sourceFileUrl:String(item.json.webViewLink||('https://drive.google.com/file/d/'+item.json.id+'/view')),modifiedTime:String(item.json.modifiedTime||'')},pairedItem:{item:index}}));"
+        "jsCode": "const items=$input.all();\nconst clean=name=>String(name||'').trim();\nconst parent=item=>String(item.json.parents?.[0]||'');\nconst stem=name=>clean(name).toLowerCase().replace(/\\.(csv|pdf)$/i,'');\nconst pdfs=new Map();\nfor(const item of items){\n  const name=clean(item.json.name);\n  if(name.toLowerCase().endsWith('.pdf')) pdfs.set(parent(item)+'::'+stem(name),item.json);\n}\nreturn items.filter(item=>clean(item.json.name).toLowerCase().endsWith('.csv')).map((item,index)=>{\n  const name=clean(item.json.name);\n  const pdf=pdfs.get(parent(item)+'::'+stem(name));\n  return {json:{\n    sourceFileId:String(item.json.id||''),sourceFileName:name,\n    sourceFileUrl:String(item.json.webViewLink||('https://drive.google.com/file/d/'+item.json.id+'/view')),\n    modifiedTime:String(item.json.modifiedTime||''),\n    pdfFileId:pdf?String(pdf.id||''):undefined,pdfFileName:pdf?clean(pdf.name):undefined,\n  },pairedItem:{item:index}};\n});"
       },
-      "name": "CSV — prepare Drive metadata",
+      "name": "CSV — pair with PDF",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -75,7 +75,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const out=[];for(const [index,item] of $input.all().entries()){const buf=await this.helpers.getBinaryDataBuffer(index,'data');if(buf.length>10*1024*1024)throw new Error('CSV výpis presahuje 10 MB');const text=buf.toString('utf8').replace(/^\\uFEFF/,'');out.push({json:{sourceFileId:String(item.json.sourceFileId||item.json.id||''),sourceFileName:String(item.json.sourceFileName||item.binary?.data?.fileName||''),sourceFileUrl:String(item.json.sourceFileUrl||''),csvText:text},pairedItem:{item:index}})}return out;"
+        "jsCode": "const out=[];\nfor(const [index,item] of $input.all().entries()){\n  const buf=await this.helpers.getBinaryDataBuffer(index,'data');\n  if(buf.length>10*1024*1024) throw new Error('CSV výpis presahuje 10 MB');\n  const text=buf.toString('utf8').replace(/^\\uFEFF/,'');\n  out.push({json:{\n    sourceFileId:String(item.json.sourceFileId||item.json.id||''),\n    sourceFileName:String(item.json.sourceFileName||item.binary?.data?.fileName||''),\n    sourceFileUrl:String(item.json.sourceFileUrl||''),\n    pdfFileId:item.json.pdfFileId?String(item.json.pdfFileId):undefined,\n    pdfFileName:item.json.pdfFileName?String(item.json.pdfFileName):undefined,\n    csvText:text,\n  },pairedItem:{item:index}});\n}\nreturn out;"
       },
       "name": "CSV — prepare Convex payload",
       "type": "n8n-nodes-base.code",
@@ -125,28 +125,6 @@
         ]
       ]
     },
-    "Drive — list monthly CSV statements": {
-      "main": [
-        [
-          {
-            "node": "CSV — prepare Drive metadata",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "CSV — prepare Drive metadata": {
-      "main": [
-        [
-          {
-            "node": "Drive — download CSV statement",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Drive — download CSV statement": {
       "main": [
         [
@@ -163,6 +141,28 @@
         [
           {
             "node": "Convex — import bank statement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive — list monthly bank files": {
+      "main": [
+        [
+          {
+            "node": "CSV — pair with PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CSV — pair with PDF": {
+      "main": [
+        [
+          {
+            "node": "Drive — download CSV statement",
             "type": "main",
             "index": 0
           }

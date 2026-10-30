@@ -107,19 +107,23 @@ function csvRow(line: string): string[] {
 }
 function decimal(value: string): number {
   const compact = value.replace(/\s/g, "").replace(/[^\d,.-]/g, "")
+  if (!/\d/.test(compact)) return Number.NaN
   const normalized = compact.includes(",") && compact.includes(".")
     ? compact.replace(/\./g, "").replace(",", ".")
     : compact.replace(",", ".")
   const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : 0
+  return Number.isFinite(parsed) ? parsed : Number.NaN
 }
 function isoDate(value: string): string {
   const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
-  return match ? match[3] + "-" + match[2] + "-" + match[1] : ""
+  if (!match) return ""
+  const result = match[3] + "-" + match[2] + "-" + match[1]
+  const parsed = new Date(result + "T00:00:00Z")
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === result ? result : ""
 }
 export function summaryNumber(lines: string[], prefix: string): number {
   const line = lines.find(item => item.toLocaleLowerCase("sk").startsWith(prefix.toLocaleLowerCase("sk")))
-  if (!line) return 0
+  if (!line) return Number.NaN
   const value = line.split(":").slice(1).join(":")
   const match = value.match(/[-+]?\d[\d\s.,]*/)
   return decimal(match?.[0] ?? "")
@@ -166,6 +170,8 @@ export function parseStatement(text: string): ParsedStatement {
   const periodMatch = periodLine.match(/(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})/)
   const openingLine = metadataLines.find(line => line.startsWith("Začiatočný stav účtu")) ?? ""
   const closingLine = metadataLines.find(line => line.startsWith("Konečný stav účtu")) ?? ""
+  const incomeLine = metadataLines.find(line => line.startsWith("Suma príjmov")) ?? ""
+  const expenseLine = metadataLines.find(line => line.startsWith("Suma výdavkov")) ?? ""
   const headerIndex = lines.findIndex(line => csvRow(line)[0]?.replace(/^\uFEFF/, "").trim() === "ID operácie")
   if (headerIndex < 0 || !periodMatch) throw new Error("Výpis nemá rozpoznateľnú hlavičku alebo obdobie.")
   const transactions: ParsedTransaction[] = []
@@ -175,8 +181,8 @@ export function parseStatement(text: string): ParsedStatement {
     const type = row[13].trim()
     let amount = decimal(row[2])
     const normalizedType = type.toLocaleLowerCase("sk")
-    if (/výdaj|vydaj|odchádz|odchaz|platba/.test(normalizedType)) amount = -Math.abs(amount)
-    else if (/príjem|prijem|vratka/.test(normalizedType)) amount = Math.abs(amount)
+    if (/príjem|prijem|vratka|prijat/.test(normalizedType)) amount = Math.abs(amount)
+    else if (/výdaj|vydaj|odchádz|odchaz|platba/.test(normalizedType)) amount = -Math.abs(amount)
     transactions.push({
       operationId: row[0].trim(),
       bookedOn: isoDate(row[1].trim()),
@@ -195,25 +201,47 @@ export function parseStatement(text: string): ParsedStatement {
       instructionId: row[18].trim(),
     })
   }
-  if (transactions.some(item => !item.bookedOn || !item.currency || !Number.isFinite(item.amount))) {
+  if (!transactions.length) throw new Error("Výpis neobsahuje žiadne transakcie.")
+  if (transactions.some(item => !item.bookedOn || !/^[A-Z]{3}$/.test(item.currency) || !Number.isFinite(item.amount))) {
     throw new Error("Niektorá transakcia má neplatný dátum, sumu alebo menu.")
   }
+  const operationIds = new Set(transactions.map(item => item.operationId))
+  if (operationIds.size !== transactions.length) throw new Error("Výpis obsahuje duplicitné ID operácie.")
   const digits = (accountMatch?.[1] ?? "").replace(/\D/g, "")
   const currencyLine = openingLine || closingLine
   const accountCurrency = currencyLine.match(/\b([A-Z]{3})\s*$/)?.[1] ?? transactions[0]?.currency ?? ""
-  if (!digits || !accountCurrency) throw new Error("Číslo účtu alebo mena sa vo výpise nedajú rozpoznať.")
+  if (!digits || !/^[A-Z]{3}$/.test(accountCurrency)) throw new Error("Číslo účtu alebo mena sa vo výpise nedajú rozpoznať.")
   if (transactions.some(item => item.currency !== accountCurrency)) throw new Error("Mena transakcií sa nezhoduje s menou účtu.")
+  const periodStart = isoDate(periodMatch[1])
+  const periodEnd = isoDate(periodMatch[2])
+  if (!periodStart || !periodEnd || periodStart > periodEnd) throw new Error("Obdobie výpisu nie je platné.")
+  if (transactions.some(item => item.bookedOn < periodStart || item.bookedOn > periodEnd)) {
+    throw new Error("Transakcia je mimo obdobia výpisu.")
+  }
+  if (!openingLine || !closingLine || !incomeLine || !expenseLine) {
+    throw new Error("Výpis nemá všetky povinné súhrnné hodnoty.")
+  }
+  const openingBalance = summaryNumber(metadataLines, "Začiatočný stav účtu")
+  const closingBalance = summaryNumber(metadataLines, "Konečný stav účtu")
+  const incomeTotal = summaryNumber(metadataLines, "Suma príjmov")
+  const expenseTotal = summaryNumber(metadataLines, "Suma výdavkov")
+  if (![openingBalance, closingBalance, incomeTotal, expenseTotal].every(Number.isFinite)) {
+    throw new Error("Niektorá súhrnná hodnota výpisu nie je platná.")
+  }
+  if (Math.abs(openingBalance + incomeTotal - expenseTotal - closingBalance) > 0.02) {
+    throw new Error("Nesedí počiatočný stav + príjmy - výdavky = konečný stav.")
+  }
   return {
     statementNumber: statementMatch?.[1]?.replace(/[^\w/-]/g, "") ?? "",
     accountNumberRaw: digits,
     accountNumberMasked: "•••• " + digits.slice(-4),
     currency: accountCurrency,
-    periodStart: isoDate(periodMatch[1]),
-    periodEnd: isoDate(periodMatch[2]),
-    openingBalance: summaryNumber(metadataLines, "Začiatočný stav účtu"),
-    closingBalance: summaryNumber(metadataLines, "Konečný stav účtu"),
-    incomeTotal: summaryNumber(metadataLines, "Suma príjmov"),
-    expenseTotal: summaryNumber(metadataLines, "Suma výdavkov"),
+    periodStart,
+    periodEnd,
+    openingBalance,
+    closingBalance,
+    incomeTotal,
+    expenseTotal,
     transactions,
   }
 }

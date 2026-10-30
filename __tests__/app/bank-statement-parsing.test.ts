@@ -55,5 +55,33 @@ describe("bank statement CSV", () => {
     expect(() => parseStatement(csv.replace("50,00;EUR;SK002", "50,00;USD;SK002")))
       .toThrow("Mena transakcií sa nezhoduje s menou účtu.")
   })
+
+  it("rejects an invalid amount instead of silently importing zero", () => {
+    expect(() => parseStatement(csv.replace("200,00;EUR;SK001", "suma;EUR;SK001")))
+      .toThrow("Niektorá transakcia má neplatný dátum, sumu alebo menu.")
+  })
+
+  it("rejects impossible dates and transactions outside the statement period", () => {
+    expect(() => parseStatement(csv.replace("05.10.2026", "31.02.2026")))
+      .toThrow("Niektorá transakcia má neplatný dátum, sumu alebo menu.")
+    expect(() => parseStatement(csv.replace("05.10.2026", "30.09.2026")))
+      .toThrow("Transakcia je mimo obdobia výpisu.")
+  })
+
+  it("rejects duplicate operation IDs inside one CSV", () => {
+    expect(() => parseStatement(csv.replace("op-2", "op-1")))
+      .toThrow("Výpis obsahuje duplicitné ID operácie.")
+  })
+
+  it("rejects inconsistent statement totals", () => {
+    expect(() => parseStatement(csv.replace("Konečný stav účtu: 850,00 EUR", "Konečný stav účtu: 851,00 EUR")))
+      .toThrow("Nesedí počiatočný stav + príjmy - výdavky = konečný stav.")
+  })
+
+  it("treats an explicitly received payment as income", () => {
+    const received = csv.replace(";Príjem;;;;TATRSKBX", ";Prijatá platba;;;;TATRSKBX")
+    expect(received).not.toBe(csv)
+    expect(parseStatement(received).transactions[1].amount).toBe(50)
+  })
 })
 

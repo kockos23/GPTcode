@@ -139,6 +139,10 @@ test('bank CSV export is direct, sanitized and inert before Convex cutover', () 
   assert.equal(/1[A-Za-z0-9_-]{20,}/.test(bankCsvSerialized), false)
   assert.equal((bankCsvSerialized.match(/REPLACE_WITH_2026_\d{2}_VYPISY_FOLDER_ID/g) ?? []).length, 12)
   assert.equal(bankCsvNodes.get('Convex — import bank statement')?.disabled, true)
+  assert.match(bankCsvNodes.get('Drive — list monthly bank files')?.parameters.queryString, /name contains '\.pdf'/)
+  assert.match(bankCsvNodes.get('CSV — pair with PDF')?.parameters.jsCode, /pdfFileId/)
+  assert.match(bankCsvNodes.get('CSV — pair with PDF')?.parameters.jsCode, /parent\(item\).*stem\(name\)/s)
+  assert.match(bankCsvNodes.get('CSV — prepare Convex payload')?.parameters.jsCode, /pdfFileName/)
   assert.equal(
     bankCsvNodes.get('Bank CSV — twice daily')?.parameters.rule.interval[0].expression,
     '30 7,17 * * *',

@@ -56,6 +56,15 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 - Úspešne overený dokument sa presunie a premenuje priamo v cieľovom mesačnom priečinku; nevytvára sa archívna kópia.
 - Nejednoznačný dokument zostane vo vstupnom priečinku a zapíše sa do review registra.
 - Gmail a Drive používajú rovnaký obsahový SHA-256 identifikátor, takže rovnaký súbor z dvoch kanálov sa nespracuje dvakrát.
+- Nejasný dokument zostáva v `01_NA_SPRACOVANIE`; register obsahuje jeho Drive ID a priamy odkaz. Faktúra bez platnej meny sa nesmie automaticky zaradiť.
+
+### Review outbox
+
+- n8n zapisuje review udalosť cez autentizovaný `POST /integrations/n8n/finance-reviews`; `documentId` je idempotency key.
+- Macaly číta review položky z Convexu. Rozhodnutie vlastníka uloží dátum dodania, kategóriu a pri faktúrach povinnú ISO menu a zmení stav na `READY`.
+- n8n číta pripravené rozhodnutia cez `GET /integrations/n8n/finance-review-resolutions`, presunie pôvodný Drive súbor, aktualizuje existujúci register riadok a výsledok potvrdí cez `POST /integrations/n8n/finance-review-resolutions/complete`.
+- Endpointy používajú rovnaký `N8N_INTEGRATION_SECRET` ako bankový import. Bez secretu vracajú 401. Táto cesta nepoužíva Composio.
+- Kým nie je nasadená platná Convex URL a dokončený kontrolovaný pilot, existujúci Macaly review formulár ostáva iba legacy UI a nesmie sa používať na produkčné Drive položky.
 - Historický `00_INBOX` nie je zdrojom tohto workflowu.
 
 ### Telegram intake

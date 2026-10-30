@@ -21,6 +21,9 @@
 - Telegram SARY prešiel end-to-end pilotom s PDF faktúrou, následne bol obmedzený na overený chat vlastníka a odpovede už nepridávajú n8n attribution.
 - Drive intake je aktívny pre `01_NA_SPRACOVANIE` o 07:15 a 17:15; úspešný súbor presúva bez vytvorenia duplicitnej kópie.
 - Priamy CSV bankový workflow má overenú read-only Drive vetvu a zostáva zámerne neaktívny, kým nebude nasadený autentizovaný Convex endpoint a secret.
+- Produkčný Drive pilot 29. 10. 2026 našiel 20 dokumentov, 15 zaradil a 5 ponechal na kontrolu. Oprava následne vrátila do intake aj automaticky zaradený doklad bez určenej meny, opravila kanál všetkých 20 riadkov na `drive` a doplnila odkazy na originály. Budúce faktúry bez platnej meny sa automaticky nezaradia.
+- Read-only audit 30. 10. 2026 potvrdil úspešné následné Drive behy, aktívnu NORU a všetky tri vstupy SARY, bez aktívnych dočasných workflowov a bez nových produkčných chýb.
+- Convex review outbox a tri autentizované n8n endpointy sú pripravené v kóde, ale zostávajú nenasadené do získania platnej Convex URL a integračného secretu.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
 
 ## Kandidáti na upratanie zo starého manuálneho testu

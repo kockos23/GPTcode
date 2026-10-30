@@ -7,13 +7,17 @@ const http = httpRouter()
 
 auth.addHttpRoutes(http)
 
+function authorizedN8n(request: Request): boolean {
+  const configuredSecret = process.env.N8N_INTEGRATION_SECRET
+  const authorization = request.headers.get("authorization") ?? ""
+  return Boolean(configuredSecret) && authorization === `Bearer ${configuredSecret}`
+}
+
 http.route({
   path: "/integrations/n8n/bank-statements",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const configuredSecret = process.env.N8N_INTEGRATION_SECRET
-    const authorization = request.headers.get("authorization") ?? ""
-    if (!configuredSecret || authorization !== `Bearer ${configuredSecret}`) {
+    if (!authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
@@ -35,6 +39,72 @@ http.route({
       console.error("[n8n bank import] Import failed", error)
       return Response.json({ ok: false, code: "IMPORT_FAILED" }, { status: 422 })
     }
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/finance-reviews",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) {
+      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    }
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const text = (key: string, limit = 500) => typeof body?.[key] === "string" ? String(body[key]).trim().slice(0, limit) : ""
+    const documentId = text("documentId", 180)
+    const source = text("source", 40)
+    const sourceFileId = text("sourceFileId", 180)
+    const sourceFileName = text("sourceFileName", 240)
+    const fileUrl = text("fileUrl", 500)
+    const reviewReason = text("reviewReason", 1000)
+    if (!documentId || !source || !sourceFileId || !sourceFileName || !fileUrl || !reviewReason) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const totalAmount = typeof body?.totalAmount === "number" && Number.isFinite(body.totalAmount)
+      ? body.totalAmount : undefined
+    const result = await ctx.runMutation(internal.financeReviews.upsertFromN8n, {
+      documentId, source, sourceFileId, sourceFileName, fileUrl, reviewReason,
+      supplier: text("supplier", 240), invoiceNumber: text("invoiceNumber", 120),
+      totalAmount,
+      extractedDeliveryDate: text("deliveryDate", 10) || undefined,
+      extractedCategory: text("category", 40) || undefined,
+      extractedCurrency: text("currency", 3).toUpperCase() || undefined,
+    })
+    return Response.json({ ok: true, ...result })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/finance-review-resolutions",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) {
+      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    }
+    const rows = await ctx.runQuery(internal.financeReviews.listReadyRows, {})
+    return Response.json({ ok: true, rows })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/finance-review-resolutions/complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) {
+      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    }
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const documentId = typeof body?.documentId === "string" ? body.documentId.trim().slice(0, 180) : ""
+    if (!documentId || typeof body?.ok !== "boolean") {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.financeReviews.completeFromN8n, {
+      documentId, ok: body.ok,
+      targetFileId: typeof body.targetFileId === "string" ? body.targetFileId.trim().slice(0, 180) : undefined,
+      targetFileUrl: typeof body.targetFileUrl === "string" ? body.targetFileUrl.trim().slice(0, 500) : undefined,
+      error: typeof body.error === "string" ? body.error.trim().slice(0, 500) : undefined,
+    })
+    return Response.json(result, { status: result.ok ? 200 : 404 })
   }),
 })
 
