@@ -23,6 +23,7 @@
 - Priamy CSV bankový workflow má overenú read-only Drive vetvu a zostáva zámerne neaktívny, kým nebude nasadený autentizovaný Convex endpoint a secret.
 - Produkčný Drive pilot 29. 10. 2026 našiel 20 dokumentov, 15 zaradil a 5 ponechal na kontrolu. Oprava následne vrátila do intake aj automaticky zaradený doklad bez určenej meny, opravila kanál všetkých 20 riadkov na `drive` a doplnila odkazy na originály. Budúce faktúry bez platnej meny sa automaticky nezaradia.
 - Read-only audit 30. 10. 2026 potvrdil úspešné následné Drive behy, aktívnu NORU a všetky tri vstupy SARY, bez aktívnych dočasných workflowov a bez nových produkčných chýb.
+- Live audit 31. 10. 2026 potvrdil nulové placeholdery vo všetkých pripravených finance workflowoch. Gmail, Drive a Telegram intake dostali explicitné prepojenie na centrálny SARA error workflow; ich uzly, credentials aj aktívny stav zostali nezmenené. Aktívne SARA/NORA workflowy nemali za predchádzajúcich sedem dní žiadnu novú chybu.
 - Convex review outbox a tri autentizované n8n endpointy sú pripravené v kóde, ale zostávajú nenasadené do získania platnej Convex URL a integračného secretu.
 - Read-only bankový pilot 30. 10. 2026 našiel presne jeden CSV/PDF pár v rovnakom mesačnom priečinku a správne ho spároval podľa názvu. Reálny CSV výpis za september 2026 prešiel po oprave normalizácie záporného súčtu výdavkov: maskovaný EUR účet, 75 transakcií a konzistentná rovnica zostatkov. Convex zápis sa nevykonal a produkčný bankový workflow zostal neaktívny.
 - Dočasné diagnostické a fixture workflowy boli deaktivované a odstránené.
@@ -35,8 +36,8 @@ Oba majú stav `Na kontrolu`, prázdny dátum dodania a prázdne obdobie. Bez ko
 
 ## Zostávajúce jednorazové vstupy
 
-1. Publikovať pripravený cloud environment draft. Pridáva presnú Macaly doménu a `*.convex.cloud`/`*.convex.site`; n8n a GitHub nastavenia zostávajú zachované.
-2. Sprístupniť skutočné `VITE_CONVEX_URL` a `CONVEX_SITE_URL` z Macaly/Convex konfigurácie. Aktuálne hodnoty v cloud runtime nie sú platné Convex HTTPS URL.
+1. V cloud environment nastaviť `VITE_CONVEX_URL` a `CONVEX_SITE_URL` ako obyčajné, verejné HTTPS premenné a publikovať opravený draft. Aktuálne secret väzby obsahujú neplatné krátke hodnoty.
+2. Po potvrdenej rotácii historicky zverejneného deploy kľúča nasadiť pripravené Convex funkcie; dovtedy priamy health endpoint správne ešte neexistuje (`404`).
 3. Overiť dátum dodania samostatne v oboch testovacích dokumentoch; OpenAI ho nenašiel a hash test potvrdil, že ide o rozdielny binárny obsah.
 4. Na hostingu nastaviť forwarding `finance@wofevents.com` do pripojeného Gmailu a jedným testom potvrdiť, že sa zachová pôvodný príjemca. Live trigger už prijíma `to:finance@wofevents.com`; label `WOF_FINANCE_INTAKE` ostáva ako záloha.
 

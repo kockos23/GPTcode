@@ -1379,6 +1379,7 @@
     }
   },
   "settings": {
+    "errorWorkflow": "cmGxWnoZh613XRWTF7o09",
     "executionOrder": "v1",
     "timezone": "Europe/Bratislava",
     "saveManualExecutions": true,

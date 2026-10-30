@@ -40,6 +40,8 @@ The n8n pilot workflow ID is `ajAP0czttC0c9syg`. Its legacy predecessor `d6twgMl
 
 After the Convex cutover, activate Finance Health Monitor `2YGEEBjYBn8aNBsY` only after register sync, command processing, review resolution and bank import pilots pass. It runs at 07:35 and 17:35 Europe/Bratislava and intentionally fails on stale operational state so the existing SARA error workflow sends a Telegram alert. A review-required queue is informational and does not by itself fail health; failed reviews do.
 
+Live configuration audit 31 October 2026 confirmed that Gmail, Drive and Telegram intake explicitly reference the central SARA error workflow `cmGxWnoZh613XRWTF7o09`. All three remained active and no active SARA/NORA workflow had a new error in the preceding seven days.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.
