@@ -38,6 +38,8 @@ The legacy Convex/Composio email cron has been removed. `WOF_FINANCE_EMAIL_CRON_
 
 The n8n pilot workflow ID is `ajAP0czttC0c9syg`. Its legacy predecessor `d6twgMlkoiJSa4o0` must remain inactive because it scans all Gmail attachments and targets `00_INBOX`.
 
+After the Convex cutover, activate Finance Health Monitor `2YGEEBjYBn8aNBsY` only after register sync, command processing, review resolution and bank import pilots pass. It runs at 07:35 and 17:35 Europe/Bratislava and intentionally fails on stale operational state so the existing SARA error workflow sends a Telegram alert. A review-required queue is informational and does not by itself fail health; failed reviews do.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.

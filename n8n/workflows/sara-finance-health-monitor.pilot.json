@@ -1,0 +1,47 @@
+{
+  "name": "SARA — Finance Health Monitor",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "35 7,17 * * *" }] } },
+      "id": "finance-health-schedule",
+      "name": "Health check — twice daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/health' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "get-finance-health",
+      "name": "Convex — skontroluj finance health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "if($json.ok!==true)throw new Error('Finance health nie je v poriadku: '+JSON.stringify($json.issues||[]));\nreturn [{json:{ok:true,checkedAt:$json.checkedAt,registerUpdatedAt:$json.register?.updatedAt??null,payableCount:$json.register?.payableCount??0,pendingCommands:$json.commands?.pending??0,reviewRequired:$json.reviews?.required??0,lastBankImportAt:$json.bank?.lastImportedAt??null}}];"
+      },
+      "id": "validate-finance-health",
+      "name": "Potvrď zdravý stav",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "Health check — twice daily": { "main": [[{ "node": "Convex — skontroluj finance health", "type": "main", "index": 0 }]] },
+    "Convex — skontroluj finance health": { "main": [[{ "node": "Potvrď zdravý stav", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

@@ -15,6 +15,7 @@
 - Finance Register Sync `kp5UV1ZLKe5XjPWP` načíta register `Doklady` priamo cez Google Sheets a synchronizuje ohraničený snapshot do Convex cache o 07:20 a 17:20. Zostáva neaktívny do bezpečného Convex publishu.
 - Finance Command Processor `R0bTgnf4bcPX41tG` spracuje o 07:18 a 17:18 ručne pridané záväzky a potvrdené úhrady z Convex fronty. Zápisy sú idempotentné podľa `commandId`; workflow je pripravený s reálnym Sheets credentialom, bez Composio, ale zatiaľ neaktívny.
 - Billdu Read-only Probe `GYjLHpte4wi3g06L` je manuálny, neaktívny a monitorovaný. Po nasadení Billdu proxy endpointov načíta maximálne desať metadát dokladov, aby sa overila reálna schéma dát; nevykonáva Drive ani Sheets zápis a nesťahuje PDF.
+- Finance Health Monitor `2YGEEBjYBn8aNBsY` je pripravený neaktívny s behom o 07:35 a 17:35. Po cutovere kontroluje čerstvosť registra, zaseknuté alebo zlyhané príkazy, zlyhané review položky a posledný bankový import; chyby smerujú do samostatného SARA Telegram monitoringu.
 
 ## Verziovaný export
 

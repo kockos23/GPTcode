@@ -40,7 +40,16 @@ async function billduRequest(path: string, query: Record<string, string | number
   url.searchParams.set("apiKey", apiKey)
   url.searchParams.set("timestamp", String(timestamp))
   url.searchParams.set("signature", signature)
-  return fetch(url, { method: "GET", headers: { Accept: "application/json, application/pdf" } })
+  return fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json, application/pdf" },
+    signal: AbortSignal.timeout(20_000),
+  })
+}
+
+export function isPdfBytes(bytes: ArrayBuffer): boolean {
+  if (bytes.byteLength < 5) return false
+  return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-"
 }
 
 export async function listBillduDocuments(page: number, limit: number): Promise<unknown> {
@@ -63,5 +72,6 @@ export async function downloadBillduDocument(id: string): Promise<{ bytes: Array
   if (length > MAX_DOWNLOAD_BYTES) throw new Error("BILLDU_DOCUMENT_TOO_LARGE")
   const bytes = await response.arrayBuffer()
   if (bytes.byteLength > MAX_DOWNLOAD_BYTES) throw new Error("BILLDU_DOCUMENT_TOO_LARGE")
+  if (!isPdfBytes(bytes)) throw new Error("BILLDU_RESPONSE_NOT_PDF")
   return { bytes, contentType: response.headers.get("content-type") || "application/pdf" }
 }

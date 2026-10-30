@@ -145,6 +145,16 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/health",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const result = await ctx.runQuery(internal.financeHealth.snapshot, {})
+    return Response.json(result, { status: result.ok ? 200 : 503, headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/finance-commands",
   method: "POST",
   handler: httpAction(async (ctx, request) => {

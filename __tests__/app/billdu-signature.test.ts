@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { createBillduSignature } from "../../convex/billdu"
+import { createBillduSignature, isPdfBytes } from "../../convex/billdu"
 
 describe("Billdu HMAC authentication", () => {
   it("matches the official client top-level key sorting contract", async () => {
@@ -16,5 +16,10 @@ describe("Billdu HMAC authentication", () => {
     const signature = await createBillduSignature({}, "key", "secret-value", 123)
     expect(signature).not.toContain("secret-value")
     expect(signature.length).toBeGreaterThan(60)
+  })
+
+  it("accepts only an actual PDF payload", () => {
+    expect(isPdfBytes(new TextEncoder().encode("%PDF-1.7 test").buffer)).toBe(true)
+    expect(isPdfBytes(new TextEncoder().encode('{"error":"unauthorized"}').buffer)).toBe(false)
   })
 })
