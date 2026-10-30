@@ -1,0 +1,70 @@
+{
+  "name": "SARA v2 — Finance Register Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "20 7,17 * * *" }] }
+      },
+      "id": "register-sync-schedule",
+      "name": "Register sync — twice daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/REPLACE_WITH_WOF_FINANCE_SHEET_ID/values/Doklady%21A%3AAK",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "read-finance-register",
+      "name": "Sheets — načítaj Doklady register",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sourceRows=Array.isArray($json.values)?$json.values:[];\nif(!sourceRows.length||String(sourceRows[0]?.[0]||'')!=='Doklad ID')throw new Error('Register nemá očakávanú hlavičku Doklad ID');\nif(sourceRows.length>5001)throw new Error('Register presahuje limit 5000 riadkov');\nreturn [{json:{sourceRows,syncedAt:Date.now()}}];"
+      },
+      "id": "validate-register-snapshot",
+      "name": "Validuj register snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/finance-register' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "sync-register-convex",
+      "name": "Convex — synchronizuj register",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
+    }
+  ],
+  "connections": {
+    "Register sync — twice daily": { "main": [[{ "node": "Sheets — načítaj Doklady register", "type": "main", "index": 0 }]] },
+    "Sheets — načítaj Doklady register": { "main": [[{ "node": "Validuj register snapshot", "type": "main", "index": 0 }]] },
+    "Validuj register snapshot": { "main": [[{ "node": "Convex — synchronizuj register", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

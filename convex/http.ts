@@ -75,6 +75,65 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/finance-register",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) {
+      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    }
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const sourceRows = Array.isArray(body?.sourceRows) ? body.sourceRows.filter(Array.isArray) : []
+    if (!sourceRows.length || sourceRows.length > 5001) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    try {
+      const result = await ctx.runMutation(internal.wofFinance.syncPayablesFromN8n, {
+        sourceRows,
+        syncedAt: typeof body?.syncedAt === "number" ? body.syncedAt : Date.now(),
+      })
+      return Response.json(result)
+    } catch (error) {
+      console.error("[n8n finance register] Sync failed", error)
+      return Response.json({ ok: false, code: "SYNC_FAILED" }, { status: 422 })
+    }
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/finance-commands",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) {
+      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    }
+    const rows = await ctx.runQuery(internal.financeCommands.listPending, {})
+    return Response.json({ ok: true, rows })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/finance-commands/complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) {
+      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    }
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const commandId = typeof body?.commandId === "string" ? body.commandId.trim().slice(0, 180) : ""
+    if (!commandId || typeof body?.ok !== "boolean") {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.financeCommands.complete, {
+      commandId,
+      ok: body.ok,
+      message: typeof body.message === "string" ? body.message.trim().slice(0, 500) : undefined,
+      error: typeof body.error === "string" ? body.error.trim().slice(0, 500) : undefined,
+    })
+    return Response.json(result, { status: result.ok ? 200 : 404 })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/finance-review-resolutions",
   method: "GET",
   handler: httpAction(async (ctx, request) => {

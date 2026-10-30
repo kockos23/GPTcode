@@ -149,4 +149,19 @@ export default defineSchema({
     .index("by_document_id", ["documentId"])
     .index("by_status", ["status"])
     .index("by_updated_at", ["updatedAt"]),
+  financeRegisterCommands: defineTable({
+    commandId: v.string(),
+    type: v.string(),
+    payload: v.any(),
+    status: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    processedAt: v.optional(v.number()),
+    resultMessage: v.optional(v.string()),
+    error: v.optional(v.string()),
+  })
+    .index("by_command_id", ["commandId"])
+    .index("by_status", ["status"])
+    .index("by_created_at", ["createdAt"]),
 })

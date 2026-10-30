@@ -2,7 +2,7 @@
 
 Macaly project with a TanStack/React frontend and Convex backend. Macaly remains the product workspace and UI. The target production integration architecture uses n8n with native Google OAuth nodes for routine Gmail, Drive, Sheets, and Calendar operations; Composio is reserved for exceptional capabilities without a suitable direct connector.
 
-The current branch still contains transitional Macaly/Composio calls. Keep the finance email cron disabled until the n8n cutover gates in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pass.
+Legacy Macaly/Composio helpers remain disabled for compatibility, while the finance dashboard read/write path is prepared for direct n8n + Google + Convex operation. Keep the legacy finance email cron disabled until the n8n cutover gates in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pass.
 
 ## Local validation
 

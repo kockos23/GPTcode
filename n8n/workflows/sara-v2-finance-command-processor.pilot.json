@@ -1,0 +1,98 @@
+{
+  "name": "SARA v2 — Finance Command Processor",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "18 7,17 * * *" }] } },
+      "id": "finance-command-schedule",
+      "name": "Finance commands — twice daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/finance-commands' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}" }] },
+        "options": {}
+      },
+      "id": "get-finance-commands",
+      "name": "Convex — načítaj príkazy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/REPLACE_WITH_WOF_FINANCE_SHEET_ID/values/Doklady%21A%3AAK",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "read-finance-register-for-commands",
+      "name": "Sheets — načítaj register pre príkazy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const commands=$('Convex — načítaj príkazy').first().json.rows||[];\nconst rows=Array.isArray($json.values)?$json.values.map(row=>[...row]):[];\nif(!rows.length||String(rows[0]?.[0]||'')!=='Doklad ID')throw new Error('Register nemá očakávanú hlavičku Doklad ID');\nif(commands.length>50)throw new Error('Príkazová dávka presahuje limit 50');\nconst clean=v=>String(v??'').trim();\nconst num=v=>{const s=clean(v).replace(/\\s/g,'');const n=Number(s.includes(',')&&s.includes('.')?s.replace(/\\./g,'').replace(',','.'):s.replace(',','.'));return Number.isFinite(n)?n:0};\nconst paid=s=>['uhradené','uhradene','paid','zaplatené','zaplatene'].includes(clean(s).toLocaleLowerCase('sk'));\nconst output=[];\nfor(const command of commands){\n const p=command.payload||{};let data=[];\n if(command.type==='ADD_PAYABLE'){\n  const existing=rows.findIndex((row,index)=>index>0&&clean(row[0])===command.commandId);\n  if(existing>=1){data=[{range:`Doklady!A${existing+1}`,majorDimension:'ROWS',values:[[command.commandId]]}]}\n  else {\n   const method=clean(p.paymentMethod);const autoPaid=['Platobná karta','Trvalý príkaz / paušál'].includes(method);\n   const values=Array(37).fill('');\n   Object.assign(values,{0:command.commandId,1:'WOF',2:clean(p.deliveryDate).slice(0,7),3:'Ručný záväzok',4:'Na kontrolu',5:new Date(command.createdAt).toISOString(),6:clean(p.invoiceDate),7:clean(p.deliveryDate),8:clean(p.dueDate),9:clean(p.supplier),13:clean(p.invoiceNumber),15:clean(p.currency),18:Number(p.amount),19:method,20:autoPaid?'Uhradené':'Neoverené',25:'dashboard',27:'Ručne zadané v dashboarde',31:clean(p.purpose),32:'MANUAL',33:'dashboard-n8n-v2',35:autoPaid?Number(p.amount).toFixed(2):'',36:autoPaid?`Automaticky uhradené · ${command.commandId}`:''});\n   rows.push(values);data=[{range:`Doklady!A${rows.length}:AK${rows.length}`,majorDimension:'ROWS',values:[values]}];\n  }\n } else if(command.type==='MARK_PAID'){\n  const ids=[...new Set((p.documentIds||[]).map(clean).filter(Boolean))];\n  const matches=rows.map((row,index)=>({row,index})).filter(x=>x.index>0&&ids.includes(clean(x.row[0])));\n  if(matches.length!==ids.length)throw new Error(`Príkaz ${command.commandId}: niektorý doklad chýba`);\n  for(const item of matches){\n   const row=item.row;const history=clean(row[36]);\n   if(history.includes(command.commandId)){data.push({range:`Doklady!U${item.index+1}`,majorDimension:'ROWS',values:[[clean(row[20])]]});continue}\n   if(paid(row[20])||['platobná karta','trvalý príkaz / paušál'].includes(clean(row[19]).toLocaleLowerCase('sk')))throw new Error(`Príkaz ${command.commandId}: doklad je už uhradený`);\n   const total=num(row[18]);const paidBefore=num(row[35]);const remaining=Math.max(0,total-paidBefore);const amount=p.amount==null?remaining:Number(p.amount);\n   if(!Number.isFinite(amount)||amount<=0||!total||amount>remaining+0.005)throw new Error(`Príkaz ${command.commandId}: neplatná suma úhrady`);\n   const paidTotal=Math.min(total,paidBefore+amount);const status=paidTotal>=total-0.005?'Uhradené':'Čiastočne uhradené';\n   const ref=clean(p.reference);const note=clean(p.note);const audit=[clean(row[27]),`Úhrada ${amount.toFixed(2)} ${clean(row[15])}: ${clean(p.paymentDate)}`,ref?`Referencia: ${ref}`:'',note?`Poznámka: ${note}`:'',`Príkaz: ${command.commandId}`].filter(Boolean).join(' | ').slice(-5000);\n   const entry=[clean(p.paymentDate),`${amount.toFixed(2)} ${clean(row[15])}`,ref?`ref. ${ref}`:'',note,command.commandId].filter(Boolean).join(' · ');\n   const values=Array.from({length:17},(_,offset)=>row[20+offset]??'');values[0]=status;values[1]=ref?`Ručne: ${ref}`:`Ručne potvrdené ${clean(p.paymentDate)}`;values[7]=audit;values[15]=paidTotal.toFixed(2);values[16]=[history,entry].filter(Boolean).join(' | ').slice(-5000);\n   for(let offset=0;offset<17;offset++)row[20+offset]=values[offset];\n   data.push({range:`Doklady!U${item.index+1}:AK${item.index+1}`,majorDimension:'ROWS',values:[values]});\n  }\n } else throw new Error(`Nepodporovaný typ príkazu: ${command.type}`);\n output.push({json:{commandId:command.commandId,body:{valueInputOption:'RAW',data}}});\n}\nreturn output;"
+      },
+      "id": "prepare-finance-command-writes",
+      "name": "Priprav idempotentné zápisy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/REPLACE_WITH_WOF_FINANCE_SHEET_ID/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "write-finance-command",
+      "name": "Sheets — vykonaj príkaz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL + '/integrations/n8n/finance-commands/complete' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "={{ 'Bearer ' + $env.N8N_INTEGRATION_SECRET }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({commandId: $('Priprav idempotentné zápisy').item.json.commandId, ok: true, message: 'Zapísané do WOF Finance registra'}) }}",
+        "options": {}
+      },
+      "id": "complete-finance-command",
+      "name": "Convex — potvrď príkaz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 0]
+    }
+  ],
+  "connections": {
+    "Finance commands — twice daily": { "main": [[{ "node": "Convex — načítaj príkazy", "type": "main", "index": 0 }]] },
+    "Convex — načítaj príkazy": { "main": [[{ "node": "Sheets — načítaj register pre príkazy", "type": "main", "index": 0 }]] },
+    "Sheets — načítaj register pre príkazy": { "main": [[{ "node": "Priprav idempotentné zápisy", "type": "main", "index": 0 }]] },
+    "Priprav idempotentné zápisy": { "main": [[{ "node": "Sheets — vykonaj príkaz", "type": "main", "index": 0 }]] },
+    "Sheets — vykonaj príkaz": { "main": [[{ "node": "Convex — potvrď príkaz", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

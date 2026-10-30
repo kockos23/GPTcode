@@ -389,6 +389,7 @@ export const syncEmailAttachments = action({
   handler: async (ctx) => {
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) return { ok: false, message: "Nemáš prístup k WOF financiám.", checkedEmails: 0, savedFiles: 0, skippedFiles: 0, failedFiles: 0, reviewFiles: 0 }
+    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") return { ok: false, message: "Pôvodný Composio intake je vypnutý; Gmail spracúva SARA v n8n.", checkedEmails: 0, savedFiles: 0, skippedFiles: 0, failedFiles: 0, reviewFiles: 0 }
     return performSync(ctx, "MANUÁLNE")
   },
 })
@@ -417,6 +418,7 @@ export const resolveEmailImport = action({
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) return { ok: false, message: "Nemáš prístup k WOF financiám." }
+    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") return { ok: false, message: "Pôvodné Composio riešenie je vypnuté; review spracúva n8n outbox." }
     const item = await ctx.runQuery(internal.financeIntake.getImportById, { id: args.id })
     if (!item) return { ok: false, message: "Príloha na kontrolu už neexistuje." }
     if (item.status === "ULOŽENÉ") return { ok: true, message: "Príloha už bola uložená.", driveUrl: item.driveUrl }

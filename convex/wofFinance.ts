@@ -26,8 +26,6 @@ function numericAmount(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const PAYABLE_CACHE_TTL_MS = 15 * 60 * 1000
-
 function rowsFromResponse(value: unknown): unknown[][] {
   const root = record(value)
   const result = record(root.result)
@@ -38,7 +36,7 @@ function rowsFromResponse(value: unknown): unknown[][] {
   return Array.isArray(first.values) ? first.values.filter(Array.isArray) as unknown[][] : []
 }
 
-function payableRowsFromSource(sourceRows: unknown[][]) {
+export function payableRowsFromSource(sourceRows: unknown[][]) {
   return sourceRows.slice(1).filter(row => text(row[0])).map(row => ({
     id: text(row[0]),
     kind: text(row[3]),
@@ -111,6 +109,25 @@ export const setPayablesCache = internalMutation({
   },
 })
 
+export const syncPayablesFromN8n = internalMutation({
+  args: { sourceRows: v.array(v.array(v.any())), syncedAt: v.number() },
+  returns: v.object({ ok: v.boolean(), count: v.number(), updatedAt: v.number() }),
+  handler: async (ctx, args) => {
+    if (!args.sourceRows.length || text(args.sourceRows[0]?.[0]) !== "Doklad ID") {
+      throw new Error("Register nemá očakávanú hlavičku Doklad ID.")
+    }
+    if (args.sourceRows.length > 5001) throw new Error("Register presahuje limit 5000 riadkov.")
+    const rows = payableRowsFromSource(args.sourceRows)
+    const updatedAt = Number.isFinite(args.syncedAt) && args.syncedAt > 0 ? args.syncedAt : Date.now()
+    const cached = await ctx.db.query("wofFinanceCache")
+      .withIndex("by_cache_key", query => query.eq("cacheKey", "payables"))
+      .unique()
+    if (cached) await ctx.db.patch(cached._id, { rows, updatedAt })
+    else await ctx.db.insert("wofFinanceCache", { cacheKey: "payables", rows, updatedAt })
+    return { ok: true, count: rows.length, updatedAt }
+  },
+})
+
 export const listPayables = action({
   args: { force: v.optional(v.boolean()) },
   returns: v.object({
@@ -127,50 +144,13 @@ export const listPayables = action({
     }
 
     const cached = await ctx.runQuery(internal.wofFinance.getPayablesCache, {})
-    if (!args.force && cached && Date.now() - cached.updatedAt < PAYABLE_CACHE_TTL_MS) {
-      return { ok: true, code: "CACHE", message: "Používam posledný synchronizovaný stav.", updatedAt: cached.updatedAt, rows: cached.rows }
+    if (!cached) return {
+      ok: false, code: "NOT_SYNCED",
+      message: "WOF register ešte nebol synchronizovaný cez n8n.", updatedAt: 0, rows: [],
     }
-    const cachedFallback = async (message: string) => {
-      const latest = await ctx.runQuery(internal.wofFinance.getPayablesCache, {})
-      if (latest) return { ok: true, code: "STALE_CACHE", message, updatedAt: latest.updatedAt, rows: latest.rows }
-      return { ok: false, code: "SOURCE_ERROR", message, updatedAt: Date.now(), rows: [] }
-    }
-
-    try {
-      const response = await callMacalyJson("/api/client-app/composio-execute", {
-        action: "execute",
-        toolName: "GOOGLESHEETS_VALUES_GET",
-        appName: "GOOGLESHEETS",
-        params: {
-          spreadsheet_id: "1KOEhMOA6IgjS71w6DC5YCPzMNdWj4lX6Kkbor22cxm8",
-          range: "'Doklady'!A1:AK1000",
-          major_dimension: "ROWS",
-          value_render_option: "FORMATTED_VALUE",
-        },
-      })
-      const root = record(response)
-      const result = record(root.result)
-      if (result.successful === false || root.successful === false) {
-        const detail = text(result.error ?? root.error).slice(0, 180)
-        console.error("[WOF Finance] Sheets read rejected", { detail })
-        return await cachedFallback("Zdroj WOF dočasne obmedzil obnovenie. Zobrazené sú posledné uložené dáta; skús obnoviť neskôr.")
-      }
-      const sourceRows = rowsFromResponse(response)
-      if (!sourceRows.length || text(sourceRows[0][0]) !== "Doklad ID") {
-        return await cachedFallback("Štruktúra WOF registra sa nezhoduje. Zobrazený je posledný úspešný stav.")
-      }
-      const rows = payableRowsFromSource(sourceRows)
-      const updatedAt = Date.now()
-      try {
-        await ctx.runMutation(internal.wofFinance.setPayablesCache, { rows, updatedAt })
-      } catch (cacheError) {
-        console.error("[WOF Finance] Cache update failed", { detail: cacheError instanceof Error ? cacheError.message.slice(0, 120) : "unknown" })
-      }
-      return { ok: true, code: "OK", message: "WOF register načítaný.", updatedAt, rows }
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error)
-      console.error("[WOF Finance] Sheets request failed", { detail: detail.slice(0, 180) })
-      return await cachedFallback(`Google Sheets dočasne obmedzil čítanie. Zobrazený je posledný úspešný stav.`)
+    return {
+      ok: true, code: "CACHE", message: "Používam posledný stav synchronizovaný cez n8n.",
+      updatedAt: cached.updatedAt, rows: cached.rows,
     }
   },
 })
@@ -192,6 +172,9 @@ export const addManualPayable = action({
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) {
       return { ok: false, code: "FORBIDDEN", message: "Nemáš prístup k zápisu do WOF financií.", id: "" }
+    }
+    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") {
+      return { ok: false, code: "LEGACY_DISABLED", message: "Pôvodný Composio zápis je vypnutý; použi n8n príkazovú frontu.", id: "" }
     }
 
     const supplier = args.supplier.trim()
@@ -293,6 +276,9 @@ export const markPayablePaidManually = action({
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) {
       return { ok: false, code: "FORBIDDEN", message: "Nemáš prístup k zápisu do WOF financií." }
+    }
+    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") {
+      return { ok: false, code: "LEGACY_DISABLED", message: "Pôvodný Composio zápis je vypnutý; použi n8n príkazovú frontu." }
     }
 
     const ids = [...new Set(args.documentIds.map(id => id.trim()).filter(Boolean))]

@@ -10,7 +10,7 @@ import {
   Check, ChevronRight, CircleCheckBig, Clock3, Command, FileQuestion, FolderKanban,
   Inbox, LayoutDashboard, ListChecks, Mail, Menu, MessageSquareText, MoreHorizontal,
   Pause, PlugZap, Plus, RefreshCw, Search, Send, SlidersHorizontal, Sparkles, Target, X,
-  FileText, Link2, Upload,
+  Link2,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/')({ component: ProtectedChiefOfStaffHQ })
@@ -84,21 +84,16 @@ type ManualPayableArgs = {
 type ManualPayableResult = { ok:boolean; code:string; message:string; id:string }
 type ManualPaymentArgs = { documentIds:string[]; paymentDate:string; amount:number; reference?:string; note?:string }
 type ManualPaymentResult = { ok:boolean; code:string; message:string }
-type BankDriveFile = { id:string; name:string; mimeType:string; modifiedTime:string; webViewLink:string; pairedPdfId?:string; pairedPdfName?:string }
 type BankStatementRecord = { id:string; sourceFileId:string; sourceFileName:string; sourceFileUrl:string; pdfFileId?:string; pdfFileName?:string; accountKey:string; accountLabel:string; currency:string; accountNumberMasked:string; statementNumber:string; periodStart:string; periodEnd:string; openingBalance:number; closingBalance:number; incomeTotal:number; expenseTotal:number; transactionCount:number; duplicateCount:number; importedAt:number; status:string }
 type BankTransactionRecord = { id:string; statementId:string; accountKey:string; operationId:string; bookedOn:string; amount:number; currency:string; counterpartyAccount:string; counterpartyName:string; bankName:string; constantSymbol:string; variableSymbol:string; specificSymbol:string; note:string; recipientMessage:string; transactionType:string; bic:string; instructionId:string; matchStatus:string; matchedPayableId:string; matchScore?:number; matchReason?:string }
 type BankStatementsResult = { statements:BankStatementRecord[]; transactions:BankTransactionRecord[] }
-type BankFilesResult = { ok:boolean; message:string; folderUrl:string; files:BankDriveFile[] }
-type BankImportResult = { ok:boolean; code:string; message:string; statementId?:string; transactionCount:number; duplicateCount:number; currency:string; period:string }
 type BankMatchResult = { ok:boolean; message:string; evaluated:number; proposed:number }
 type BankMatchActionResult = { ok:boolean; message:string }
 type FinanceCategory = 'Doklady'|'Stripe'|'Vypisy'|'Vystavene_FA'
 type FinanceReview = { id:string; documentId:string; source:string; sourceFileId:string; sourceFileName:string; fileUrl:string; supplier:string; invoiceNumber:string; totalAmount?:number; extractedDeliveryDate?:string; extractedCategory?:string; extractedCurrency?:string; reviewReason:string; status:string; resolvedDeliveryDate?:string; resolvedCategory?:string; resolvedCurrency?:string; completionError?:string; updatedAt:number }
 type FinanceReviewResolveResult = { ok:boolean; message:string; status:string }
 const bankStatementsApi = {
-  listDriveStatementFiles: makeFunctionReference<'action', Record<string, never>, BankFilesResult>('bankStatements:listDriveStatementFiles'),
   listBankStatements: makeFunctionReference<'action', Record<string, never>, BankStatementsResult>('bankStatements:listBankStatements'),
-  importBankStatementCsv: makeFunctionReference<'action', { fileId:string; pdfFileId?:string; pdfFileName?:string }, BankImportResult>('bankStatements:importBankStatementCsv'),
   proposePaymentMatches: makeFunctionReference<'action', Record<string, never>, BankMatchResult>('bankStatements:proposePaymentMatches'),
   confirmPaymentMatch: makeFunctionReference<'action', { transactionId:string }, BankMatchActionResult>('bankStatements:confirmPaymentMatch'),
   rejectPaymentMatch: makeFunctionReference<'action', { transactionId:string }, BankMatchActionResult>('bankStatements:rejectPaymentMatch'),
@@ -109,8 +104,8 @@ const financeReviewsApi = {
 }
 const wofFinanceApi = {
   listPayables: makeFunctionReference<'action', { force?: boolean }, WofPayablesResult>('wofFinance:listPayables'),
-  addManualPayable: makeFunctionReference<'action', ManualPayableArgs, ManualPayableResult>('wofFinance:addManualPayable'),
-  markPayablePaidManually: makeFunctionReference<'action', ManualPaymentArgs, ManualPaymentResult>('wofFinance:markPayablePaidManually'),
+  addManualPayable: makeFunctionReference<'action', ManualPayableArgs, ManualPayableResult>('financeCommands:addManualPayable'),
+  markPayablePaidManually: makeFunctionReference<'action', ManualPaymentArgs, ManualPaymentResult>('financeCommands:markPayablePaidManually'),
 }
 
 const priorityMeta: Record<Priority, { label: string; description: string }> = {
@@ -487,20 +482,16 @@ function FinanceView() {
   const listPayables = useAction(wofFinanceApi.listPayables)
   const addManualPayable = useAction(wofFinanceApi.addManualPayable)
   const markPayablePaidManually = useAction(wofFinanceApi.markPayablePaidManually)
-  const listDriveStatementFiles = useAction(bankStatementsApi.listDriveStatementFiles)
   const listBankStatements = useAction(bankStatementsApi.listBankStatements)
-  const importBankStatementCsv = useAction(bankStatementsApi.importBankStatementCsv)
   const proposePaymentMatches = useAction(bankStatementsApi.proposePaymentMatches)
   const confirmPaymentMatch = useAction(bankStatementsApi.confirmPaymentMatch)
   const rejectPaymentMatch = useAction(bankStatementsApi.rejectPaymentMatch)
   const listFinanceReviews = useAction(financeReviewsApi.listFinanceReviews)
   const resolveFinanceReview = useAction(financeReviewsApi.resolveFinanceReview)
   const [rows,setRows] = useState<WofPayable[]>([])
-  const [bankFiles,setBankFiles] = useState<BankDriveFile[]>([])
   const [bankStatements,setBankStatements] = useState<BankStatementRecord[]>([])
   const [bankTransactions,setBankTransactions] = useState<BankTransactionRecord[]>([])
   const [bankLoading,setBankLoading] = useState(false)
-  const [bankImporting,setBankImporting] = useState('')
   const [bankError,setBankError] = useState('')
   const [bankFeedback,setBankFeedback] = useState('')
   const [bankMatchRunning,setBankMatchRunning] = useState(false)
@@ -545,13 +536,11 @@ function FinanceView() {
   const refreshBankStatements = async () => {
     setBankLoading(true); setBankError('')
     try {
-      const [fileResult, history] = await Promise.all([listDriveStatementFiles({}), listBankStatements({})])
-      setBankFiles(fileResult.files)
-      if (!fileResult.ok) setBankError(fileResult.message)
+      const history = await listBankStatements({})
       setBankStatements(history.statements)
       setBankTransactions(history.transactions)
     } catch {
-      setBankError('Výpisy sa nepodarilo obnoviť. Skontroluj pripojenie WOF Drive.')
+      setBankError('Výpisy sa nepodarilo načítať zo synchronizovaného registra.')
     } finally { setBankLoading(false) }
   }
   const refreshFinanceReviews = async () => {
@@ -616,21 +605,6 @@ function FinanceView() {
     } finally { setSaving(false) }
   }
 
-  const importBankCsv = async (file:BankDriveFile) => {
-    setBankImporting(file.id); setBankFeedback(''); setBankError('')
-    try {
-      const result = await importBankStatementCsv({
-        fileId:file.id,
-        pdfFileId:file.pairedPdfId, pdfFileName:file.pairedPdfName,
-      })
-      if (!result.ok) { setBankError(result.message); return }
-      const matching=await proposePaymentMatches({})
-      setBankFeedback(result.message + ' · ' + result.transactionCount + ' nových transakcií' + (result.duplicateCount ? ' · ' + result.duplicateCount + ' duplicít preskočených' : '') + (matching.proposed ? ' · ' + matching.proposed + ' návrhov párovania' : ''))
-      await refreshBankStatements()
-    } catch {
-      setBankError('Import výpisu sa nepodaril. Skontroluj účet a formát CSV.')
-    } finally { setBankImporting('') }
-  }
   const runPaymentMatching = async () => {
     setBankMatchRunning(true); setBankFeedback(''); setBankError('')
     try {
@@ -766,20 +740,8 @@ function FinanceView() {
       {bankError&&<div className="source-notice finance-warning"><AlertCircle size={15}/><span>{bankError}</span></div>}
       {bankFeedback&&<div className="source-notice connected"><CircleCheckBig size={15}/><span>{bankFeedback}</span></div>}
       <div className="bank-import-row">
-        <span>Účet a mena sa rozpoznajú z výpisu. Oba EUR účty sa rozlíšia automaticky; v prehľade uvidíš len posledné štyri číslice.</span>
+        <span>CSV a PDF s rovnakým názvom kontroluje n8n v mesačných priečinkoch Vypisy. Účet sa ukladá iba v maskovanej podobe a opakovaný CSV import nevytvorí druhé transakcie.</span>
       </div>
-      <div className="bank-subsection-title"><div><p className="eyebrow">Čakajúce na import</p><strong>CSV súbory v mesačných priečinkoch Vypisy</strong></div><span>{bankLoading?'Kontrolujem Drive…':bankFiles.length+' výpisov'}</span></div>
-      {bankFiles.length===0
-        ? <div className="connection-empty"><span><Upload size={18}/></span><div><strong>V priečinku zatiaľ nie je CSV výpis</strong><p>Do priečinka nahraj CSV a PDF. Rovnaký názov umožní Sare priradiť ich ako jeden pár.</p></div></div>
-        : <div className="finance-table-scroll"><table className="finance-table bank-files-table"><thead><tr><th>CSV výpis</th><th>PDF pre účtovníčku</th><th>Upravené</th><th>Akcia</th></tr></thead><tbody>{bankFiles.map(file=>{
-          const imported=bankStatements.some(statement=>statement.sourceFileId===file.id)
-          return <tr key={file.id}>
-            <td><a href={file.webViewLink} target="_blank" rel="noreferrer">{file.name} ↗</a></td>
-            <td>{file.pairedPdfName?<span className="bank-pdf-paired"><FileText size={14}/>{file.pairedPdfName}</span>:<span className="bank-pdf-missing">PDF s rovnakým názvom sa nenašlo</span>}</td>
-            <td>{file.modifiedTime?new Date(file.modifiedTime).toLocaleDateString('sk-SK'):'—'}</td>
-            <td><button className={imported?'button-quiet':'button-primary'} type="button" disabled={bankImporting===file.id||imported||bankLoading} onClick={()=>void importBankCsv(file)}>{bankImporting===file.id?<RefreshCw className="spin" size={14}/>:<Upload size={14}/>} {imported?'Importované':bankImporting===file.id?'Importujem…':'Importovať CSV'}</button></td>
-          </tr>
-        })}</tbody></table></div>}
       <div className="bank-subsection-title"><div><p className="eyebrow">História importov</p><strong>Výpisy a kontrola duplicít</strong></div><span>{bankStatements.length} importov</span></div>
       {bankStatements.length===0
         ? <p className="bank-empty-note">Po prvom importe sa tu zobrazí obdobie, účet, počty transakcií a stav párovania.</p>

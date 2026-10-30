@@ -19,9 +19,10 @@ Do not publish or deploy with the exposed key. After Macaly confirms rotation:
 5. perform authenticated health calls without business writes,
 6. backfill the six current review items,
 7. run one review resolution twice and confirm one Drive file and one register row,
-8. run the prepared real bank CSV import twice and confirm the second returns `ALREADY_IMPORTED`,
-9. activate the review workflow and then the bank schedule,
-10. publish Macaly only after dashboard, Drive, Sheets and Convex show the same state.
+8. run one finance command twice and confirm exactly one register change, then run Finance Register Sync and verify the dashboard cache,
+9. run the prepared real bank CSV import twice and confirm the second returns `ALREADY_IMPORTED`,
+10. activate the review workflow and then the bank schedule,
+11. publish Macaly only after dashboard, Drive, Sheets and Convex show the same state.
 
 ## Rollback
 

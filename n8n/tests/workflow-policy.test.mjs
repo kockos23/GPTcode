@@ -21,6 +21,15 @@ const reviewWorkflow = JSON.parse(
 )
 const reviewNodes = new Map(reviewWorkflow.nodes.map((node) => [node.name, node]))
 const reviewSerialized = JSON.stringify(reviewWorkflow)
+const registerSyncWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/sara-v2-finance-register-sync.pilot.json', import.meta.url), 'utf8'),
+)
+const registerSyncSerialized = JSON.stringify(registerSyncWorkflow)
+const commandWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/sara-v2-finance-command-processor.pilot.json', import.meta.url), 'utf8'),
+)
+const commandNodes = new Map(commandWorkflow.nodes.map((node) => [node.name, node]))
+const commandSerialized = JSON.stringify(commandWorkflow)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -183,5 +192,25 @@ test('finance review resolution updates the original file and register row', () 
     reviewNodes.get('Review — twice daily')?.parameters.rule.interval[0].expression,
     '25 7,17 * * *',
   )
+})
+
+test('finance register sync is direct, bounded and sanitized', () => {
+  assert.equal(registerSyncWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.equal(/composio/i.test(registerSyncSerialized), false)
+  assert.match(registerSyncSerialized, /REPLACE_WITH_WOF_FINANCE_SHEET_ID/)
+  assert.match(registerSyncSerialized, /N8N_INTEGRATION_SECRET/)
+  assert.match(registerSyncSerialized, /5000 riadkov/)
+  assert.match(registerSyncSerialized, /Doklad ID/)
+})
+
+test('finance command processor is direct, idempotent and ordered before register sync', () => {
+  assert.equal(commandWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.equal(/composio/i.test(commandSerialized), false)
+  assert.match(commandSerialized, /REPLACE_WITH_WOF_FINANCE_SHEET_ID/)
+  assert.match(commandSerialized, /N8N_INTEGRATION_SECRET/)
+  assert.match(commandNodes.get('Priprav idempotentné zápisy')?.parameters.jsCode, /history\.includes\(command\.commandId\)/)
+  assert.match(commandNodes.get('Priprav idempotentné zápisy')?.parameters.jsCode, /existing>=1/)
+  assert.equal(commandNodes.get('Finance commands — twice daily')?.parameters.rule.interval[0].expression, '18 7,17 * * *')
+  assert.equal(registerSyncWorkflow.nodes[0].parameters.rule.interval[0].expression, '20 7,17 * * *')
 })
 

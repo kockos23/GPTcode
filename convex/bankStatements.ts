@@ -526,6 +526,7 @@ export const listDriveStatementFiles = action({
   handler: async (ctx) => {
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) return { ok: false, message: "Nemáš prístup k WOF financiám.", folderUrl: WOF_FINANCE_ROOT_URL, files: [] }
+    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") return { ok: false, message: "Pôvodné Drive načítanie je vypnuté; výpisy spracúva priamy n8n workflow.", folderUrl: WOF_FINANCE_ROOT_URL, files: [] }
     try {
       const allFiles = await monthlyStatementFiles()
       const csvs = allFiles.filter(file => str(file.name).toLowerCase().endsWith(".csv"))
@@ -644,19 +645,20 @@ export const confirmPaymentMatch = action({
       row.supplier === selected.supplier && row.invoiceNumber === selected.invoiceNumber &&
       row.currency === selected.currency && row.amount.replace(/\s/g, "").replace(",", ".") === normalizedAmount,
     ).map(row => row.id)
-    const result = await ctx.runAction(api.wofFinance.markPayablePaidManually, {
+    const result = await ctx.runAction(api.financeCommands.markPayablePaidManually, {
       documentIds,
       paymentDate: transaction.bookedOn,
       amount: Math.abs(transaction.amount),
       reference: `Banka: ${transaction.operationId}`,
       note: `Potvrdené párovanie bankovej transakcie. ${transaction.matchReason ?? ""}`.trim(),
+      bankTransactionId: transaction._id,
     })
     if (!result.ok) return { ok: false, message: result.message }
     await ctx.runMutation(internal.bankStatements.setMatchStatus, {
-      id: args.transactionId, status: "POTVRDENÁ", payableId: selected.id,
+      id: args.transactionId, status: "ČAKÁ NA ZÁPIS", payableId: selected.id,
       reason: transaction.matchReason,
     })
-    return { ok: true, message: result.message }
+    return { ok: true, message: `${result.message} Bankové párovanie sa potvrdí po vykonaní príkazu.` }
   },
 })
 
@@ -684,6 +686,7 @@ export const importBankStatementCsv = action({
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) return { ok: false, code: "FORBIDDEN", message: "Nemáš prístup k WOF financiám.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
+    if (process.env.LEGACY_COMPOSIO_FINANCE_ENABLED !== "true") return { ok: false, code: "LEGACY_DISABLED", message: "Pôvodný Composio import je vypnutý; výpis spracuje priamy n8n workflow.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
     if (args.accountKey && !/^(EUR_[12]|USD|CZK)$/.test(args.accountKey)) {
       return { ok: false, code: "INVALID_ACCOUNT_HINT", message: "Zadaný účet výpisu nie je rozpoznaný.", transactionCount: 0, duplicateCount: 0, currency: "", period: "" }
     }
