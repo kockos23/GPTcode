@@ -8,15 +8,11 @@ Billdu authenticates requests with `apiKey`, Unix timestamp and an HMAC-SHA512 s
 
 Before enabling writes, run the inactive manual workflow `SARA v2 — Billdu Read-only Probe`. It reads at most ten records and reports only field names/types. It performs no Drive or Sheets write. Use the observed schema to lock the issued-invoice status and delivery-date mapping; never fall back to email receipt time or import time.
 
-## Required Billdu capability check
+## Verified Billdu capability
 
-Before implementation, verify in the current Billdu plan whether it provides one of these supported mechanisms:
+The official client confirms API authentication, document listing and PDF download. No webhook API is exposed by that client, therefore production uses bounded polling twice daily. The first live call remains a read-only plan/access check and must not write accounting data.
 
-1. webhook for invoice created/updated/paid with a follow-up API call for invoice detail and PDF, or
-2. read-only invoice API with `updated since` filtering and PDF download, or
-3. scheduled export delivered to the dedicated finance mailbox as a fallback.
-
-Do not assume endpoint names, token format or plan availability. Capture only a screenshot of Billdu **Settings → API / Integrations / Webhooks** without displaying a token.
+If the current Billdu plan rejects API access, stop the pilot and use scheduled export to the dedicated finance mailbox only after explicit approval. Do not introduce Composio as an unreviewed fallback.
 
 ## Canonical invoice payload
 
@@ -47,8 +43,8 @@ Missing invoice ID, delivery date, total, currency or PDF blocks automatic filin
 
 ## Credential and cost policy
 
-- Prefer native Billdu API/webhook access from n8n.
-- Store the credential only in n8n credential storage; never in Git, workflow exports, Convex rows or chat.
+- Prefer native Billdu API access through the narrow Convex proxy called by n8n.
+- Store `BILLDU_API_KEY` and `BILLDU_API_SECRET` only in Macaly/Convex secrets; never in n8n, Git, workflow exports, Convex rows or chat.
 - Do not route Billdu through Composio unless Billdu has no direct supported API and the fallback is explicitly approved.
 - Poll at most twice daily unless webhooks are available. Use `updated since` and local idempotency to avoid unnecessary requests.
 

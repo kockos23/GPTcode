@@ -634,7 +634,7 @@ function FinanceView() {
       const result=accept?await confirmPaymentMatch({transactionId}):await rejectPaymentMatch({transactionId})
       if (!result.ok) { setBankError(result.message); return }
       setBankFeedback(result.message)
-      await Promise.all([refreshBankStatements(),refresh(true)])
+      await Promise.all([refreshBankStatements(),refresh(true),refreshFinanceHealth()])
     } catch { setBankError('Rozhodnutie o párovaní sa nepodarilo uložiť.') }
     finally { setBankMatchAction('') }
   }
@@ -668,7 +668,7 @@ function FinanceView() {
       <div>
         <a className="button-secondary" href="https://drive.google.com/drive/folders/1vkbIi3cQpyN-xkXG3-As2PCYwJaAz0uS" target="_blank" rel="noreferrer">Otvoriť archív WOF ↗</a>
         <button className="button-primary" onClick={()=>{setShowForm(v=>!v);setFeedback('')}}><Plus size={15}/>{showForm?'Zavrieť formulár':'Pridať záväzok'}</button>
-        <button className="icon-button light" onClick={()=>void refresh(true)} disabled={loading} aria-label="Obnoviť WOF platby"><RefreshCw className={loading?'spin':''} size={16}/></button>
+        <button className="icon-button light" onClick={()=>void Promise.all([refresh(true),refreshFinanceHealth()])} disabled={loading} aria-label="Obnoviť WOF platby a stav SARY"><RefreshCw className={loading?'spin':''} size={16}/></button>
       </div>
     </div>
     {financeHealth&&<div className={'source-notice '+(financeHealth.ok?'connected':'finance-warning')}>

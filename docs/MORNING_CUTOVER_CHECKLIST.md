@@ -33,9 +33,11 @@ Parser pred importom odmieta neplatné alebo nemožné dátumy, nečíselné sum
 
 ## 4. Billdu
 
-- Overiť v Billdu dostupnosť API/webhookov a spôsob autentizácie pre aktuálny program.
-- Credential uložiť iba v n8n; neposielať token do chatu ani Gitu.
-- Prvý pilot obmedziť na jednu vystavenú faktúru a overiť uloženie do `Vystavene_FA` podľa dátumu dodania.
+- [x] Overiť autentizáciu: `apiKey`, Unix timestamp a HMAC-SHA512 podpis cez `apiSecret`; oficiálny klient poskytuje zoznam dokladov a stiahnutie PDF, nie webhook API.
+- [x] Oba Billdu secrets uložiť iba v Macaly/Convex secrets. n8n pozná iba existujúci bearer credential k Convex proxy; Billdu secrets nesmú byť vo workflowe, Gite ani chate.
+- Po bezpečnom Convex deployi spustiť neaktívny manuálny workflow `GYjLHpte4wi3g06L` iba raz. Načíta maximálne 10 metadát, nič nezapisuje a nesťahuje PDF.
+- Podľa reálnej odpovede uzamknúť mapovanie typu, stavu a explicitného dátumu dodania. Dátum vystavenia, synchronizácie ani prijatia e-mailu nie je náhrada dátumu dodania.
+- Prvý zápisový pilot obmedziť na jednu explicitne vybranú vystavenú faktúru; overiť jeden PDF v `Vystavene_FA`, jeden riadok registra a nulový duplikát pri druhom behu.
 
 ## 5. Záverečný audit
 
@@ -43,6 +45,7 @@ Parser pred importom odmieta neplatné alebo nemožné dátumy, nečíselné sum
 - NORA aktívna na samostatnom bote.
 - Žiadne aktívne `TEMP` workflowy a žiadne nové chybové executiony.
 - Macaly dashboard zobrazuje rovnaký stav ako Drive, Sheets a Convex.
+- Po úspešných pilotoch aktivovať Finance Health Monitor `2YGEEBjYBn8aNBsY`; kontroluje stav o 07:35 a 17:35 a chyby posiela cez samostatný SARA error monitoring.
 
 Read-only audit 30. 10. 2026 potvrdil aktívnu NORU, aktívne Gmail/Drive/Telegram vstupy SARY, neaktívny bankový zápisový workflow, žiadny `TEMP` workflow a žiadne nové produkčné chyby. Drive behy 512, 513 a 514 boli úspešné.
 

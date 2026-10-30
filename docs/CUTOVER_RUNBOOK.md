@@ -17,16 +17,18 @@ Do not publish or deploy with the exposed key. After Macaly confirms rotation:
 3. verify unauthenticated bank/review calls return 401,
 4. create one new random `N8N_INTEGRATION_SECRET` and store the same value only in Macaly/Convex secrets and n8n,
 5. perform authenticated health calls without business writes,
-6. backfill the six current review items,
-7. run one review resolution twice and confirm one Drive file and one register row,
-8. run one finance command twice and confirm exactly one register change, then run Finance Register Sync and verify the dashboard cache,
-9. run the prepared real bank CSV import twice and confirm the second returns `ALREADY_IMPORTED`,
-10. activate the review workflow and then the bank schedule,
-11. publish Macaly only after dashboard, Drive, Sheets and Convex show the same state.
+6. run Billdu Read-only Probe `GYjLHpte4wi3g06L` once; verify only response field names/types and keep it inactive,
+7. backfill the six current review items,
+8. run one review resolution twice and confirm one Drive file and one register row,
+9. run one finance command twice and confirm exactly one register change, then run Finance Register Sync and verify the dashboard cache,
+10. run the prepared real bank CSV import twice and confirm the second returns `ALREADY_IMPORTED`,
+11. activate the review workflow and then the bank schedule,
+12. activate Finance Health Monitor `2YGEEBjYBn8aNBsY` only after all monitored workflows pass,
+13. publish Macaly only after dashboard, Drive, Sheets and Convex show the same state.
 
 ## Rollback
 
-- Deactivate the review and bank workflows first.
+- Deactivate Finance Health Monitor, review and bank workflows first; keep the read-only Billdu probe inactive.
 - Keep source files and register rows; do not delete evidence.
 - Revert the Macaly publication only if the UI/backend deployment itself fails.
 - NORA, Gmail, Drive and Telegram intake remain independent and must not be disabled during a bank/review rollback.
