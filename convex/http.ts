@@ -8,10 +8,40 @@ const http = httpRouter()
 
 auth.addHttpRoutes(http)
 
+export function constantTimeTextEqual(left: string, right: string): boolean {
+  const length = Math.max(left.length, right.length)
+  let difference = left.length ^ right.length
+  for (let index = 0; index < length; index += 1) {
+    difference |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0)
+  }
+  return difference === 0
+}
+
 function authorizedN8n(request: Request): boolean {
   const configuredSecret = process.env.N8N_INTEGRATION_SECRET
   const authorization = request.headers.get("authorization") ?? ""
-  return Boolean(configuredSecret) && authorization === `Bearer ${configuredSecret}`
+  return Boolean(configuredSecret) && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)
+}
+
+const MAX_REGISTER_ROWS = 5001
+const MAX_REGISTER_COLUMNS = 100
+const MAX_REGISTER_CELL_CHARS = 5000
+const MAX_REGISTER_TOTAL_CHARS = 10_000_000
+
+export function validRegisterRows(value: unknown): value is unknown[][] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_REGISTER_ROWS) return false
+  let totalChars = 0
+  for (const row of value) {
+    if (!Array.isArray(row) || row.length > MAX_REGISTER_COLUMNS) return false
+    for (const cell of row) {
+      if (cell !== null && !["string", "number", "boolean"].includes(typeof cell)) return false
+      const length = typeof cell === "string" ? cell.length : String(cell ?? "").length
+      if (length > MAX_REGISTER_CELL_CHARS) return false
+      totalChars += length
+      if (totalChars > MAX_REGISTER_TOTAL_CHARS) return false
+    }
+  }
+  return true
 }
 
 http.route({
@@ -83,8 +113,8 @@ http.route({
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
-    const sourceRows = Array.isArray(body?.sourceRows) ? body.sourceRows.filter(Array.isArray) : []
-    if (!sourceRows.length || sourceRows.length > 5001) {
+    const sourceRows = body?.sourceRows
+    if (!validRegisterRows(sourceRows)) {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
     try {
