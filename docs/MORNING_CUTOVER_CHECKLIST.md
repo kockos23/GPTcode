@@ -45,3 +45,5 @@ Parser pred importom odmieta neplatné alebo nemožné dátumy, nečíselné sum
 Read-only audit 30. 10. 2026 potvrdil aktívnu NORU, aktívne Gmail/Drive/Telegram vstupy SARY, neaktívny bankový zápisový workflow, žiadny `TEMP` workflow a žiadne nové produkčné chyby. Drive behy 512, 513 a 514 boli úspešné.
 
 Error workflow `SARA — Finance workflow error alerts` je pripravený iba pre štyri finance workflowy a používa SARA Telegram credential aj overený owner chat. Zostáva neaktívny, kým sa kontrolovane neotestuje jedno syntetické zlyhanie; NORA nie je v jeho allowliste.
+
+NORA má od 30. 10. 2026 vlastný aktívny error workflow. Sleduje iba hlavný NORA workflow, používa `NORA Telegram Bot` a posiela do overeného owner chatu. Nie je prepojený so SARA monitoringom.

@@ -1,0 +1,51 @@
+{
+  "name": "NORA — Chief of Staff error monitoring",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "nora-error-trigger",
+      "name": "NORA workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const noraWorkflowId='REPLACE_WITH_NORA_WORKFLOW_ID';\nconst workflowId=String($json.workflow?.id||'');\nif(workflowId!==noraWorkflowId) return [];\nconst workflowName=String($json.workflow?.name||'NORA – Chief of Staff');\nconst executionId=String($json.execution?.id||'neznáme');\nconst lastNode=String($json.execution?.lastNodeExecuted||'neznámy uzol');\nconst message=String($json.execution?.error?.message||$json.error?.message||'Neznáma chyba').replace(/[\\r\\n]+/g,' ').slice(0,500);\nconst occurredAt=new Date().toLocaleString('sk-SK',{timeZone:'Europe/Bratislava'});\nreturn [{json:{text:'⚠️ NORA Chief of Staff — chyba\\n'+workflowName+'\\nUzol: '+lastNode+'\\nExecution: '+executionId+'\\nČas: '+occurredAt+'\\nChyba: '+message}}];"
+      },
+      "id": "nora-prepare-alert",
+      "name": "Priprav NORA upozornenie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_OWNER_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "id": "nora-send-alert",
+      "name": "Pošli NORA upozornenie",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "NORA workflow error": {
+      "main": [[{ "node": "Priprav NORA upozornenie", "type": "main", "index": 0 }]]
+    },
+    "Priprav NORA upozornenie": {
+      "main": [[{ "node": "Pošli NORA upozornenie", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

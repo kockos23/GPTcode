@@ -9,6 +9,7 @@
 - Drive intake úspešný zdrojový súbor presúva do cieľového mesačného priečinka bez vytvorenia druhej kópie. Historický `00_INBOX` ignoruje.
 - Samostatný Telegram intake `9Ynr2a9IaT5m0UJy` je aktívny s credentialom `SARA Telegram Bot`; NORA Telegram Bot sa nepoužíva. Pilotný PDF doklad prešiel celým tokom a live workflow je obmedzený na overený Telegram chat vlastníka.
 - Workflow `SARA — Finance workflow error alerts` je pripravený s allowlistom iba pre Gmail, Drive, Telegram a bankový workflow SARY. Používa SARA bot a owner chat, ale zostáva neaktívny do kontrolovaného testu; NORA nie je súčasťou alert allowlistu.
+- NORA má samostatný aktívny workflow `NORA — Chief of Staff error monitoring`. Sleduje iba hlavný workflow NORY a používa výhradne credential `NORA Telegram Bot`; SARA workflowy ani credentials nie sú v tejto ceste.
 - Priamy CSV workflow `Rog0Z5TIQ6qSpzFX` je pripravený pre všetkých 12 mesačných priečinkov `Vypisy`. CSV páruje s PDF podľa rovnakého základu názvu a toho istého mesačného priečinka; PDF zostáva archívnym originálom pre účtovníčku. Workflow zostáva neaktívny a jeho Convex zápisový krok je vypnutý do nasadenia platnej `CONVEX_SITE_URL` a `N8N_INTEGRATION_SECRET`. Read-only pilot prešiel; v mesačných priečinkoch nebol žiadny CSV súbor.
 
 ## Verziovaný export

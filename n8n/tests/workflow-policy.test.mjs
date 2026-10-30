@@ -12,6 +12,10 @@ const bankCsvWorkflow = JSON.parse(
 )
 const bankCsvNodes = new Map(bankCsvWorkflow.nodes.map((node) => [node.name, node]))
 const bankCsvSerialized = JSON.stringify(bankCsvWorkflow)
+const noraMonitorWorkflow = JSON.parse(
+  fs.readFileSync(new URL('../workflows/nora-error-monitoring.pilot.json', import.meta.url), 'utf8'),
+)
+const noraMonitorSerialized = JSON.stringify(noraMonitorWorkflow)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -147,5 +151,13 @@ test('bank CSV export is direct, sanitized and inert before Convex cutover', () 
     bankCsvNodes.get('Bank CSV — twice daily')?.parameters.rule.interval[0].expression,
     '30 7,17 * * *',
   )
+})
+
+test('NORA monitoring export is isolated and sanitized', () => {
+  assert.equal(noraMonitorWorkflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
+  assert.match(noraMonitorSerialized, /REPLACE_WITH_NORA_WORKFLOW_ID/)
+  assert.match(noraMonitorSerialized, /REPLACE_WITH_OWNER_CHAT_ID/)
+  assert.match(noraMonitorSerialized, /NORA Telegram Bot|NORA Chief of Staff|NORA workflow error/)
+  assert.doesNotMatch(noraMonitorSerialized, /SARA|ajAP0czttC0c9syg|JcLXUmhJ0Kevytvi|9Ynr2a9IaT5m0UJy|Rog0Z5TIQ6qSpzFX/)
 })
 
