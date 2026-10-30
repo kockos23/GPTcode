@@ -1,4 +1,5 @@
-import { internalQuery } from "./_generated/server"
+import { api, internal } from "./_generated/api"
+import { action, internalQuery } from "./_generated/server"
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -64,5 +65,14 @@ export const snapshot = internalQuery({
       reviews: { ready: readyReviews.length, required: reviewRequired.length, failed: failedReviews.length },
       bank: { lastImportedAt: latestStatement?.importedAt ?? null, statementCountKnown: Boolean(latestStatement) },
     }
+  },
+})
+
+export const getFinanceHealth = action({
+  args: {},
+  handler: async (ctx) => {
+    const access = await ctx.runQuery(api.authz.currentAccess, {})
+    if (!access.allowed) return { allowed: false, health: null }
+    return { allowed: true, health: await ctx.runQuery(internal.financeHealth.snapshot, {}) }
   },
 })

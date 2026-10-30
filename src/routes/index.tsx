@@ -92,6 +92,8 @@ type BankMatchActionResult = { ok:boolean; message:string }
 type FinanceCategory = 'Doklady'|'Stripe'|'Vypisy'|'Vystavene_FA'
 type FinanceReview = { id:string; documentId:string; source:string; sourceFileId:string; sourceFileName:string; fileUrl:string; supplier:string; invoiceNumber:string; totalAmount?:number; extractedDeliveryDate?:string; extractedCategory?:string; extractedCurrency?:string; reviewReason:string; status:string; resolvedDeliveryDate?:string; resolvedCategory?:string; resolvedCurrency?:string; completionError?:string; updatedAt:number }
 type FinanceReviewResolveResult = { ok:boolean; message:string; status:string }
+type FinanceHealth = { ok:boolean; checkedAt:number; issues:string[]; register:{updatedAt:number|null;payableCount:number}; commands:{pending:number;processing:number;failed:number;oldestPendingAt:number|null;oldestProcessingAt:number|null}; reviews:{ready:number;required:number;failed:number}; bank:{lastImportedAt:number|null;statementCountKnown:boolean} }
+const FINANCE_HEALTH_LABELS:Record<string,string>={REGISTER_NEVER_SYNCED:'register ešte nebol synchronizovaný',REGISTER_STALE:'register je neaktuálny',COMMAND_PENDING_TOO_LONG:'príkaz čaká príliš dlho',COMMAND_LEASE_EXPIRED:'spracovanie príkazu sa prerušilo',COMMAND_FAILED:'zlyhal zápis do registra',REVIEW_FAILED:'zlyhalo dokončenie review'}
 const bankStatementsApi = {
   listBankStatements: makeFunctionReference<'action', Record<string, never>, BankStatementsResult>('bankStatements:listBankStatements'),
   proposePaymentMatches: makeFunctionReference<'action', Record<string, never>, BankMatchResult>('bankStatements:proposePaymentMatches'),
@@ -101,6 +103,9 @@ const bankStatementsApi = {
 const financeReviewsApi = {
   listFinanceReviews: makeFunctionReference<'action', Record<string, never>, FinanceReview[]>('financeReviews:listFinanceReviews'),
   resolveFinanceReview: makeFunctionReference<'action', { id:string; deliveryDate:string; category:FinanceCategory; currency?:string; note?:string }, FinanceReviewResolveResult>('financeReviews:resolveFinanceReview'),
+}
+const financeHealthApi = {
+  getFinanceHealth: makeFunctionReference<'action', Record<string, never>, {allowed:boolean;health:FinanceHealth|null}>('financeHealth:getFinanceHealth'),
 }
 const wofFinanceApi = {
   listPayables: makeFunctionReference<'action', { force?: boolean }, WofPayablesResult>('wofFinance:listPayables'),
@@ -488,6 +493,7 @@ function FinanceView() {
   const rejectPaymentMatch = useAction(bankStatementsApi.rejectPaymentMatch)
   const listFinanceReviews = useAction(financeReviewsApi.listFinanceReviews)
   const resolveFinanceReview = useAction(financeReviewsApi.resolveFinanceReview)
+  const getFinanceHealth = useAction(financeHealthApi.getFinanceHealth)
   const [rows,setRows] = useState<WofPayable[]>([])
   const [bankStatements,setBankStatements] = useState<BankStatementRecord[]>([])
   const [bankTransactions,setBankTransactions] = useState<BankTransactionRecord[]>([])
@@ -497,6 +503,7 @@ function FinanceView() {
   const [bankMatchRunning,setBankMatchRunning] = useState(false)
   const [bankMatchAction,setBankMatchAction] = useState('')
   const [financeReviews,setFinanceReviews] = useState<FinanceReview[]>([])
+  const [financeHealth,setFinanceHealth] = useState<FinanceHealth|null>(null)
   const [intakeLoading,setIntakeLoading] = useState(false)
   const [intakeFeedback,setIntakeFeedback] = useState('')
   const [reviewSaving,setReviewSaving] = useState('')
@@ -549,6 +556,12 @@ function FinanceView() {
     catch { setIntakeFeedback('Review front SARY sa nepodarilo načítať.') }
     finally { setIntakeLoading(false) }
   }
+  const refreshFinanceHealth = async () => {
+    try {
+      const result=await getFinanceHealth({})
+      setFinanceHealth(result.allowed?result.health:null)
+    } catch { setFinanceHealth(null) }
+  }
   const resolveReview = async (item:FinanceReview) => {
     const draft=reviewDrafts[item.id]??{deliveryDate:item.extractedDeliveryDate||'',category:(item.extractedCategory as FinanceCategory)||'Doklady',currency:item.extractedCurrency||'',note:''}
     if (!draft.deliveryDate) { setIntakeFeedback('Pred uložením potvrď dátum dodania.'); return }
@@ -564,7 +577,7 @@ function FinanceView() {
     } catch { setIntakeFeedback('Rozhodnutie sa nepodarilo uložiť do review frontu.') }
     finally { setReviewSaving('') }
   }
-  useEffect(() => { void refresh(); void refreshBankStatements(); void refreshFinanceReviews() }, [])
+  useEffect(() => { void refresh(); void refreshBankStatements(); void refreshFinanceReviews(); void refreshFinanceHealth() }, [])
 
   const payableGroups = groupPayables(rows)
   const openGroups = payableGroups.filter(group => !isPaid(group.primary))
@@ -658,6 +671,11 @@ function FinanceView() {
         <button className="icon-button light" onClick={()=>void refresh(true)} disabled={loading} aria-label="Obnoviť WOF platby"><RefreshCw className={loading?'spin':''} size={16}/></button>
       </div>
     </div>
+    {financeHealth&&<div className={'source-notice '+(financeHealth.ok?'connected':'finance-warning')}>
+      {financeHealth.ok?<CircleCheckBig size={15}/>:<AlertCircle size={15}/>}<span>{financeHealth.ok
+        ? `SARA finance je v poriadku · register ${financeHealth.register.payableCount} položiek · kontrola ${new Date(financeHealth.checkedAt).toLocaleString('sk-SK')}`
+        : `SARA finance vyžaduje pozornosť: ${financeHealth.issues.map(issue=>FINANCE_HEALTH_LABELS[issue]||issue).join(' · ')}`}</span>
+    </div>}
     {error&&<div className="source-notice finance-warning"><AlertCircle size={15}/><span>{error}</span></div>}
     {feedback&&<div className="source-notice connected"><CircleCheckBig size={15}/><span>{feedback}</span></div>}
     {showForm&&<form className="panel finance-form" onSubmit={e=>{e.preventDefault();void save()}}>
