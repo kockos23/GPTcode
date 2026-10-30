@@ -94,6 +94,21 @@ test('unsafe documents branch to review while safe documents upload monthly', ()
   assert.ok(nodes.has('Zapíš zaradený doklad do registra'))
 })
 
+test('OpenAI failures stay in position so a later document is not filed as an earlier one', () => {
+  const openai = nodes.get('OpenAI — extrakcia dokladu v2')
+  const merge = nodes.get('Spoj extrakciu a originál v2')
+  assert.ok(openai)
+  assert.ok(merge)
+  assert.equal(openai.onError, 'continueRegularOutput')
+  assert.equal(merge.parameters.mode, 'combine')
+  assert.equal(merge.parameters.combineBy, 'combineByPosition')
+  assert.equal(merge.parameters.options.includeUnpaired, undefined)
+  const outputs = workflow.connections[openai.name].main
+  assert.equal(outputs.length, 1)
+  assert.equal(outputs[0][0].node, merge.name)
+  assert.equal(outputs[0][0].index, 0)
+})
+
 test('persistent register dedupe runs before OpenAI extraction', () => {
   const lookup = nodes.get('Načítaj existujúce Doklad ID')
   const check = nodes.get('Skontroluj trvalú deduplikáciu')
