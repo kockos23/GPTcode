@@ -22,6 +22,16 @@ export function billduClaimDecision(
   return "CLAIM"
 }
 
+export function billduCompletionAllowed(
+  existing: ExistingBillduImport & { attempts: number },
+  sourceVersion: string,
+  attempt: number,
+): boolean {
+  return existing.status === "PROCESSING"
+    && existing.sourceVersion === sourceVersion
+    && existing.attempts === attempt
+}
+
 export const claim = internalMutation({
   args: {
     sourceDocumentId: v.string(),
@@ -62,6 +72,7 @@ export const complete = internalMutation({
   args: {
     sourceDocumentId: v.string(),
     sourceVersion: v.string(),
+    attempt: v.number(),
     ok: v.boolean(),
     driveFileId: v.optional(v.string()),
     driveFileUrl: v.optional(v.string()),
@@ -73,7 +84,7 @@ export const complete = internalMutation({
     const existing = await ctx.db.query("billduDocumentImports")
       .withIndex("by_source_document", query => query.eq("sourceDocumentId", args.sourceDocumentId))
       .unique()
-    if (!existing || existing.sourceVersion !== args.sourceVersion || existing.status !== "PROCESSING") {
+    if (!existing || !billduCompletionAllowed(existing, args.sourceVersion, args.attempt)) {
       return { ok: false, code: "NOT_PROCESSING" }
     }
     const now = Date.now()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { billduClaimDecision } from "../../convex/billduImports"
+import { billduClaimDecision, billduCompletionAllowed } from "../../convex/billduImports"
 
 describe("Billdu import lease", () => {
   const now = 1_800_000_000_000
@@ -20,5 +20,13 @@ describe("Billdu import lease", () => {
     expect(billduClaimDecision({ status: "PROCESSING", sourceVersion: "v1", leaseUntil: now + 1 }, "v1", now)).toBe("BUSY")
     expect(billduClaimDecision({ status: "PROCESSING", sourceVersion: "v1", leaseUntil: now - 1 }, "v1", now)).toBe("CLAIM")
     expect(billduClaimDecision({ status: "FAILED", sourceVersion: "v1" }, "v1", now)).toBe("CLAIM")
+  })
+
+  it("accepts completion only from the current attempt and version", () => {
+    const processing = { status: "PROCESSING", sourceVersion: "v2", attempts: 2 }
+    expect(billduCompletionAllowed(processing, "v2", 2)).toBe(true)
+    expect(billduCompletionAllowed(processing, "v2", 1)).toBe(false)
+    expect(billduCompletionAllowed(processing, "v1", 2)).toBe(false)
+    expect(billduCompletionAllowed({ ...processing, status: "COMPLETED" }, "v2", 2)).toBe(false)
   })
 })

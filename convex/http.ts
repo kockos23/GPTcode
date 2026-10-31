@@ -210,11 +210,12 @@ http.route({
     const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
     const sourceDocumentId = text("sourceDocumentId", 120)
     const sourceVersion = text("sourceVersion", 180)
-    if (!/^[A-Za-z0-9_-]{1,120}$/.test(sourceDocumentId) || !sourceVersion || typeof body?.ok !== "boolean") {
+    const attempt = typeof body?.attempt === "number" && Number.isInteger(body.attempt) ? body.attempt : 0
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(sourceDocumentId) || !sourceVersion || attempt < 1 || typeof body?.ok !== "boolean") {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
     const result = await ctx.runMutation(internal.billduImports.complete, {
-      sourceDocumentId, sourceVersion, ok: body.ok,
+      sourceDocumentId, sourceVersion, attempt, ok: body.ok,
       driveFileId: text("driveFileId", 180) || undefined,
       driveFileUrl: text("driveFileUrl", 500) || undefined,
       registerDocumentId: text("registerDocumentId", 180) || undefined,
