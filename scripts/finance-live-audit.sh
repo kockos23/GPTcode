@@ -46,6 +46,25 @@ for id in "${audited_ids[@]}"; do
   fi
 done
 
+for id in cmGxWnoZh613XRWTF7o09 kGkyEMhtp7qdGtFI; do
+  curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header" \
+    "$N8N_BASE_URL/api/v1/workflows/$id" --output "$temporary_directory/workflow-$id.json"
+done
+
+sara_monitor="$temporary_directory/workflow-cmGxWnoZh613XRWTF7o09.json"
+for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY; do
+  grep -q "$id" "$sara_monitor" || { echo "FAIL SARA monitor does not allow workflow $id" >&2; exit 1; }
+done
+for id in 976VfstjatIijTZx kGkyEMhtp7qdGtFI; do
+  ! grep -q "$id" "$sara_monitor" || { echo "FAIL SARA monitor includes NORA workflow $id" >&2; exit 1; }
+done
+
+nora_monitor="$temporary_directory/workflow-kGkyEMhtp7qdGtFI.json"
+grep -q '976VfstjatIijTZx' "$nora_monitor" || { echo "FAIL NORA monitor does not allow the main NORA workflow" >&2; exit 1; }
+for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy cmGxWnoZh613XRWTF7o09; do
+  ! grep -q "$id" "$nora_monitor" || { echo "FAIL NORA monitor includes SARA workflow $id" >&2; exit 1; }
+done
+
 for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy; do
   jq -e '.settings.saveDataSuccessExecution=="none" and .settings.saveDataErrorExecution=="all" and .settings.saveExecutionProgress==false and .settings.executionTimeout==900' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has unsafe execution retention" >&2; exit 1; }
   jq -e '

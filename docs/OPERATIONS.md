@@ -54,6 +54,8 @@ The live audit also verifies that Gmail, Drive and Telegram each have exactly on
 
 The same audit locks the extraction safety contract: OpenAI storage is disabled, output uses a strict JSON schema, attachment content is treated only as data, and `deliveryDate` may never be inferred from email receipt time, filename, issue date or due date.
 
+Monitoring isolation is audited in both directions. The SARA error allowlist must contain every finance workflow and no NORA workflow; the NORA monitor must contain the main NORA workflow and no SARA workflow.
+
 Bank imports are resumable. If an action stops after creating the statement but before all transaction batches finish, rerunning the same source file fills only missing operations and derives the final count from stored rows. Finance health reports `BANK_IMPORT_STUCK` when such a processing record is older than 30 minutes.
 
 Finance command callbacks carry both `commandId` and the claimed attempt number. A stale worker cannot complete a newer retry. Failed commands become eligible again after the 30-minute lease delay and stop retrying after three attempts; completed commands are terminal. Sheet writes remain idempotent through the command ID stored in payment history.
