@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "20 7,17 * * *" }] }
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "27 7,17 * * *" }] }
       },
       "id": "register-sync-schedule",
       "name": "Register sync — twice daily",

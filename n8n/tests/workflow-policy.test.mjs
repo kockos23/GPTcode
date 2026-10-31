@@ -217,7 +217,7 @@ test('finance review resolution updates the original file and register row', () 
   assert.doesNotMatch(reviewSerialized, /append/i)
   assert.equal(
     reviewNodes.get('Review — twice daily')?.parameters.rule.interval[0].expression,
-    '25 7,17 * * *',
+    '22 7,17 * * *',
   )
 })
 
@@ -239,7 +239,7 @@ test('finance command processor is direct, idempotent and ordered before registe
   assert.match(commandNodes.get('Priprav idempotentné zápisy')?.parameters.jsCode, /existing>=1/)
   assert.equal(commandNodes.get('Convex — načítaj príkazy')?.parameters.method, 'POST')
   assert.equal(commandNodes.get('Finance commands — twice daily')?.parameters.rule.interval[0].expression, '18 7,17 * * *')
-  assert.equal(registerSyncWorkflow.nodes[0].parameters.rule.interval[0].expression, '20 7,17 * * *')
+  assert.equal(registerSyncWorkflow.nodes[0].parameters.rule.interval[0].expression, '27 7,17 * * *')
 })
 
 test('Billdu pilot is read-only, bounded and manual until the response schema is verified', () => {
