@@ -26,10 +26,21 @@ function isoDate(value: string): string {
 }
 
 function numberValue(source: UnknownRecord, keys: string[]): number | null {
-  const raw = firstText(source, keys).replace(/\s/g, "")
-  const normalized = raw.includes(",") && raw.includes(".")
-    ? raw.replace(/\./g, "").replace(",", ".")
-    : raw.replace(",", ".")
+  const raw = firstText(source, keys).replace(/[\s'’]/g, "")
+  const comma = raw.lastIndexOf(",")
+  const dot = raw.lastIndexOf(".")
+  let normalized = raw
+  if (comma >= 0 && dot >= 0) {
+    const decimal = comma > dot ? "," : "."
+    const thousands = decimal === "," ? "." : ","
+    normalized = raw.replaceAll(thousands, "").replace(decimal, ".")
+  } else if (comma >= 0 || dot >= 0) {
+    const separator = comma >= 0 ? "," : "."
+    const fractionLength = raw.length - Math.max(comma, dot) - 1
+    normalized = fractionLength === 1 || fractionLength === 2
+      ? raw.replace(separator, ".")
+      : raw.replaceAll(separator, "")
+  }
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : null
 }
@@ -75,7 +86,9 @@ export function normalizeBillduDocument(value: unknown): BillduDocumentCandidate
   if (!deliveryDate) reviewReasons.push("Chýba dátum dodania")
   if (!/^[A-Z]{3}$/.test(currency)) reviewReasons.push("Chýba platná mena")
   if (totalAmount === null || totalAmount < 0) reviewReasons.push("Chýba platná suma")
-  if (["draft", "cancelled", "canceled", "void", "deleted", "storno"].includes(status)) reviewReasons.push("Doklad nie je vystavená faktúra")
+  const invoiceTypes = new Set(["invoice", "tax_invoice", "issued_invoice", "faktura", "faktúra"])
+  const issuedStatuses = new Set(["issued", "sent", "unpaid", "paid", "partially_paid", "overdue"])
+  if (!invoiceTypes.has(type) || !issuedStatuses.has(status)) reviewReasons.push("Doklad nie je potvrdená vystavená faktúra")
   return {
     id,
     documentId: id ? `billdu:${id}` : "",

@@ -30,8 +30,23 @@ describe("Billdu document normalization", () => {
 
   it("rejects drafts and cancelled documents", () => {
     for (const status of ["draft", "cancelled", "void"]) {
-      expect(normalizeBillduDocument({ id: 1, number: "1", status, deliveryDate: "2026-10-01", currency: "EUR", total: 10 }).safeToImport).toBe(false)
+      expect(normalizeBillduDocument({ id: 1, number: "1", type: "invoice", status, deliveryDate: "2026-10-01", currency: "EUR", total: 10 }).safeToImport).toBe(false)
     }
+  })
+
+  it("fails closed for an unknown type or status", () => {
+    const base = { id: 1, number: "1", deliveryDate: "2026-10-01", currency: "EUR", total: 10 }
+    expect(normalizeBillduDocument({ ...base, type: "quote", status: "sent" }).safeToImport).toBe(false)
+    expect(normalizeBillduDocument({ ...base, type: "invoice", status: "unknown" }).safeToImport).toBe(false)
+    expect(normalizeBillduDocument({ ...base, type: "invoice" }).safeToImport).toBe(false)
+  })
+
+  it("parses European and English totals without changing their scale", () => {
+    const base = { id: 1, number: "1", type: "invoice", status: "sent", deliveryDate: "2026-10-01", currency: "EUR" }
+    expect(normalizeBillduDocument({ ...base, total: "1.535,00" }).totalAmount).toBe(1535)
+    expect(normalizeBillduDocument({ ...base, total: "1,535.00" }).totalAmount).toBe(1535)
+    expect(normalizeBillduDocument({ ...base, total: "1 535,50" }).totalAmount).toBe(1535.5)
+    expect(normalizeBillduDocument({ ...base, total: "1,535" }).totalAmount).toBe(1535)
   })
 
   it("extracts rows only from supported collection envelopes", () => {
