@@ -46,6 +46,8 @@ Live configuration audit 31 October 2026 confirmed that Gmail, Drive and Telegra
 
 The three active SARA intake workflows retain error payloads for diagnostics but do not retain successful execution payloads or progress snapshots. Each has a 15-minute execution timeout. Accounting evidence remains in the Drive archive and WOF register; n8n execution metadata remains available without duplicating successful invoice contents.
 
+Run `npm run finance:audit` for a read-only live n8n audit that does not require Convex. It verifies expected active/inactive workflow states, placeholders, SARA error routing, Europe/Bratislava schedules, safe execution retention and the absence of new active-workflow errors during the previous seven days. It requests execution metadata only, never execution payloads.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.
