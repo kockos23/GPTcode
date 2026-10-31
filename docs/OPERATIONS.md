@@ -42,6 +42,8 @@ After the Convex cutover, activate Finance Health Monitor `2YGEEBjYBn8aNBsY` onl
 
 Live configuration audit 31 October 2026 confirmed that Gmail, Drive and Telegram intake explicitly reference the central SARA error workflow `cmGxWnoZh613XRWTF7o09`. All three remained active and no active SARA/NORA workflow had a new error in the preceding seven days.
 
+The three active SARA intake workflows retain error payloads for diagnostics but do not retain successful execution payloads or progress snapshots. Each has a 15-minute execution timeout. Accounting evidence remains in the Drive archive and WOF register; n8n execution metadata remains available without duplicating successful invoice contents.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.

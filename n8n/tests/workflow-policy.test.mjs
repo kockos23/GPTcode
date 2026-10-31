@@ -59,6 +59,10 @@ test('Gmail intake is restricted and scheduled for 06:15 on workdays', () => {
   assert.match(trigger.parameters.filters.q, /has:attachment/)
   assert.equal(trigger.parameters.pollTimes.item[0].cronExpression, '0 15 6 * * 1-5')
   assert.equal(workflow.settings.errorWorkflow, 'cmGxWnoZh613XRWTF7o09')
+  assert.equal(workflow.settings.saveDataSuccessExecution, 'none')
+  assert.equal(workflow.settings.saveDataErrorExecution, 'all')
+  assert.equal(workflow.settings.saveExecutionProgress, false)
+  assert.equal(workflow.settings.executionTimeout, 900)
 })
 
 test('Gmail source attachment identity avoids transient n8n file IDs', () => {

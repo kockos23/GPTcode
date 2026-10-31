@@ -1383,9 +1383,10 @@
     "executionOrder": "v1",
     "timezone": "Europe/Bratislava",
     "saveManualExecutions": true,
-    "saveExecutionProgress": true,
+    "saveExecutionProgress": false,
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 900,
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   }

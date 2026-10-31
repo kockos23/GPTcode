@@ -60,6 +60,11 @@ for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OX
     exit 1
   fi
   jq -e '.settings.errorWorkflow=="cmGxWnoZh613XRWTF7o09"' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has no SARA error workflow" >&2; exit 1; }
+  case "$id" in
+    ajAP0czttC0c9syg|JcLXUmhJ0Kevytvi|9Ynr2a9IaT5m0UJy)
+      jq -e '.settings.saveDataSuccessExecution=="none" and .settings.saveDataErrorExecution=="all" and .settings.saveExecutionProgress==false and .settings.executionTimeout==900' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has unsafe execution retention" >&2; exit 1; }
+      ;;
+  esac
 done
 
 issue_count="$(jq '.issues | length' "$temporary_directory/health.json")"
