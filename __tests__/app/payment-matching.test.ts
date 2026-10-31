@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { findBestPayableMatch, type MatchablePayable, type MatchableTransaction } from "../../convex/paymentMatching"
+import { findBestPayableMatch, payableIdsForConfirmedMatch, type MatchablePayable, type MatchableTransaction } from "../../convex/paymentMatching"
 
 const transaction: MatchableTransaction = {
   id: "tx-1", amount: -120, currency: "EUR", bookedOn: "2026-10-05",
@@ -41,6 +41,19 @@ describe("payment matching", () => {
 
   it("ignores already paid documents", () => {
     expect(findBestPayableMatch(transaction, [{ ...payable, paymentStatus: "Uhradené" }])).toBeNull()
+  })
+
+  it("confirms only the selected receipt when invoice numbers are blank", () => {
+    const first = { id: "receipt-1", supplier: "Shell", invoiceNumber: "", amount: "15,00", currency: "EUR" }
+    const second = { id: "receipt-2", supplier: "Shell", invoiceNumber: "", amount: "15.00", currency: "EUR" }
+    expect(payableIdsForConfirmedMatch(first, [first, second])).toEqual(["receipt-1"])
+  })
+
+  it("confirms every duplicate row of the same invoice", () => {
+    const first = { id: "doc-1", supplier: "Dodávateľ SK, s.r.o.", invoiceNumber: "2026/0019", amount: "120,00", currency: "EUR" }
+    const second = { id: "doc-2", supplier: "Dodávateľ SK, s.r.o.", invoiceNumber: "2026/0019", amount: "120.00", currency: "EUR" }
+    const other = { id: "doc-3", supplier: "Dodávateľ SK, s.r.o.", invoiceNumber: "2026/0020", amount: "120,00", currency: "EUR" }
+    expect(payableIdsForConfirmedMatch(first, [first, second, other])).toEqual(["doc-1", "doc-2"])
   })
 
   it("allows a partial payment only with a strong reference", () => {

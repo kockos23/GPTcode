@@ -26,6 +26,14 @@ export type PaymentMatch = {
   reason: string
 }
 
+export type PayableIdentity = {
+  id: string
+  supplier: string
+  invoiceNumber: string
+  amount: string
+  currency: string
+}
+
 function normalized(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
 }
@@ -59,6 +67,27 @@ function supplierOverlap(supplier: string, counterparty: string): boolean {
   const counterpartyValue = normalized(counterparty)
   if (!supplierTokens.length || !counterpartyValue) return false
   return supplierTokens.some(token => counterpartyValue.includes(token))
+}
+
+function amountKey(value: string): string {
+  return value.replace(/\s/g, "").replace(",", ".")
+}
+
+// Duplicate sheet rows of one invoice share supplier, invoice number, amount, and currency.
+// A blank invoice number does not identify a document: repeated receipts from the same
+// supplier for the same amount must stay separate when a bank match is confirmed.
+export function payableIdsForConfirmedMatch(selected: PayableIdentity, rows: PayableIdentity[]): string[] {
+  if (!selected.supplier.trim() || !selected.invoiceNumber.trim() || !selected.currency.trim()) {
+    return [selected.id]
+  }
+  const selectedAmount = amountKey(selected.amount)
+  const ids = rows.filter(row =>
+    row.supplier === selected.supplier &&
+    row.invoiceNumber === selected.invoiceNumber &&
+    row.currency === selected.currency &&
+    amountKey(row.amount) === selectedAmount,
+  ).map(row => row.id)
+  return ids.length ? ids : [selected.id]
 }
 
 export function findBestPayableMatch(
