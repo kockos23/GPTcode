@@ -60,6 +60,11 @@ describe("payment matching", () => {
     expect(findBestPayableMatch({ ...transaction, amount: -1535 }, [large])?.payableId).toBe("doc-1")
   })
 
+  it("parses grouped English amounts without rounding them to the wrong value", () => {
+    const large = { ...payable, amount: "1,535.00" }
+    expect(findBestPayableMatch({ ...transaction, amount: -1535 }, [large])?.payableId).toBe("doc-1")
+  })
+
   it("locks a bank match while its register command is pending", () => {
     expect(paymentMatchIsLocked("ČAKÁ NA ZÁPIS")).toBe(true)
     expect(paymentMatchIsLocked("POTVRDENÁ")).toBe(true)

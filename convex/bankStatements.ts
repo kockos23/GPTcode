@@ -30,11 +30,22 @@ function csvRow(line: string): string[] {
   return fields
 }
 function decimal(value: string): number {
-  const compact = value.replace(/\s/g, "").replace(/[^\d,.-]/g, "")
+  const compact = value.replace(/[\s'’]/g, "").replace(/[^\d,.-]/g, "")
   if (!/\d/.test(compact)) return Number.NaN
-  const normalized = compact.includes(",") && compact.includes(".")
-    ? compact.replace(/\./g, "").replace(",", ".")
-    : compact.replace(",", ".")
+  const comma = compact.lastIndexOf(",")
+  const dot = compact.lastIndexOf(".")
+  let normalized = compact
+  if (comma >= 0 && dot >= 0) {
+    const decimalSeparator = comma > dot ? "," : "."
+    const thousandsSeparator = decimalSeparator === "," ? "." : ","
+    normalized = compact.replaceAll(thousandsSeparator, "").replace(decimalSeparator, ".")
+  } else if (comma >= 0 || dot >= 0) {
+    const separator = comma >= 0 ? "," : "."
+    const fractionLength = compact.length - Math.max(comma, dot) - 1
+    normalized = fractionLength === 1 || fractionLength === 2
+      ? compact.replace(separator, ".")
+      : compact.replaceAll(separator, "")
+  }
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : Number.NaN
 }
@@ -154,6 +165,11 @@ export function parseStatement(text: string): ParsedStatement {
   }
   if (Math.abs(openingBalance + incomeTotal - expenseTotal - closingBalance) > 0.02) {
     throw new Error("Nesedí počiatočný stav + príjmy - výdavky = konečný stav.")
+  }
+  const transactionIncome = transactions.filter(item => item.amount > 0).reduce((sum, item) => sum + item.amount, 0)
+  const transactionExpense = Math.abs(transactions.filter(item => item.amount < 0).reduce((sum, item) => sum + item.amount, 0))
+  if (Math.abs(transactionIncome - incomeTotal) > 0.02 || Math.abs(transactionExpense - expenseTotal) > 0.02) {
+    throw new Error("Súčty transakcií sa nezhodujú so súhrnom výpisu.")
   }
   return {
     statementNumber: statementMatch?.[1]?.replace(/[^\w/-]/g, "") ?? "",

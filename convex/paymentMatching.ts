@@ -37,10 +37,22 @@ function reference(value: string): string {
 }
 
 function amount(value: string | undefined): number {
-  const compact = (value ?? "").replace(/\s/g, "")
-  const parsed = Number(compact.includes(",") && compact.includes(".")
-    ? compact.replace(/\./g, "").replace(",", ".")
-    : compact.replace(",", "."))
+  const compact = (value ?? "").replace(/[\s'’]/g, "")
+  const comma = compact.lastIndexOf(",")
+  const dot = compact.lastIndexOf(".")
+  let normalizedAmount = compact
+  if (comma >= 0 && dot >= 0) {
+    const decimalSeparator = comma > dot ? "," : "."
+    const thousandsSeparator = decimalSeparator === "," ? "." : ","
+    normalizedAmount = compact.replaceAll(thousandsSeparator, "").replace(decimalSeparator, ".")
+  } else if (comma >= 0 || dot >= 0) {
+    const separator = comma >= 0 ? "," : "."
+    const fractionLength = compact.length - Math.max(comma, dot) - 1
+    normalizedAmount = fractionLength === 1 || fractionLength === 2
+      ? compact.replace(separator, ".")
+      : compact.replaceAll(separator, "")
+  }
+  const parsed = Number(normalizedAmount)
   return Number.isFinite(parsed) ? parsed : 0
 }
 

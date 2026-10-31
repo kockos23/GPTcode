@@ -10,6 +10,11 @@ describe("bank statement summary parsing", () => {
     expect(summaryNumber(["Suma výdavkov: 1.234,56 EUR"], "Suma výdavkov")).toBe(1234.56)
   })
 
+  it("parses English thousands without changing scale", () => {
+    expect(summaryNumber(["Suma príjmov: 1,234.56 EUR"], "Suma príjmov")).toBe(1234.56)
+    expect(summaryNumber(["Suma príjmov: 1,234 EUR"], "Suma príjmov")).toBe(1234)
+  })
+
   it("keeps negative balances", () => {
     expect(summaryNumber(["Začiatočný stav účtu: -250,10 EUR"], "Začiatočný stav účtu")).toBe(-250.1)
   })
@@ -76,6 +81,12 @@ describe("bank statement CSV", () => {
   it("rejects inconsistent statement totals", () => {
     expect(() => parseStatement(csv.replace("Konečný stav účtu: 850,00 EUR", "Konečný stav účtu: 851,00 EUR")))
       .toThrow("Nesedí počiatočný stav + príjmy - výdavky = konečný stav.")
+  })
+
+  it("rejects transaction totals that do not match the statement summary", () => {
+    const changedTransaction = csv.replace("05.10.2026;200,00", "05.10.2026;199,00")
+    expect(() => parseStatement(changedTransaction))
+      .toThrow("Súčty transakcií sa nezhodujú so súhrnom výpisu.")
   })
 
   it("normalizes a bank-provided negative expense summary", () => {
