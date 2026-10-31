@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { validCurrency, validIsoDate, validateFinanceResolution } from "../../convex/financeReviews"
+import { reviewCompletionDecision, validCurrency, validIsoDate, validateFinanceResolution } from "../../convex/financeReviews"
 
 describe("finance review validation", () => {
   it("accepts a real delivery date and ISO currency for an invoice", () => {
@@ -36,5 +36,18 @@ describe("finance review validation", () => {
     expect(validateFinanceResolution({
       deliveryDate: "2026-09-30", category: "Archive", currency: "EUR",
     })).toMatch(/priečinok/i)
+  })
+})
+
+describe("finance review completion", () => {
+  it("accepts success only from READY with Drive evidence", () => {
+    expect(reviewCompletionDecision("READY", true, "file-1", "https://drive.google.com/file/d/file-1/view")).toBe("APPLY")
+    expect(reviewCompletionDecision("READY", true)).toBe("MISSING_EVIDENCE")
+  })
+
+  it("does not allow a late callback to regress a resolved review", () => {
+    expect(reviewCompletionDecision("RESOLVED", false)).toBe("ALREADY_RESOLVED")
+    expect(reviewCompletionDecision("REVIEW_REQUIRED", true, "file-1", "https://example.test")).toBe("INVALID_STATE")
+    expect(reviewCompletionDecision("FAILED", true, "file-1", "https://example.test")).toBe("INVALID_STATE")
   })
 })

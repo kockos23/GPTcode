@@ -33,6 +33,20 @@ export function validateFinanceResolution(input: {
   return null
 }
 
+export type ReviewCompletionDecision = "APPLY" | "ALREADY_RESOLVED" | "INVALID_STATE" | "MISSING_EVIDENCE"
+
+export function reviewCompletionDecision(
+  status: string,
+  ok: boolean,
+  targetFileId?: string,
+  targetFileUrl?: string,
+): ReviewCompletionDecision {
+  if (status === "RESOLVED") return "ALREADY_RESOLVED"
+  if (status !== "READY") return "INVALID_STATE"
+  if (ok && (!targetFileId || !targetFileUrl)) return "MISSING_EVIDENCE"
+  return "APPLY"
+}
+
 const reviewEventArgs = {
   documentId: v.string(), source: v.string(), sourceFileId: v.string(), sourceFileName: v.string(),
   fileUrl: v.string(), supplier: v.string(), invoiceNumber: v.string(), totalAmount: v.optional(v.number()),
@@ -106,6 +120,9 @@ export const completeFromN8n = internalMutation({
     const row = await ctx.db.query("financeDocumentReviews")
       .withIndex("by_document_id", query => query.eq("documentId", args.documentId)).unique()
     if (!row) return { ok: false, status: "NOT_FOUND" }
+    const decision = reviewCompletionDecision(row.status, args.ok, args.targetFileId, args.targetFileUrl)
+    if (decision === "ALREADY_RESOLVED") return { ok: true, status: "RESOLVED" }
+    if (decision !== "APPLY") return { ok: false, status: decision }
     const status = args.ok ? "RESOLVED" : "FAILED"
     await ctx.db.patch(row._id, {
       status, targetFileId: args.targetFileId, targetFileUrl: args.targetFileUrl,

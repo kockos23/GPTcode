@@ -255,11 +255,13 @@ http.route({
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const commandId = typeof body?.commandId === "string" ? body.commandId.trim().slice(0, 180) : ""
-    if (!commandId || typeof body?.ok !== "boolean") {
+    const attempt = typeof body?.attempt === "number" && Number.isInteger(body.attempt) ? body.attempt : 0
+    if (!commandId || attempt < 1 || typeof body?.ok !== "boolean") {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
     const result = await ctx.runMutation(internal.financeCommands.complete, {
       commandId,
+      attempt,
       ok: body.ok,
       message: typeof body.message === "string" ? body.message.trim().slice(0, 500) : undefined,
       error: typeof body.error === "string" ? body.error.trim().slice(0, 500) : undefined,

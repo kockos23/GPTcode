@@ -4,8 +4,14 @@ import { action, internalMutation } from "./_generated/server"
 
 const COMMAND_LEASE_MS = 30 * 60 * 1000
 
-export function commandEligible(status: string, updatedAt: number, now: number): boolean {
-  return status === "PENDING" || (status === "PROCESSING" && updatedAt <= now - COMMAND_LEASE_MS)
+export function commandEligible(status: string, updatedAt: number, now: number, attempts = 0): boolean {
+  return status === "PENDING"
+    || (status === "PROCESSING" && updatedAt <= now - COMMAND_LEASE_MS)
+    || (status === "FAILED" && attempts < 3 && updatedAt <= now - COMMAND_LEASE_MS)
+}
+
+export function commandCompletionAllowed(status: string, storedAttempt: number, callbackAttempt: number): boolean {
+  return status === "PROCESSING" && storedAttempt === callbackAttempt
 }
 
 const paymentMethods = ["Bankový prevod", "Platobná karta", "Trvalý príkaz / paušál", "Hotovosť", "Iné"]
@@ -41,12 +47,23 @@ export const claimPending = internalMutation({
       ? await ctx.db.query("financeRegisterCommands")
         .withIndex("by_status", query => query.eq("status", "PROCESSING")).take(50)
       : []
-    const rows = [...pending, ...stale.filter(row => commandEligible(row.status, row.updatedAt, now))].slice(0, 50)
+    const failed = pending.length + stale.length < 50
+      ? await ctx.db.query("financeRegisterCommands")
+        .withIndex("by_status", query => query.eq("status", "FAILED")).take(50)
+      : []
+    const rows = [
+      ...pending,
+      ...stale.filter(row => commandEligible(row.status, row.updatedAt, now, row.attempts ?? 0)),
+      ...failed.filter(row => commandEligible(row.status, row.updatedAt, now, row.attempts ?? 0)),
+    ].slice(0, 50)
     for (const row of rows) {
       await ctx.db.patch(row._id, {
         status: "PROCESSING",
         attempts: (row.attempts ?? 0) + 1,
         updatedAt: now,
+        processedAt: undefined,
+        resultMessage: undefined,
+        error: undefined,
       })
     }
     return rows.map(({ _id, _creationTime, ...fields }) => ({
@@ -60,14 +77,14 @@ export const claimPending = internalMutation({
 })
 
 export const complete = internalMutation({
-  args: { commandId: v.string(), ok: v.boolean(), message: v.optional(v.string()), error: v.optional(v.string()) },
+  args: { commandId: v.string(), attempt: v.number(), ok: v.boolean(), message: v.optional(v.string()), error: v.optional(v.string()) },
   returns: v.object({ ok: v.boolean(), status: v.string() }),
   handler: async (ctx, args) => {
     const row = await ctx.db.query("financeRegisterCommands")
       .withIndex("by_command_id", query => query.eq("commandId", args.commandId)).unique()
     if (!row) return { ok: false, status: "NOT_FOUND" }
     if (row.status === "COMPLETED") return { ok: true, status: "COMPLETED" }
-    if (row.status !== "PROCESSING") return { ok: false, status: "INVALID_STATE" }
+    if (!commandCompletionAllowed(row.status, row.attempts ?? 0, args.attempt)) return { ok: false, status: "INVALID_ATTEMPT" }
     const status = args.ok ? "COMPLETED" : "FAILED"
     await ctx.db.patch(row._id, {
       status, resultMessage: args.message?.slice(0, 500), error: args.error?.slice(0, 500),

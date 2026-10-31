@@ -50,6 +50,10 @@ Run `npm run finance:audit` for a read-only live n8n audit that does not require
 
 Bank imports are resumable. If an action stops after creating the statement but before all transaction batches finish, rerunning the same source file fills only missing operations and derives the final count from stored rows. Finance health reports `BANK_IMPORT_STUCK` when such a processing record is older than 30 minutes.
 
+Finance command callbacks carry both `commandId` and the claimed attempt number. A stale worker cannot complete a newer retry. Failed commands become eligible again after the 30-minute lease delay and stop retrying after three attempts; completed commands are terminal. Sheet writes remain idempotent through the command ID stored in payment history.
+
+Review completion is accepted only while the item is `READY`. A successful callback requires both the Drive file ID and URL, and a late callback cannot regress an already `RESOLVED` review. Failed review items return to `READY` only after a new explicit owner resolution.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.
