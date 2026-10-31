@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseStatement, summaryNumber } from "../../convex/bankStatements"
+import { bankStatementNeedsResume, parseStatement, summaryNumber } from "../../convex/bankStatements"
 
 describe("bank statement summary parsing", () => {
   it("parses a space-separated thousands amount", () => {
@@ -100,6 +100,14 @@ describe("bank statement CSV", () => {
     const received = csv.replace(";Príjem;;;;TATRSKBX", ";Prijatá platba;;;;TATRSKBX")
     expect(received).not.toBe(csv)
     expect(parseStatement(received).transactions[1].amount).toBe(50)
+  })
+})
+
+describe("bank statement recovery", () => {
+  it("resumes every unfinished state but not a completed import", () => {
+    expect(bankStatementNeedsResume("SPRACÚVA SA")).toBe(true)
+    expect(bankStatementNeedsResume("FAILED")).toBe(true)
+    expect(bankStatementNeedsResume("NAČÍTANÝ")).toBe(false)
   })
 })
 

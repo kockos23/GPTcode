@@ -12,6 +12,7 @@ describe("finance health evaluation", () => {
     failedReviews: 0,
     oldestBillduProcessingAt: null,
     failedBillduImports: 0,
+    oldestBankProcessingAt: null,
   }
 
   it("accepts a fresh and empty operational queue", () => {
@@ -43,5 +44,10 @@ describe("finance health evaluation", () => {
       oldestBillduProcessingAt: now - 31 * 60 * 1000,
       failedBillduImports: 1,
     })).toEqual(expect.arrayContaining(["BILLDU_LEASE_EXPIRED", "BILLDU_IMPORT_FAILED"]))
+  })
+
+  it("surfaces an abandoned bank import", () => {
+    expect(financeHealthIssues({ ...healthy, oldestBankProcessingAt: now - 31 * 60 * 1000 }))
+      .toContain("BANK_IMPORT_STUCK")
   })
 })

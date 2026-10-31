@@ -12,6 +12,7 @@ export type FinanceHealthInput = {
   failedReviews: number
   oldestBillduProcessingAt: number | null
   failedBillduImports: number
+  oldestBankProcessingAt: number | null
 }
 
 export function financeHealthIssues(input: FinanceHealthInput): string[] {
@@ -24,6 +25,7 @@ export function financeHealthIssues(input: FinanceHealthInput): string[] {
   if (input.failedReviews > 0) issues.push("REVIEW_FAILED")
   if (input.oldestBillduProcessingAt !== null && input.now - input.oldestBillduProcessingAt > 30 * 60 * 1000) issues.push("BILLDU_LEASE_EXPIRED")
   if (input.failedBillduImports > 0) issues.push("BILLDU_IMPORT_FAILED")
+  if (input.oldestBankProcessingAt !== null && input.now - input.oldestBankProcessingAt > 30 * 60 * 1000) issues.push("BANK_IMPORT_STUCK")
   return issues
 }
 
@@ -34,6 +36,8 @@ export const snapshot = internalQuery({
     const cache = await ctx.db.query("wofFinanceCache")
       .withIndex("by_cache_key", query => query.eq("cacheKey", "payables")).unique()
     const latestStatement = await ctx.db.query("bankStatements").withIndex("by_imported_at").order("desc").first()
+    const processingStatements = await ctx.db.query("bankStatements")
+      .withIndex("by_status", query => query.eq("status", "SPRACÚVA SA")).take(100)
     const pending = await ctx.db.query("financeRegisterCommands")
       .withIndex("by_status", query => query.eq("status", "PENDING")).take(100)
     const processing = await ctx.db.query("financeRegisterCommands")
@@ -61,6 +65,8 @@ export const snapshot = internalQuery({
       failedReviews: failedReviews.length,
       oldestBillduProcessingAt: oldest(billduProcessing),
       failedBillduImports: failedBillduImports.length,
+      oldestBankProcessingAt: processingStatements.length
+        ? Math.min(...processingStatements.map(statement => statement.importedAt)) : null,
     }
     const issues = financeHealthIssues(input)
     return {
@@ -73,7 +79,12 @@ export const snapshot = internalQuery({
         oldestPendingAt: input.oldestPendingAt, oldestProcessingAt: input.oldestProcessingAt,
       },
       reviews: { ready: readyReviews.length, required: reviewRequired.length, failed: failedReviews.length },
-      bank: { lastImportedAt: latestStatement?.importedAt ?? null, statementCountKnown: Boolean(latestStatement) },
+      bank: {
+        lastImportedAt: latestStatement?.importedAt ?? null,
+        statementCountKnown: Boolean(latestStatement),
+        processing: processingStatements.length,
+        oldestProcessingAt: input.oldestBankProcessingAt,
+      },
       billdu: {
         processing: billduProcessing.length,
         failed: failedBillduImports.length,

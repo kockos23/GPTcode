@@ -60,6 +60,7 @@ export default defineSchema({
     status: v.string(),
   }).index("by_source_account", ["sourceFileId", "accountKey"])
     .index("by_source_file", ["sourceFileId"])
+    .index("by_status", ["status"])
     .index("by_imported_at", ["importedAt"]),
   bankTransactions: defineTable({
     statementId: v.id("bankStatements"),

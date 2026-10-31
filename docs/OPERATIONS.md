@@ -48,6 +48,8 @@ The three active SARA intake workflows retain error payloads for diagnostics but
 
 Run `npm run finance:audit` for a read-only live n8n audit that does not require Convex. It verifies expected active/inactive workflow states, placeholders, SARA error routing, Europe/Bratislava schedules, safe execution retention and the absence of new active-workflow errors during the previous seven days. It requests execution metadata only, never execution payloads.
 
+Bank imports are resumable. If an action stops after creating the statement but before all transaction batches finish, rerunning the same source file fills only missing operations and derives the final count from stored rows. Finance health reports `BANK_IMPORT_STUCK` when such a processing record is older than 30 minutes.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.

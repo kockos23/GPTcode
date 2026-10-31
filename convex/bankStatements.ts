@@ -6,6 +6,9 @@ import { findBestPayableMatch } from "./paymentMatching"
 export function paymentMatchIsLocked(status: string): boolean {
   return ["ČAKÁ NA ZÁPIS", "POTVRDENÁ", "ZAMIETNUTÁ"].includes(status)
 }
+export function bankStatementNeedsResume(status: string): boolean {
+  return status !== "NAČÍTANÝ"
+}
 function csvRow(line: string): string[] {
   const fields: string[] = []
   let current = ""
@@ -296,7 +299,10 @@ export const addBankTransactionBatch = internalMutation({
       const existing = await ctx.db.query("bankTransactions")
         .withIndex("by_account_operation", q => q.eq("accountKey", args.accountKey).eq("operationId", row.operationId))
         .unique()
-      if (existing) { duplicates += 1; continue }
+      if (existing) {
+        if (existing.statementId !== args.statementId) duplicates += 1
+        continue
+      }
       await ctx.db.insert("bankTransactions", {
         ...row, statementId: args.statementId, accountKey: args.accountKey,
         matchStatus: "NEPRIRADENÁ", matchedPayableId: "",
@@ -304,6 +310,15 @@ export const addBankTransactionBatch = internalMutation({
       inserted += 1
     }
     return { inserted, duplicates }
+  },
+})
+export const countStatementTransactions = internalQuery({
+  args: { statementId: v.id("bankStatements") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("bankTransactions")
+      .withIndex("by_statement", query => query.eq("statementId", args.statementId)).collect()
+    return rows.length
   },
 })
 export const finishBankStatement = internalMutation({
@@ -335,7 +350,7 @@ export const importBankStatementFromN8n = internalAction({
     const existing = await ctx.runQuery(internal.bankStatements.getBankStatementBySource, {
       sourceFileId: args.sourceFileId,
     })
-    if (existing) return {
+    if (existing && !bankStatementNeedsResume(existing.status)) return {
       ok: true, code: "ALREADY_IMPORTED", message: "Tento CSV výpis už bol importovaný.",
       statementId: existing.id, transactionCount: existing.transactionCount,
       duplicateCount: existing.duplicateCount, currency: existing.currency,
@@ -345,20 +360,17 @@ export const importBankStatementFromN8n = internalAction({
     const accountDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(parsed.accountNumberRaw))
     const accountKey = parsed.currency + "_" + Array.from(new Uint8Array(accountDigest)).slice(0, 10)
       .map(byte => byte.toString(16).padStart(2, "0")).join("")
-    const statementResult = await ctx.runMutation(internal.bankStatements.createBankStatement, {
-      sourceFileId: args.sourceFileId, sourceFileName: args.sourceFileName,
-      sourceFileUrl: args.sourceFileUrl, pdfFileId: args.pdfFileId, pdfFileName: args.pdfFileName,
-      accountKey, accountLabel: parsed.currency + " účet · " + parsed.accountNumberMasked,
-      currency: parsed.currency, accountNumberMasked: parsed.accountNumberMasked,
-      statementNumber: parsed.statementNumber, periodStart: parsed.periodStart, periodEnd: parsed.periodEnd,
-      openingBalance: parsed.openingBalance, closingBalance: parsed.closingBalance,
-      incomeTotal: parsed.incomeTotal, expenseTotal: parsed.expenseTotal,
-    })
-    if (statementResult.alreadyImported) return {
-      ok: true, code: "ALREADY_IMPORTED", message: "Tento CSV výpis už bol importovaný.",
-      statementId: statementResult.id, transactionCount: 0, duplicateCount: 0,
-      currency: parsed.currency, period: parsed.periodStart.slice(0, 7),
-    }
+    const statementResult = existing
+      ? { id: existing.id, alreadyImported: true }
+      : await ctx.runMutation(internal.bankStatements.createBankStatement, {
+        sourceFileId: args.sourceFileId, sourceFileName: args.sourceFileName,
+        sourceFileUrl: args.sourceFileUrl, pdfFileId: args.pdfFileId, pdfFileName: args.pdfFileName,
+        accountKey, accountLabel: parsed.currency + " účet · " + parsed.accountNumberMasked,
+        currency: parsed.currency, accountNumberMasked: parsed.accountNumberMasked,
+        statementNumber: parsed.statementNumber, periodStart: parsed.periodStart, periodEnd: parsed.periodEnd,
+        openingBalance: parsed.openingBalance, closingBalance: parsed.closingBalance,
+        incomeTotal: parsed.incomeTotal, expenseTotal: parsed.expenseTotal,
+      })
     let inserted = 0
     let duplicates = 0
     for (let offset = 0; offset < parsed.transactions.length; offset += 100) {
@@ -368,12 +380,16 @@ export const importBankStatementFromN8n = internalAction({
       inserted += result.inserted
       duplicates += result.duplicates
     }
+    const storedTransactionCount = await ctx.runQuery(internal.bankStatements.countStatementTransactions, {
+      statementId: statementResult.id,
+    })
     await ctx.runMutation(internal.bankStatements.finishBankStatement, {
-      statementId: statementResult.id, transactionCount: inserted, duplicateCount: duplicates,
+      statementId: statementResult.id, transactionCount: storedTransactionCount, duplicateCount: duplicates,
     })
     return {
-      ok: true, code: "IMPORTED", message: "Výpis " + parsed.periodStart.slice(0, 7) + " importovaný.",
-      statementId: statementResult.id, transactionCount: inserted, duplicateCount: duplicates,
+      ok: true, code: existing ? "RESUMED" : "IMPORTED",
+      message: "Výpis " + parsed.periodStart.slice(0, 7) + (existing ? " bezpečne dokončený." : " importovaný."),
+      statementId: statementResult.id, transactionCount: storedTransactionCount, duplicateCount: duplicates,
       currency: parsed.currency, period: parsed.periodStart.slice(0, 7),
     }
   },
