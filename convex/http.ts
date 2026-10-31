@@ -44,6 +44,15 @@ export function validRegisterRows(value: unknown): value is unknown[][] {
   return true
 }
 
+export function allowedDriveUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" && url.hostname === "drive.google.com"
+  } catch {
+    return false
+  }
+}
+
 http.route({
   path: "/integrations/n8n/bank-statements",
   method: "POST",
@@ -56,7 +65,7 @@ http.route({
     const sourceFileName = typeof body?.sourceFileName === "string" ? body.sourceFileName : ""
     const sourceFileUrl = typeof body?.sourceFileUrl === "string" ? body.sourceFileUrl : ""
     const csvText = typeof body?.csvText === "string" ? body.csvText : ""
-    if (!sourceFileId || !sourceFileName || !sourceFileUrl || !csvText || csvText.length > 10_000_000) {
+    if (!sourceFileId || !sourceFileName || !allowedDriveUrl(sourceFileUrl) || !csvText || csvText.length > 10_000_000) {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
     try {
@@ -88,7 +97,7 @@ http.route({
     const sourceFileName = text("sourceFileName", 240)
     const fileUrl = text("fileUrl", 500)
     const reviewReason = text("reviewReason", 1000)
-    if (!documentId || !source || !sourceFileId || !sourceFileName || !fileUrl || !reviewReason) {
+    if (!documentId || !source || !sourceFileId || !sourceFileName || !allowedDriveUrl(fileUrl) || !reviewReason) {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
     const totalAmount = typeof body?.totalAmount === "number" && Number.isFinite(body.totalAmount)
@@ -211,13 +220,17 @@ http.route({
     const sourceDocumentId = text("sourceDocumentId", 120)
     const sourceVersion = text("sourceVersion", 180)
     const attempt = typeof body?.attempt === "number" && Number.isInteger(body.attempt) ? body.attempt : 0
+    const driveFileUrl = text("driveFileUrl", 500)
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(sourceDocumentId) || !sourceVersion || attempt < 1 || typeof body?.ok !== "boolean") {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    if (body.ok && !allowedDriveUrl(driveFileUrl)) {
+      return Response.json({ ok: false, code: "INVALID_DRIVE_URL" }, { status: 400 })
     }
     const result = await ctx.runMutation(internal.billduImports.complete, {
       sourceDocumentId, sourceVersion, attempt, ok: body.ok,
       driveFileId: text("driveFileId", 180) || undefined,
-      driveFileUrl: text("driveFileUrl", 500) || undefined,
+      driveFileUrl: driveFileUrl || undefined,
       registerDocumentId: text("registerDocumentId", 180) || undefined,
       error: text("error", 500) || undefined,
     })
@@ -295,10 +308,14 @@ http.route({
     if (!documentId || typeof body?.ok !== "boolean") {
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
+    const targetFileUrl = typeof body.targetFileUrl === "string" ? body.targetFileUrl.trim().slice(0, 500) : ""
+    if (body.ok && !allowedDriveUrl(targetFileUrl)) {
+      return Response.json({ ok: false, code: "INVALID_DRIVE_URL" }, { status: 400 })
+    }
     const result = await ctx.runMutation(internal.financeReviews.completeFromN8n, {
       documentId, ok: body.ok,
       targetFileId: typeof body.targetFileId === "string" ? body.targetFileId.trim().slice(0, 180) : undefined,
-      targetFileUrl: typeof body.targetFileUrl === "string" ? body.targetFileUrl.trim().slice(0, 500) : undefined,
+      targetFileUrl: targetFileUrl || undefined,
       error: typeof body.error === "string" ? body.error.trim().slice(0, 500) : undefined,
     })
     return Response.json(result, { status: result.ok ? 200 : 404 })

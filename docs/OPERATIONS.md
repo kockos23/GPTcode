@@ -62,6 +62,8 @@ Finance command callbacks carry both `commandId` and the claimed attempt number.
 
 Review completion is accepted only while the item is `READY`. A successful callback requires both the Drive file ID and URL, and a late callback cannot regress an already `RESOLVED` review. Failed review items return to `READY` only after a new explicit owner resolution.
 
+Every Drive evidence URL accepted from n8n must use HTTPS and the exact `drive.google.com` hostname. Bank sources, review sources and Billdu/review completion callbacks reject foreign, lookalike, plain-HTTP and script URLs before database writes.
+
 ## Current deliberate limitations
 
 - Text-based PDF, CSV, XML, and text attachments can be read automatically.

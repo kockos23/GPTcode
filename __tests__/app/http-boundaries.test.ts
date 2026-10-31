@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { constantTimeTextEqual, validRegisterRows } from "../../convex/http"
+import { allowedDriveUrl, constantTimeTextEqual, validRegisterRows } from "../../convex/http"
 
 describe("n8n HTTP boundaries", () => {
   it("accepts only exactly equal authorization text", () => {
@@ -20,5 +20,13 @@ describe("n8n HTTP boundaries", () => {
     expect(validRegisterRows([["x".repeat(5001)]])).toBe(false)
     expect(validRegisterRows([Array.from({ length: 101 }, () => "x")])).toBe(false)
     expect(validRegisterRows(Array.from({ length: 5002 }, () => ["x"]))).toBe(false)
+  })
+
+  it("accepts only HTTPS Google Drive evidence URLs", () => {
+    expect(allowedDriveUrl("https://drive.google.com/file/d/file-1/view")).toBe(true)
+    expect(allowedDriveUrl("http://drive.google.com/file/d/file-1/view")).toBe(false)
+    expect(allowedDriveUrl("https://drive.google.com.evil.test/file/d/file-1/view")).toBe(false)
+    expect(allowedDriveUrl("javascript:alert(1)")).toBe(false)
+    expect(allowedDriveUrl("not-a-url")).toBe(false)
   })
 })
