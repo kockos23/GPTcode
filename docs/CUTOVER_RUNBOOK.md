@@ -15,7 +15,7 @@ Do not publish or deploy with the exposed key. After Macaly confirms rotation:
 1. confirm `.env.local` was updated without copying the key into chat,
 2. confirm the existing `N8N_INTEGRATION_SECRET` is present in Macaly/Convex and the matching value remains in the encrypted n8n Header Auth credential; do not rotate it unless it was exposed,
 3. deploy the current Convex schema, actions and HTTP routes,
-4. run `npm run finance:preflight`; it is read-only and verifies endpoint authorization, authenticated health schema, workflow states, placeholder absence and SARA error routing,
+4. run `npm run finance:preflight`; it is read-only and verifies endpoint authorization, the current bank/Billdu health schema, workflow states, placeholder absence, command attempt tokens and SARA error routing,
 5. verify unauthenticated bank/review calls return 401,
 6. inspect reported health issues without performing business writes,
 7. run Billdu Read-only Probe `GYjLHpte4wi3g06L` once; verify only response field names/types and keep it inactive,

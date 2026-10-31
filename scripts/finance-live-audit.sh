@@ -65,6 +65,15 @@ for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy; do
   ' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has an unsafe AI extraction contract" >&2; exit 1; }
 done
 
+for id in Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG 2YGEEBjYBn8aNBsY; do
+  jq -e '.settings.saveDataSuccessExecution=="none" and .settings.saveDataErrorExecution=="all" and .settings.saveExecutionProgress==false and .settings.executionTimeout==900' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL future production workflow $id has unsafe execution retention" >&2; exit 1; }
+done
+
+jq -e '
+  ([.nodes[] | (.parameters.jsCode // "")] | join("\n") | contains("attempt:command.attempts"))
+  and ([.nodes[] | (.parameters.jsonBody // "")] | join("\n") | contains("attempt"))
+' "$temporary_directory/workflow-R0bTgnf4bcPX41tG.json" >/dev/null || { echo "FAIL finance command workflow has no attempt-token callback" >&2; exit 1; }
+
 curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header" \
   "$N8N_BASE_URL/api/v1/executions?status=error&limit=100&includeData=false" --output "$temporary_directory/errors.json"
 active_json="$(printf '%s\n' "${active_ids[@]}" | jq -R . | jq -s .)"

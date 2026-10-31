@@ -35,9 +35,15 @@ unauthorized_health="$(http_code "$temporary_directory/health-unauthorized.json"
 unauthorized_billdu="$(http_code "$temporary_directory/billdu-unauthorized.json" --request POST --header 'content-type: application/json' --data '{"page":1,"limit":1}' "$CONVEX_SITE_URL/integrations/n8n/billdu/documents")"
 [[ "$unauthorized_billdu" == "401" ]] || { echo "FAIL unauthenticated Billdu expected 401, got $unauthorized_billdu" >&2; exit 1; }
 
+unauthorized_billdu_claim="$(http_code "$temporary_directory/billdu-claim-unauthorized.json" --request POST --header 'content-type: application/json' --data '{}' "$CONVEX_SITE_URL/integrations/n8n/billdu/imports/claim")"
+[[ "$unauthorized_billdu_claim" == "401" ]] || { echo "FAIL unauthenticated Billdu claim expected 401, got $unauthorized_billdu_claim" >&2; exit 1; }
+
+unauthorized_command_complete="$(http_code "$temporary_directory/command-complete-unauthorized.json" --request POST --header 'content-type: application/json' --data '{}' "$CONVEX_SITE_URL/integrations/n8n/finance-commands/complete")"
+[[ "$unauthorized_command_complete" == "401" ]] || { echo "FAIL unauthenticated command callback expected 401, got $unauthorized_command_complete" >&2; exit 1; }
+
 health_code="$(http_code "$temporary_directory/health.json" --header "Authorization: Bearer $N8N_INTEGRATION_SECRET" "$CONVEX_SITE_URL/integrations/n8n/health")"
 [[ "$health_code" == "200" || "$health_code" == "503" ]] || { echo "FAIL authenticated health expected 200 or 503, got $health_code" >&2; exit 1; }
-jq -e '(.ok | type)=="boolean" and (.checkedAt | type)=="number" and (.issues | type)=="array"' "$temporary_directory/health.json" >/dev/null || { echo "FAIL health response schema" >&2; exit 1; }
+jq -e '(.ok | type)=="boolean" and (.checkedAt | type)=="number" and (.issues | type)=="array" and (.bank.processing | type)=="number" and (.billdu.processing | type)=="number" and (.billdu.failed | type)=="number"' "$temporary_directory/health.json" >/dev/null || { echo "FAIL health response schema" >&2; exit 1; }
 
 workflows_code="$(http_code "$temporary_directory/workflows.json" --header "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_BASE_URL/api/v1/workflows?limit=100")"
 [[ "$workflows_code" == "200" ]] || { echo "FAIL n8n workflow list expected 200, got $workflows_code" >&2; exit 1; }

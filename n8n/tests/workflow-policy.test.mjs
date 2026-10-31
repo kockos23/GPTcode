@@ -261,3 +261,13 @@ test('finance health monitor is direct, credential-safe and runs after all cutov
   assert.match(healthNodes.get('Potvrď zdravý stav')?.parameters.jsCode, /Finance health nie je v poriadku/)
 })
 
+test('future production finance workflows minimize successful execution retention', () => {
+  for (const candidate of [bankCsvWorkflow, reviewWorkflow, registerSyncWorkflow, commandWorkflow, healthWorkflow]) {
+    assert.equal(candidate.settings.saveDataSuccessExecution, 'none')
+    assert.equal(candidate.settings.saveDataErrorExecution, 'all')
+    assert.equal(candidate.settings.saveExecutionProgress, false)
+    assert.equal(candidate.settings.executionTimeout, 900)
+  }
+  assert.equal(billduProbeWorkflow.settings.saveDataSuccessExecution, 'all')
+})
+
