@@ -2,7 +2,7 @@ import { v } from "convex/values"
 import { api, internal } from "./_generated/api"
 import { action, internalMutation, internalQuery } from "./_generated/server"
 import { callMacalyJson } from "./macaly"
-import { findBestPayableMatch } from "./paymentMatching"
+import { findBestPayableMatch, payableIdsForConfirmedMatch } from "./paymentMatching"
 
 type Row = Record<string, unknown>
 const WOF_FINANCE_ROOT_ID = "1vkbIi3cQpyN-xkXG3-As2PCYwJaAz0uS"
@@ -549,11 +549,7 @@ export const confirmPaymentMatch = action({
     if (!payableResult.ok) return { ok: false, message: payableResult.message }
     const selected = payableResult.rows.find(row => row.id === transaction.matchedPayableId)
     if (!selected) return { ok: false, message: "Navrhnutý doklad už v registri nie je." }
-    const normalizedAmount = selected.amount.replace(/\s/g, "").replace(",", ".")
-    const documentIds = payableResult.rows.filter(row =>
-      row.supplier === selected.supplier && row.invoiceNumber === selected.invoiceNumber &&
-      row.currency === selected.currency && row.amount.replace(/\s/g, "").replace(",", ".") === normalizedAmount,
-    ).map(row => row.id)
+    const documentIds = payableIdsForConfirmedMatch(selected, payableResult.rows)
     const result = await ctx.runAction(api.wofFinance.markPayablePaidManually, {
       documentIds,
       paymentDate: transaction.bookedOn,
