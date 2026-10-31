@@ -175,6 +175,56 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/billdu/imports/claim",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
+    const sourceDocumentId = text("sourceDocumentId", 120)
+    const sourceVersion = text("sourceVersion", 180)
+    const invoiceNumber = text("invoiceNumber", 120)
+    const deliveryDate = text("deliveryDate", 10)
+    const currency = text("currency", 3).toUpperCase()
+    const totalAmount = typeof body?.totalAmount === "number" && Number.isFinite(body.totalAmount) ? body.totalAmount : -1
+    const parsedDeliveryDate = Date.parse(deliveryDate + "T00:00:00Z")
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)
+      && Number.isFinite(parsedDeliveryDate)
+      && new Date(parsedDeliveryDate).toISOString().slice(0, 10) === deliveryDate
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(sourceDocumentId) || !sourceVersion || !invoiceNumber || !validDate || !/^[A-Z]{3}$/.test(currency) || totalAmount < 0) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.billduImports.claim, {
+      sourceDocumentId, sourceVersion, invoiceNumber, deliveryDate, currency, totalAmount,
+    })
+    return Response.json({ ok: true, ...result })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/billdu/imports/complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
+    const sourceDocumentId = text("sourceDocumentId", 120)
+    const sourceVersion = text("sourceVersion", 180)
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(sourceDocumentId) || !sourceVersion || typeof body?.ok !== "boolean") {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.billduImports.complete, {
+      sourceDocumentId, sourceVersion, ok: body.ok,
+      driveFileId: text("driveFileId", 180) || undefined,
+      driveFileUrl: text("driveFileUrl", 500) || undefined,
+      registerDocumentId: text("registerDocumentId", 180) || undefined,
+      error: text("error", 500) || undefined,
+    })
+    return Response.json(result, { status: result.ok ? 200 : 409 })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/health",
   method: "GET",
   handler: httpAction(async (ctx, request) => {

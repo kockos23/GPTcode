@@ -10,6 +10,8 @@ export type FinanceHealthInput = {
   oldestProcessingAt: number | null
   failedCommands: number
   failedReviews: number
+  oldestBillduProcessingAt: number | null
+  failedBillduImports: number
 }
 
 export function financeHealthIssues(input: FinanceHealthInput): string[] {
@@ -20,6 +22,8 @@ export function financeHealthIssues(input: FinanceHealthInput): string[] {
   if (input.oldestProcessingAt !== null && input.now - input.oldestProcessingAt > 30 * 60 * 1000) issues.push("COMMAND_LEASE_EXPIRED")
   if (input.failedCommands > 0) issues.push("COMMAND_FAILED")
   if (input.failedReviews > 0) issues.push("REVIEW_FAILED")
+  if (input.oldestBillduProcessingAt !== null && input.now - input.oldestBillduProcessingAt > 30 * 60 * 1000) issues.push("BILLDU_LEASE_EXPIRED")
+  if (input.failedBillduImports > 0) issues.push("BILLDU_IMPORT_FAILED")
   return issues
 }
 
@@ -42,6 +46,10 @@ export const snapshot = internalQuery({
       .withIndex("by_status", query => query.eq("status", "READY")).take(100)
     const reviewRequired = await ctx.db.query("financeDocumentReviews")
       .withIndex("by_status", query => query.eq("status", "REVIEW_REQUIRED")).take(100)
+    const billduProcessing = await ctx.db.query("billduDocumentImports")
+      .withIndex("by_status", query => query.eq("status", "PROCESSING")).take(100)
+    const failedBillduImports = await ctx.db.query("billduDocumentImports")
+      .withIndex("by_status", query => query.eq("status", "FAILED")).take(100)
     const oldest = <T extends { createdAt?: number; updatedAt: number }>(rows: T[]) =>
       rows.length ? Math.min(...rows.map(row => row.createdAt ?? row.updatedAt)) : null
     const input: FinanceHealthInput = {
@@ -51,6 +59,8 @@ export const snapshot = internalQuery({
       oldestProcessingAt: oldest(processing),
       failedCommands: failedCommands.length,
       failedReviews: failedReviews.length,
+      oldestBillduProcessingAt: oldest(billduProcessing),
+      failedBillduImports: failedBillduImports.length,
     }
     const issues = financeHealthIssues(input)
     return {
@@ -64,6 +74,11 @@ export const snapshot = internalQuery({
       },
       reviews: { ready: readyReviews.length, required: reviewRequired.length, failed: failedReviews.length },
       bank: { lastImportedAt: latestStatement?.importedAt ?? null, statementCountKnown: Boolean(latestStatement) },
+      billdu: {
+        processing: billduProcessing.length,
+        failed: failedBillduImports.length,
+        oldestProcessingAt: input.oldestBillduProcessingAt,
+      },
     }
   },
 })

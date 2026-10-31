@@ -165,4 +165,25 @@ export default defineSchema({
     .index("by_command_id", ["commandId"])
     .index("by_status", ["status"])
     .index("by_created_at", ["createdAt"]),
+  billduDocumentImports: defineTable({
+    sourceDocumentId: v.string(),
+    sourceVersion: v.string(),
+    invoiceNumber: v.string(),
+    deliveryDate: v.string(),
+    currency: v.string(),
+    totalAmount: v.number(),
+    status: v.string(),
+    attempts: v.number(),
+    leaseUntil: v.optional(v.number()),
+    driveFileId: v.optional(v.string()),
+    driveFileUrl: v.optional(v.string()),
+    registerDocumentId: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_source_document", ["sourceDocumentId"])
+    .index("by_status", ["status"])
+    .index("by_updated_at", ["updatedAt"]),
 })

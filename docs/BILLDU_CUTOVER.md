@@ -33,6 +33,8 @@ n8n must normalize the Billdu response to these fields before any write:
 
 Missing invoice ID, delivery date, total, currency or PDF blocks automatic filing and creates a review event.
 
+Before any Drive or register write, n8n must atomically claim the normalized document through `POST /integrations/n8n/billdu/imports/claim`. The claim uses `sourceDocumentId` plus a stable `sourceVersion`, has a 30-minute lease and returns `ALREADY_IMPORTED` for the same completed version or `BUSY` for a concurrent run. After both Drive and register evidence exist, n8n calls `POST /integrations/n8n/billdu/imports/complete`. A success without Drive file ID, Drive URL and register document ID is rejected. Failed or expired attempts can be retried; a newer Billdu version reuses the same record without duplicating the invoice.
+
 ## Idempotency and routing
 
 - `documentId = billdu:<sourceInvoiceId>` is the stable key. Updating an invoice must update the same record, never append a second accounting document.
@@ -57,3 +59,5 @@ Missing invoice ID, delivery date, total, currency or PDF blocks automatic filin
 - second run produces zero duplicates,
 - update/cancel behavior tested,
 - only then enable webhook or twice-daily polling.
+
+Billdu import leases and failures are part of the central finance health snapshot. A processing lease older than 30 minutes or any failed import makes health unhealthy and routes through SARA error monitoring after activation.

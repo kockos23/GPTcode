@@ -19,6 +19,7 @@ Do not publish or deploy with the exposed key. After Macaly confirms rotation:
 5. verify unauthenticated bank/review calls return 401,
 6. inspect reported health issues without performing business writes,
 7. run Billdu Read-only Probe `GYjLHpte4wi3g06L` once; verify only response field names/types and keep it inactive,
+   then lock the real type/status/version mapping before connecting the prepared claim/complete endpoints to any Drive write,
 8. backfill the six current review items,
 9. run one review resolution twice and confirm one Drive file and one register row,
 10. run one finance command twice and confirm exactly one register change, then run Finance Register Sync and verify the dashboard cache,

@@ -10,6 +10,8 @@ describe("finance health evaluation", () => {
     oldestProcessingAt: null,
     failedCommands: 0,
     failedReviews: 0,
+    oldestBillduProcessingAt: null,
+    failedBillduImports: 0,
   }
 
   it("accepts a fresh and empty operational queue", () => {
@@ -33,5 +35,13 @@ describe("finance health evaluation", () => {
   it("surfaces failed commands and reviews", () => {
     expect(financeHealthIssues({ ...healthy, failedCommands: 1, failedReviews: 2 }))
       .toEqual(expect.arrayContaining(["COMMAND_FAILED", "REVIEW_FAILED"]))
+  })
+
+  it("surfaces failed and abandoned Billdu imports", () => {
+    expect(financeHealthIssues({
+      ...healthy,
+      oldestBillduProcessingAt: now - 31 * 60 * 1000,
+      failedBillduImports: 1,
+    })).toEqual(expect.arrayContaining(["BILLDU_LEASE_EXPIRED", "BILLDU_IMPORT_FAILED"]))
   })
 })
