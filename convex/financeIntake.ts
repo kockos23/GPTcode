@@ -81,13 +81,25 @@ function timestampOf(message: Row): number {
   const parsed = date ? Date.parse(date) : NaN
   return Number.isFinite(parsed) ? parsed : Date.now()
 }
-function safeName(name: string, receivedAt: number, messageId: string): string {
+function attachmentToken(messageId: string, attachmentId: string): string {
+  // Two attachments in one Gmail message often share a filename. Drive lookup
+  // treats an existing name as already stored, so the token must differ per attachment.
+  const source = messageId + "\n" + attachmentId
+  let hash = 2166136261
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  const tail = attachmentId.replace(/[^\w]/g, "").slice(-8)
+  return (hash >>> 0).toString(16).padStart(8, "0") + tail
+}
+export function safeName(name: string, receivedAt: number, messageId: string, attachmentId: string): string {
   const cleaned = name.normalize("NFKD").replace(/[^\w.() -]/g, "_").replace(/\s+/g, "_").slice(0, 120) || "priloha"
   const date = new Date(receivedAt).toISOString().slice(0, 10)
   const dot = cleaned.lastIndexOf(".")
   const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned
   const ext = dot > 0 ? cleaned.slice(dot) : ""
-  return date + "_" + stem + "_" + messageId.slice(-6) + ext
+  return date + "_" + stem + "_" + messageId.slice(-6) + "_" + attachmentToken(messageId, attachmentId) + ext
 }
 function validDocument(name: string, mimeType: string): boolean {
   const ext = name.toLowerCase().split(".").pop() ?? ""
@@ -301,7 +313,7 @@ async function performSync(ctx: ActionCtx, trigger: string) {
           const attachmentFile = obj(unwrap(download).file)
           const sourceUrl = str(attachmentFile.s3url)
           if (!sourceUrl) throw new Error("Gmail nevrátil dočasný odkaz na prílohu.")
-          const destinationName = safeName(str(attachmentFile.name) || attachment.fileName, receivedAt, messageId)
+          const destinationName = safeName(str(attachmentFile.name) || attachment.fileName, receivedAt, messageId, attachment.attachmentId)
           const extracted = await extractDocumentText(
             sourceUrl,
             attachment.fileName,
@@ -430,7 +442,7 @@ export const resolveEmailImport = action({
       const attachmentFile = obj(unwrap(download).file)
       const sourceUrl = str(attachmentFile.s3url)
       if (!sourceUrl) throw new Error("Gmail nevrátil dočasný odkaz na prílohu.")
-      const destinationName = safeName(str(attachmentFile.name) || item.fileName, item.receivedAt, item.messageId)
+      const destinationName = safeName(str(attachmentFile.name) || item.fileName, item.receivedAt, item.messageId, item.attachmentId)
       const existingDrive = await callMacalyJson("/api/client-app/composio-execute", {
         action: "execute", toolName: "GOOGLEDRIVE_FIND_FILE", appName: "GOOGLEDRIVE",
         params: { folder_id: destination.id, q: "name = '" + destinationName.replace(/'/g, "\\'") + "' and trashed = false", fields: "files(id,name,webViewLink)", pageSize: 5 },
