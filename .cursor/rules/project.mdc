@@ -1,0 +1,12 @@
+---
+description: Canonical project, safety, architecture, and validation rules for Chief of Staff HQ / SARA WOF Finance
+alwaysApply: true
+---
+
+# Project instructions
+
+Before proposing or applying changes, read and follow `AGENTS.md`. It is the canonical instruction source for this repository.
+
+Then read the task-specific documentation linked from `AGENTS.md`, especially `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, and `n8n/README.md` for integration work.
+
+Do not infer permission to mutate live Macaly, Convex, n8n, Google, Telegram, OpenAI, or Billdu resources. Keep secrets out of code, chat, logs, patches, and workflow exports. Preserve the separation between SARA and NORA, and preserve the finance routing rule that accounting month comes from an explicit delivery/tax-point date rather than message or upload metadata.

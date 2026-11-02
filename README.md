@@ -4,6 +4,10 @@ Macaly project with a TanStack/React frontend and Convex backend. Macaly remains
 
 Legacy Macaly/Composio helpers remain disabled for compatibility, while the finance dashboard read/write path is prepared for direct n8n + Google + Convex operation. Keep the legacy finance email cron disabled until the n8n cutover gates in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pass.
 
+## AI agent onboarding
+
+Claude Code, Cursor, Codex, and other coding agents must start with [`AGENTS.md`](AGENTS.md). It contains the canonical architecture, security, live-system safety, workflow, and validation rules. [`CLAUDE.md`](CLAUDE.md) and [`.cursor/rules/project.mdc`](.cursor/rules/project.mdc) load the same policy for their respective tools; do not maintain competing copies of project rules in those adapters.
+
 ## Local validation
 
 ```bash
