@@ -49,6 +49,21 @@ describe("finance document routing", () => {
     expect(result).toMatchObject({ ok: true, category: "Vypisy", deliveryDate: "2026-09-30" })
   })
 
+  it("does not treat the statement print date as the end of the period", () => {
+    const result = routeFinanceDocument({
+      fileName: "vypis_september.pdf",
+      subject: "Výpis z účtu",
+      mimeType: "application/pdf",
+      text: "Výpis za obdobie: 01.09.2026 - 30.09.2026 Dátum vyhotovenia: 01.10.2026 ID operácie 123",
+    })
+    expect(result).toMatchObject({ ok: true, category: "Vypisy", deliveryDate: "2026-09-30" })
+  })
+
+  it("keeps a service period end when a due date follows in the same window", () => {
+    const result = invoice("Invoice Service period: 01.09.2026 - 30.09.2026 Due date: 22.10.2026 Total EUR 120")
+    expect(result).toMatchObject({ ok: true, category: "Doklady", deliveryDate: "2026-09-30" })
+  })
+
   it("routes a Stripe report using its report period", () => {
     const result = routeFinanceDocument({
       fileName: "stripe_report.pdf",
