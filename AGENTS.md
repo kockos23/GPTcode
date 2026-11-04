@@ -43,7 +43,8 @@ If documentation and implementation disagree, do not silently choose one. Verify
 
 - Never print, commit, copy into prompts, or persist secret values. This includes API keys, deploy keys, integration secrets, OAuth tokens, Telegram tokens, credential IDs, and real Google resource IDs.
 - Keep secrets in Macaly/Convex environment storage or the n8n encrypted credential store. Sanitized workflow exports belong in Git.
-- Do not use or republish the historically exposed `CONVEX_DEPLOY_KEY`. Convex deployment remains blocked until Macaly support confirms that key was rotated.
+- Do not use or republish the historically exposed `CONVEX_DEPLOY_KEY`. Macaly confirmed on 2026-11-04 that it was replaced on the existing deployment and that the old key no longer works. Use only the current key supplied through the Macaly-managed environment; never copy it into chat or Git.
+- Macaly also rotated `JWT_PRIVATE_KEY`/`JWKS`, `MACALY_API_TOKEN`, and `SECRET_KEY`. Deployment remains blocked until the exposed project-owned `BILLDU_API_KEY`, `BILLDU_API_SECRET`, and `N8N_INTEGRATION_SECRET` have been replaced in every location that consumes them.
 - Public Convex URLs are not secrets; deploy and integration credentials are.
 - Do not activate, deactivate, publish, deploy, delete, or mutate a live workflow or external record unless the task explicitly authorizes that state change and the relevant runbook gates pass.
 - Prefer read-only inspection and audits. Before a live mutation, resolve the exact target and preserve its current credential bindings and active state.
@@ -84,7 +85,7 @@ The known pre-cutover baseline is 6 active workflows, 6 inactive workflows, and 
 
 ## Current cutover boundary
 
-Direct SARA Gmail, Drive, and Telegram intake and separate SARA/NORA error monitoring are live. Bank import, review resolution, register sync, command processing, Billdu probe, and Finance Health Monitor remain deliberately inactive until the rotated Convex deployment is published and authenticated pilots pass.
+Direct SARA Gmail, Drive, and Telegram intake and separate SARA/NORA error monitoring are live. The shared n8n `Google Drive account` OAuth credential must be reconnected after its refresh token failed on 2026-11-03; do not send new intake documents until a read-only Drive check passes. Bank import, review resolution, register sync, command processing, Billdu probe, and Finance Health Monitor remain deliberately inactive until project-owned secrets are rotated, the current Convex deployment is published, and authenticated pilots pass.
 
 Before enabling any of them, follow `docs/CUTOVER_RUNBOOK.md`. Billdu must first run as a single read-only schema probe; do not implement a write path from assumed API fields.
 

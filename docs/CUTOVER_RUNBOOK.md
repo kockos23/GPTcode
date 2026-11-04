@@ -8,25 +8,28 @@
 - NORA and SARA have separate active error monitoring.
 - No production finance path uses Composio for routine n8n Google operations.
 
-## Blocked until Macaly rotates the exposed deploy key
+## Security rotation and deployment gate
 
-Do not publish or deploy with the exposed key. After Macaly confirms rotation:
+Macaly confirmed on 2026-11-04 that the exposed deploy key was replaced on the existing `coordinated-mongoose-77` deployment and that the old key no longer works. Macaly also replaced `JWT_PRIVATE_KEY`/`JWKS`, `MACALY_API_TOKEN`, and `SECRET_KEY` without changing the deployment, database, user records, or application data.
 
-1. confirm `.env.local` was updated without copying the key into chat,
-2. confirm the existing `N8N_INTEGRATION_SECRET` is present in Macaly/Convex and the matching value remains in the encrypted n8n Header Auth credential; do not rotate it unless it was exposed,
-3. deploy the current Convex schema, actions and HTTP routes,
-4. run `npm run finance:preflight`; it is read-only and verifies endpoint authorization, the current bank/Billdu health schema, workflow states, placeholder absence, command attempt tokens and SARA error routing,
-5. verify unauthenticated bank/review calls return 401,
-6. inspect reported health issues without performing business writes,
-7. run Billdu Read-only Probe `GYjLHpte4wi3g06L` once; verify only response field names/types and keep it inactive,
+Do not reuse the historical key. Before publishing or deploying:
+
+1. replace `BILLDU_API_KEY` and `BILLDU_API_SECRET` with Billdu, revoke the old pair, and update both the deployment environment and Macaly `.env.local` without copying values into chat or Git,
+2. generate a new `N8N_INTEGRATION_SECRET` and update both the deployment environment, Macaly `.env.local`, and the encrypted n8n Header Auth credential; do not leave either side on the exposed value,
+3. reconnect the n8n `Google Drive account` OAuth credential and pass a read-only Drive check; its refresh token failed on 2026-11-03,
+4. deploy the current Convex schema, actions and HTTP routes using only the rotated Macaly-managed deploy key,
+5. run `npm run finance:preflight`; it is read-only and verifies endpoint authorization, the current bank/Billdu health schema, workflow states, placeholder absence, command attempt tokens and SARA error routing,
+6. verify unauthenticated bank/review calls return 401,
+7. inspect reported health issues without performing business writes,
+8. run Billdu Read-only Probe `GYjLHpte4wi3g06L` once; verify only response field names/types and keep it inactive,
    then lock the real type/status/version mapping before connecting the prepared claim/complete endpoints to any Drive write,
-8. backfill the six current review items,
-9. run one review resolution twice and confirm one Drive file and one register row,
-10. run one finance command twice and confirm exactly one register change, then run Finance Register Sync and verify the dashboard cache,
-11. run the prepared real bank CSV import twice and confirm the second returns `ALREADY_IMPORTED`,
-12. activate the review workflow and then the bank schedule,
-13. activate Finance Health Monitor `2YGEEBjYBn8aNBsY` only after all monitored workflows pass,
-14. publish Macaly only after dashboard, Drive, Sheets and Convex show the same state.
+9. backfill the six current review items,
+10. run one review resolution twice and confirm one Drive file and one register row,
+11. run one finance command twice and confirm exactly one register change, then run Finance Register Sync and verify the dashboard cache,
+12. run the prepared real bank CSV import twice and confirm the second returns `ALREADY_IMPORTED`,
+13. activate the review workflow and then the bank schedule,
+14. activate Finance Health Monitor `2YGEEBjYBn8aNBsY` only after all monitored workflows pass,
+15. publish Macaly only after dashboard, Drive, Sheets and Convex show the same state.
 
 ## Rollback
 
