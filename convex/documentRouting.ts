@@ -57,9 +57,26 @@ function isoDate(raw: string): string | null {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
-function datesIn(value: string): string[] {
-  const matches = value.match(new RegExp(DATE_TOKEN, "g")) ?? []
-  return matches.map(isoDate).filter((date): date is string => Boolean(date))
+function datesInWindow(value: string): { date: string; start: number; end: number }[] {
+  const found: { date: string; start: number; end: number }[] = []
+  for (const match of value.matchAll(new RegExp(DATE_TOKEN, "g"))) {
+    if (match.index === undefined) continue
+    const date = isoDate(match[0])
+    if (!date) continue
+    found.push({ date, start: match.index, end: match.index + match[0].length })
+  }
+  return found
+}
+
+// A period is "start - end". A later date in the same window, such as the day
+// the statement was printed, is not the period end.
+function dateFromWindow(window: string, preferRangeEnd: boolean): string | null {
+  const dates = datesInWindow(window)
+  if (!dates.length) return null
+  if (!preferRangeEnd || dates.length === 1) return dates[0].date
+  const between = window.slice(dates[0].end, dates[1].start).trim().toLowerCase()
+  if (["-", "–", "—", "/", "do", "to", "az", "until"].includes(between)) return dates[1].date
+  return dates[0].date
 }
 
 function dateAfterLabel(text: string, labels: { label: string; source: string }[], preferLast = false) {
@@ -67,11 +84,8 @@ function dateAfterLabel(text: string, labels: { label: string; source: string }[
     const position = text.indexOf(item.label)
     if (position < 0) continue
     const window = text.slice(position + item.label.length, position + item.label.length + 140)
-    const dates = datesIn(window)
-    if (dates.length) return {
-      date: preferLast ? dates[dates.length - 1] : dates[0],
-      source: item.source,
-    }
+    const date = dateFromWindow(window, preferLast)
+    if (date) return { date, source: item.source }
   }
   return null
 }
