@@ -59,6 +59,43 @@ describe("finance document routing", () => {
     expect(result).toMatchObject({ ok: true, category: "Stripe", deliveryDate: "2026-09-30" })
   })
 
+  it("keeps a bank statement in Vypisy when a row mentions Stripe", () => {
+    const result = routeFinanceDocument({
+      fileName: "TB_2026_09.csv",
+      subject: "Výpis z účtu",
+      mimeType: "text/csv",
+      text: "Výpis za obdobie: 01.09.2026 - 30.09.2026\nID operácie;Dátum;Suma\nStripe Technology Europe, Ltd. 1 250,00 EUR",
+    })
+    expect(result).toMatchObject({ ok: true, category: "Vypisy", deliveryDate: "2026-09-30" })
+  })
+
+  it("keeps an underscored statement filename in Vypisy even if the subject says Stripe", () => {
+    const result = routeFinanceDocument({
+      fileName: "vypis_september.csv",
+      subject: "Stripe payout",
+      mimeType: "text/csv",
+      text: "Obdobie: 01.09.2026 - 30.09.2026\nID operácie;Dátum;Suma\nStripe Technology Europe 1250.00",
+    })
+    expect(result).toMatchObject({ ok: true, category: "Vypisy", deliveryDate: "2026-09-30" })
+  })
+
+  it("keeps an explicitly issued invoice out of the Stripe folder", () => {
+    const result = invoice("Issued invoice Date of supply: 30/09/2026 Paid via Stripe Total EUR 500", {
+      subject: "[VYSTAVENE_FA] September",
+    })
+    expect(result).toMatchObject({ ok: true, category: "Vystavene_FA", deliveryDate: "2026-09-30" })
+  })
+
+  it("still treats a Stripe balance report with opening and closing balances as Stripe", () => {
+    const result = routeFinanceDocument({
+      fileName: "stripe_report.pdf",
+      subject: "Stripe report",
+      mimeType: "application/pdf",
+      text: "Stripe balance summary Opening balance 10.00 Closing balance 20.00 Report period: 2026-09-01 - 2026-09-30",
+    })
+    expect(result).toMatchObject({ ok: true, category: "Stripe", deliveryDate: "2026-09-30" })
+  })
+
   it("routes explicitly identified issued invoices separately", () => {
     const result = invoice("Issued invoice Date of supply: 30/09/2026 Total EUR 500", {
       subject: "[VYSTAVENE_FA] September",

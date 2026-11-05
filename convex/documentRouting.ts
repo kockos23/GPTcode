@@ -113,14 +113,23 @@ const STATEMENT_PERIOD_LABELS = [
 function categoryFor(input: RoutingInput, text: string): FinanceCategory {
   const hints = normalize(`${input.fileName} ${input.subject}`)
   const sample = text.slice(0, 30_000)
-  if (/\bstripe\b/.test(`${hints} ${sample}`)) return "Stripe"
+  const combined = `${hints} ${sample}`
+  // Stripe payouts show up as a counterparty on ordinary bank statements.
+  // Those markers have to win, or the file is stored outside Vypisy and the
+  // statement importer never sees it again.
+  if (
+    /(^|[^a-z])vypis([^a-z]|$)/.test(hints) ||
+    /\bbank statement\b/.test(hints) ||
+    /(id operacie|zaciatocny stav uctu|konecny stav uctu)/.test(sample)
+  ) return "Vypisy"
   if (
     /\[(?:vystavene|issued)[ _-]?(?:fa|invoice)?\]/.test(hints) ||
-    /\b(vystavena faktura|vystavena fa|issued invoice|sales invoice)\b/.test(`${hints} ${sample}`)
+    /\b(vystavena faktura|vystavena fa|issued invoice|sales invoice)\b/.test(combined)
   ) return "Vystavene_FA"
+  if (/\bstripe\b/.test(combined)) return "Stripe"
   if (
-    /\b(vypis|statement|bank statement)\b/.test(hints) ||
-    /(id operacie|zaciatocny stav uctu|konecny stav uctu|account statement|opening balance|closing balance)/.test(sample)
+    /\bstatement\b/.test(hints) ||
+    /(account statement|opening balance|closing balance)/.test(sample)
   ) return "Vypisy"
   return "Doklady"
 }
