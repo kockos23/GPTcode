@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { findBestPayableMatch, type MatchablePayable, type MatchableTransaction } from "../../convex/paymentMatching"
+import { bankPaymentAlreadyRecorded, findBestPayableMatch, type MatchablePayable, type MatchableTransaction } from "../../convex/paymentMatching"
 
 const transaction: MatchableTransaction = {
   id: "tx-1", amount: -120, currency: "EUR", bookedOn: "2026-10-05",
@@ -41,6 +41,15 @@ describe("payment matching", () => {
 
   it("ignores already paid documents", () => {
     expect(findBestPayableMatch(transaction, [{ ...payable, paymentStatus: "Uhradené" }])).toBeNull()
+  })
+
+  it("recognizes a bank operation already stored in payment history", () => {
+    const recorded = "2026-10-05 · 40.00 EUR · ref. Banka: OP1"
+    const other = "2026-10-06 · 60.00 EUR · ref. Banka: OP10"
+    expect(bankPaymentAlreadyRecorded([recorded, other], "Banka: OP1")).toBe(true)
+    expect(bankPaymentAlreadyRecorded([other], "Banka: OP1")).toBe(false)
+    expect(bankPaymentAlreadyRecorded([recorded], "VS 20260019")).toBe(false)
+    expect(bankPaymentAlreadyRecorded([], "Banka: OP1")).toBe(false)
   })
 
   it("allows a partial payment only with a strong reference", () => {
