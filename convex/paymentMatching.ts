@@ -54,6 +54,20 @@ function dateDistance(left: string, right: string): number | null {
   return Number.isFinite(value) ? value : null
 }
 
+// Bank confirms store `ref. Banka: <operationId>` as its own history field.
+// Match the whole field so operation OP1 is not treated as already recorded
+// when only OP10 is present.
+export function bankPaymentAlreadyRecorded(histories: string[], reference: string): boolean {
+  const marker = reference.trim()
+  if (!marker.startsWith("Banka:")) return false
+  const field = `ref. ${marker}`
+  return histories.some(history =>
+    history.split(" | ").some(entry =>
+      entry.split(" · ").some(part => part.trim() === field),
+    ),
+  )
+}
+
 function supplierOverlap(supplier: string, counterparty: string): boolean {
   const supplierTokens = normalized(supplier).split(" ").filter(token => token.length >= 3)
   const counterpartyValue = normalized(counterparty)

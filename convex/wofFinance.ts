@@ -1,7 +1,9 @@
 import { v } from "convex/values"
 import { api, internal } from "./_generated/api"
+import type { Doc } from "./_generated/dataModel"
 import { action, internalMutation, internalQuery } from "./_generated/server"
 import { callMacalyJson } from "./macaly"
+import { bankPaymentAlreadyRecorded } from "./paymentMatching"
 
 type UnknownRecord = Record<string, unknown>
 
@@ -92,6 +94,46 @@ export const getPayablesCache = internalQuery({
       .withIndex("by_cache_key", query => query.eq("cacheKey", "payables"))
       .unique()
     return cached ? { rows: cached.rows, updatedAt: cached.updatedAt } : null
+  },
+})
+
+const PAYMENT_LOCK_TTL_MS = 8 * 60 * 1000
+
+export const claimPayablePayments = internalMutation({
+  args: { payableIds: v.array(v.string()), owner: v.string() },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, args) => {
+    const ids = [...new Set(args.payableIds.map(id => id.trim()).filter(Boolean))]
+    const now = Date.now()
+    const existing: { payableId: string; lock: Doc<"wofPaymentLocks"> | null }[] = []
+    for (const payableId of ids) {
+      const lock = await ctx.db.query("wofPaymentLocks")
+        .withIndex("by_payable", query => query.eq("payableId", payableId))
+        .unique()
+      if (lock && lock.owner !== args.owner && now - lock.claimedAt < PAYMENT_LOCK_TTL_MS) {
+        return { ok: false }
+      }
+      existing.push({ payableId, lock })
+    }
+    for (const item of existing) {
+      if (item.lock) await ctx.db.patch(item.lock._id, { owner: args.owner, claimedAt: now })
+      else await ctx.db.insert("wofPaymentLocks", { payableId: item.payableId, owner: args.owner, claimedAt: now })
+    }
+    return { ok: true }
+  },
+})
+
+export const releasePayablePayments = internalMutation({
+  args: { payableIds: v.array(v.string()), owner: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    for (const payableId of [...new Set(args.payableIds.map(id => id.trim()).filter(Boolean))]) {
+      const lock = await ctx.db.query("wofPaymentLocks")
+        .withIndex("by_payable", query => query.eq("payableId", payableId))
+        .unique()
+      if (lock?.owner === args.owner) await ctx.db.delete(lock._id)
+    }
+    return null
   },
 })
 
@@ -305,6 +347,14 @@ export const markPayablePaidManually = action({
     if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || Number.isNaN(Date.parse(paymentDate + "T12:00:00Z"))) {
       return { ok: false, code: "INVALID_DATE", message: "Zadaj platný dátum úhrady." }
     }
+    // Two confirms can target one invoice before either sheet write lands.
+    // Hold the payable ids across the read-modify-write so the second payment
+    // sees the first amount instead of overwriting it.
+    const owner = crypto.randomUUID()
+    const claim = await ctx.runMutation(internal.wofFinance.claimPayablePayments, { payableIds: ids, owner })
+    if (!claim.ok) {
+      return { ok: false, code: "PAYMENT_IN_PROGRESS", message: "Iná úhrada tohto dokladu sa práve zapisuje. Počkaj na jej dokončenie a skús to znova." }
+    }
     try {
       const response = await callMacalyJson("/api/client-app/composio-execute", {
         action: "execute",
@@ -327,6 +377,9 @@ export const markPayablePaidManually = action({
       const foundIds = new Set(matching.map(item => text(item.row[0])))
       if (foundIds.size !== ids.length) {
         return { ok: false, code: "NOT_FOUND", message: "Niektorý doklad sa v registri nenašiel. Obnov prehľad a skús to znova." }
+      }
+      if (bankPaymentAlreadyRecorded(matching.map(item => text(item.row[36])), reference)) {
+        return { ok: true, code: "ALREADY_RECORDED", message: "Táto banková úhrada už je v registri, sumu som znova nepripočítal." }
       }
       if (matching.some(item => isCardOrRecurringPayment(text(item.row[19])) || ["uhradené", "uhradene", "paid", "zaplatené", "zaplatene"].includes(text(item.row[20]).toLocaleLowerCase("sk")))) {
         return { ok: false, code: "ALREADY_PAID", message: "Aspoň jeden z dokladov už je označený ako uhradený." }
@@ -423,6 +476,14 @@ export const markPayablePaidManually = action({
         detail: error instanceof Error ? error.message.slice(0, 180) : "unknown",
       })
       return { ok: false, code: "SOURCE_ERROR", message: "Nepodarilo sa zapísať ručnú úhradu. Register som ponechal bez potvrdenia." }
+    } finally {
+      try {
+        await ctx.runMutation(internal.wofFinance.releasePayablePayments, { payableIds: ids, owner })
+      } catch (releaseError) {
+        console.error("[WOF Finance] Payment lock release failed", {
+          detail: releaseError instanceof Error ? releaseError.message.slice(0, 120) : "unknown",
+        })
+      }
     }
   },
 })

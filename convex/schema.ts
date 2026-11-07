@@ -107,6 +107,11 @@ export default defineSchema({
   }).index("by_gmail_key", ["gmailKey"])
     .index("by_updated_at", ["updatedAt"])
     .index("by_status", ["status"]),
+  wofPaymentLocks: defineTable({
+    payableId: v.string(),
+    owner: v.string(),
+    claimedAt: v.number(),
+  }).index("by_payable", ["payableId"]),
   wofFinanceIntakeRuns: defineTable({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
