@@ -44,6 +44,10 @@ const healthWorkflow = JSON.parse(
 )
 const healthNodes = new Map(healthWorkflow.nodes.map((node) => [node.name, node]))
 const healthSerialized = JSON.stringify(healthWorkflow)
+const liveAuditScript = fs.readFileSync(
+  new URL('../../scripts/finance-live-audit.sh', import.meta.url),
+  'utf8',
+)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -269,5 +273,13 @@ test('future production finance workflows minimize successful execution retentio
     assert.equal(candidate.settings.executionTimeout, 900)
   }
   assert.equal(billduProbeWorkflow.settings.saveDataSuccessExecution, 'all')
+})
+
+test('live audit reports grouped error metadata without requesting execution payloads', () => {
+  assert.match(liveAuditScript, /includeData=false/)
+  assert.match(liveAuditScript, /group_by\(\.workflowId\)/)
+  assert.match(liveAuditScript, /first=/)
+  assert.match(liveAuditScript, /last=/)
+  assert.doesNotMatch(liveAuditScript, /includeData=true/)
 })
 

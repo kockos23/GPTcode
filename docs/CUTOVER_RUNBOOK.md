@@ -14,6 +14,8 @@ Macaly confirmed on 2026-11-04 that the exposed deploy key was replaced on the e
 
 Do not reuse the historical key. Before publishing or deploying:
 
+Follow `docs/SECRET_ROTATION_RUNBOOK.md` for the exact locations, ordering, and acceptance checks.
+
 1. replace `BILLDU_API_KEY` and `BILLDU_API_SECRET` with Billdu, revoke the old pair, and update both the deployment environment and Macaly `.env.local` without copying values into chat or Git,
 2. generate a new `N8N_INTEGRATION_SECRET` and update both the deployment environment, Macaly `.env.local`, and the encrypted n8n Header Auth credential; do not leave either side on the exposed value,
 3. reconnect the n8n `Google Drive account` OAuth credential and pass a read-only Drive check; its refresh token failed on 2026-11-03,

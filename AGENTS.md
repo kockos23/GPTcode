@@ -12,6 +12,7 @@ Read these sources in order:
 4. `n8n/README.md` — live workflow status, credential boundaries, and workflow policy.
 5. Read the task-specific runbook before related work:
    - `docs/CUTOVER_RUNBOOK.md` for production cutover.
+   - `docs/SECRET_ROTATION_RUNBOOK.md` for credential recovery and rotation.
    - `docs/BILLDU_CUTOVER.md` for Billdu.
    - `docs/REVIEW_OUTBOX.md` for review resolution.
    - `docs/MACALY_HANDOFF.md` for Macaly/Convex deployment.

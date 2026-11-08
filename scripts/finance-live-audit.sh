@@ -97,7 +97,19 @@ curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header"
   "$N8N_BASE_URL/api/v1/executions?status=error&limit=100&includeData=false" --output "$temporary_directory/errors.json"
 active_json="$(printf '%s\n' "${active_ids[@]}" | jq -R . | jq -s .)"
 cutoff="$(( $(date +%s) - 7 * 24 * 60 * 60 ))"
-recent_errors="$(jq --argjson active "$active_json" --argjson cutoff "$cutoff" '[.data[] | select((.workflowId as $id | $active | index($id)) != null) | select((.startedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) >= $cutoff)] | length' "$temporary_directory/errors.json")"
-[[ "$recent_errors" == "0" ]] || { echo "FAIL active finance/NORA workflows have $recent_errors errors in the last 7 days" >&2; exit 1; }
+jq --argjson active "$active_json" --argjson cutoff "$cutoff" \
+  '[.data[] | select((.workflowId as $id | $active | index($id)) != null) | select((.startedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) >= $cutoff)]' \
+  "$temporary_directory/errors.json" > "$temporary_directory/recent-errors.json"
+recent_errors="$(jq 'length' "$temporary_directory/recent-errors.json")"
+if [[ "$recent_errors" != "0" ]]; then
+  echo "FAIL active finance/NORA workflows have $recent_errors errors in the last 7 days" >&2
+  jq -r --slurpfile workflows "$temporary_directory/workflows.json" '
+    group_by(.workflowId)[]
+    | .[0].workflowId as $id
+    | ([ $workflows[0].data[] | select(.id == $id) | .name ][0] // $id) as $name
+    | "- \($name) [\($id)]: \(length) errors; first=\(map(.startedAt) | min); last=\(map(.startedAt) | max)"
+  ' "$temporary_directory/recent-errors.json" >&2
+  exit 1
+fi
 
 echo "PASS finance live audit; active=${#active_ids[@]}; inactive=${#inactive_ids[@]}; recent_errors=0"
