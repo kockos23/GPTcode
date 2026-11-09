@@ -8,6 +8,8 @@ import {
   fallbackTitle,
   inferKind,
   isAuthorizedBearer,
+  isAuthorizedIngest,
+  sha256Hex,
   matchesSearch,
   normalizeCaptureInput,
   normalizeDigest,
@@ -150,5 +152,15 @@ describe("idea vault digest and auth", () => {
     expect(isAuthorizedBearer(secret, secret)).toBe(false)
     expect(isAuthorizedBearer("Bearer short", "short")).toBe(false)
     expect(isAuthorizedBearer(null, secret)).toBe(false)
+  })
+
+  it("accepts a token whose SHA-256 matches the stored hash", async () => {
+    const token = "t".repeat(40)
+    const tokenSha256 = await sha256Hex(token)
+    expect(tokenSha256).toMatch(/^[0-9a-f]{64}$/)
+    expect(await isAuthorizedIngest("Bearer " + token, { tokenSha256 })).toBe(true)
+    expect(await isAuthorizedIngest("Bearer " + token + "x", { tokenSha256 })).toBe(false)
+    expect(await isAuthorizedIngest("Bearer " + token, { tokenSha256: "abc" })).toBe(false)
+    expect(await isAuthorizedIngest("Bearer " + token, { token })).toBe(true)
   })
 })

@@ -447,15 +447,42 @@ export function normalizeDigest(raw: unknown, allowedCaptureIds: Iterable<string
   }
 }
 
-// Constant-time comparison of a Bearer token, so the ingest endpoint does not leak the secret via timing.
-export function isAuthorizedBearer(header: string | null | undefined, secret: string | undefined): boolean {
-  if (!secret || secret.length < 24 || !header) return false
-  const match = header.match(/^Bearer\s+(.+)$/i)
-  if (!match) return false
-  const provided = match[1].trim()
-  let diff = provided.length ^ secret.length
-  for (let i = 0; i < secret.length; i++) {
-    diff |= secret.charCodeAt(i) ^ (provided.charCodeAt(i % Math.max(provided.length, 1)) || 0)
+// Constant-time comparison of equal-length strings, so checks do not leak secrets via timing.
+export function timingSafeEqualText(a: string, b: string): boolean {
+  let diff = a.length ^ b.length
+  for (let i = 0; i < b.length; i++) {
+    diff |= b.charCodeAt(i) ^ (a.charCodeAt(i % Math.max(a.length, 1)) || 0)
   }
   return diff === 0
+}
+
+function bearerToken(header: string | null | undefined): string | null {
+  const match = header?.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1].trim() : null
+}
+
+// Plain-secret check (secret stored as-is in the environment).
+export function isAuthorizedBearer(header: string | null | undefined, secret: string | undefined): boolean {
+  if (!secret || secret.length < 24) return false
+  const provided = bearerToken(header)
+  return provided !== null && timingSafeEqualText(provided, secret)
+}
+
+export async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+// Preferred check: the environment stores only the SHA-256 of the token, never the token itself.
+export async function isAuthorizedIngest(
+  header: string | null | undefined,
+  config: { token?: string; tokenSha256?: string },
+): Promise<boolean> {
+  const expectedHash = config.tokenSha256?.trim().toLowerCase()
+  if (expectedHash && /^[0-9a-f]{64}$/.test(expectedHash)) {
+    const provided = bearerToken(header)
+    if (!provided || provided.length < 24) return false
+    return timingSafeEqualText(await sha256Hex(provided), expectedHash)
+  }
+  return isAuthorizedBearer(header, config.token)
 }

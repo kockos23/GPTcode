@@ -45,7 +45,7 @@ V dashboarde **Nápady → Môj profil** upravíš oblasti, aktívne projekty, c
 ## Bezpečnosť a ochrana dát
 
 - Bot spracuje iba správy z jedného povoleného chatu (`REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID`). Ostatné ticho ignoruje.
-- n8n volá Convex endpointy `/ideas/*` iba s hlavičkou `Authorization: Bearer <IDEA_VAULT_INGEST_TOKEN>`. Token má aspoň 24 znakov a porovnáva sa v konštantnom čase. Bez nastaveného tokenu sú endpointy zatvorené.
+- n8n volá Convex endpointy `/ideas/*` iba s hlavičkou `Authorization: Bearer <token>`. Samotný token je uložený iba v n8n credential „Idea Vault Convex“. Convex pozná iba jeho SHA-256 odtlačok (`IDEA_VAULT_INGEST_TOKEN_SHA256`) a porovnáva ho v konštantnom čase. Bez nastaveného odtlačku sú endpointy zatvorené.
 - Dashboard dotazy a mutácie vyžadujú prihláseného vlastníka (`OWNER_EMAIL`).
 - Obsah sa posiela do OpenAI cez existujúci n8n OpenAI credential. Neposielaj do bota nič, čo nesmie opustiť tvoje prostredie (heslá, citlivé osobné údaje tretích strán).
 - Opakované doručenie tej istej Telegram správy záznam neduplikuje (`telegram:<chatId>:<messageId>`), iba obnoví analýzu. Úspešnú analýzu nikdy neprepíše horší výsledok.
@@ -54,10 +54,10 @@ V dashboarde **Nápady → Môj profil** upravíš oblasti, aktívne projekty, c
 ## Nasadenie (jednorazovo)
 
 1. **Telegram bot**: v @BotFather vytvor bota (`/newbot`), napr. „Idea Vault“. Token ulož iba do n8n ako credential *Telegram API* („Idea Vault bot“). Svoje chat ID zistíš tak, že botovi napíšeš a pozrieš prvý beh triggeru v n8n (`message.chat.id`).
-2. **Convex**: nasaď schému a funkcie z Macaly. V prostredí Convex nastav `IDEA_VAULT_INGEST_TOKEN` na náhodnú hodnotu (napr. `openssl rand -hex 32`).
+2. **Convex**: nasaď schému a funkcie z Macaly. Vygeneruj náhodný token (`openssl rand -hex 32`) a do prostredia Convex ulož iba jeho odtlačok `IDEA_VAULT_INGEST_TOKEN_SHA256` (`printf %s "$TOKEN" | sha256sum`).
 3. **Drive**: vytvor priečinok napr. `Idea Vault/Originály` a skopíruj jeho ID.
 4. **n8n credentials**:
-   - *Header Auth* „Idea Vault Convex“: meno `Authorization`, hodnota `Bearer <IDEA_VAULT_INGEST_TOKEN>`.
+   - *Header Auth* „Idea Vault Convex“: meno `Authorization`, hodnota `Bearer <token>`.
    - existujúce *OpenAI* a *Google Drive* credentials.
 5. **Import workflowov** z `n8n/workflows/idea-vault-*.pilot.json`. Nahraď placeholdery:
    - `REPLACE_WITH_CONVEX_SITE_URL` → `CONVEX_SITE_URL` (končí `.convex.site`),

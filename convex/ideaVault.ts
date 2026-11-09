@@ -20,7 +20,7 @@ import {
   buildProfilePrompt,
   cleanText,
   emptyEnrichment,
-  isAuthorizedBearer,
+  isAuthorizedIngest,
   matchesSearch,
   normalizeCaptureInput,
   normalizeDigest,
@@ -352,7 +352,10 @@ function json(body: unknown, status = 200) {
 }
 
 function authorized(request: Request) {
-  return isAuthorizedBearer(request.headers.get("Authorization"), process.env.IDEA_VAULT_INGEST_TOKEN)
+  return isAuthorizedIngest(request.headers.get("Authorization"), {
+    tokenSha256: process.env.IDEA_VAULT_INGEST_TOKEN_SHA256,
+    token: process.env.IDEA_VAULT_INGEST_TOKEN,
+  })
 }
 
 async function readJson(request: Request): Promise<unknown> {
@@ -362,12 +365,12 @@ async function readJson(request: Request): Promise<unknown> {
 }
 
 export const httpContext = httpAction(async (ctx, request) => {
-  if (!authorized(request)) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
   return json({ ok: true, ...(await ctx.runQuery(internal.ideaVault.getAnalysisContext, {})) })
 })
 
 export const httpCapture = httpAction(async (ctx, request) => {
-  if (!authorized(request)) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
   let payload: unknown
   try { payload = await readJson(request) } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : "Neplatný JSON" }, 400)
@@ -377,13 +380,13 @@ export const httpCapture = httpAction(async (ctx, request) => {
 })
 
 export const httpDigestInput = httpAction(async (ctx, request) => {
-  if (!authorized(request)) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
   const days = Number(new URL(request.url).searchParams.get("days") ?? 7)
   return json({ ok: true, ...(await ctx.runQuery(internal.ideaVault.getDigestInput, { days: Number.isFinite(days) ? days : 7 })) })
 })
 
 export const httpDigest = httpAction(async (ctx, request) => {
-  if (!authorized(request)) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
   let payload: unknown
   try { payload = await readJson(request) } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : "Neplatný JSON" }, 400)
