@@ -35,6 +35,15 @@ const ideaApi = {
   resolveProfileSignal: makeFunctionReference<'mutation', { captureId:string; signal:string; accept:boolean }, null>('ideaVault:resolveProfileSignal'),
 }
 
+// Persona of the Idea Vault agent. Set `portrait` to an image URL once the photo is ready.
+export const VERA = { name:'VERA', role:'Idea Vault', portrait:'' }
+
+export function VeraAvatar({ size=56 }: { size?:number }) {
+  return <span className="vera-avatar" style={{ width:size, height:size }} aria-label={VERA.name+' · '+VERA.role}>
+    {VERA.portrait ? <img src={VERA.portrait} alt={VERA.name} width={size} height={size} loading="lazy"/> : <span aria-hidden="true">V</span>}
+  </span>
+}
+
 const stages: { id:Stage|'all'; label:string }[] = [
   { id:'inbox', label:'Nové' },
   { id:'action', label:'Na akciu' },
@@ -61,7 +70,7 @@ export function IdeaVaultView({ notify }: { notify:(message:string)=>void }) {
   const resolveSignal = useMutation(ideaApi.resolveProfileSignal)
 
   return <div className="page idea-vault">
-    <div className="page-intro"><p className="eyebrow">Second brain</p><h2>Trezor nápadov</h2><p>Pošli botovi v Telegrame čokoľvek, čo ťa zaujme: odkaz, screenshot, fotku, PDF alebo hlasovku. Agent obsah prečíta, porovná s tým, čomu sa venuješ, a vytiahne know-how, frameworky aj biznis nápady. Tu ich triediš a pripravuješ na ďalšie použitie.</p></div>
+    <div className="page-intro vera-intro"><VeraAvatar/><div><p className="eyebrow">Idea Vault</p><h2>{VERA.name}</h2><p>Pošli VERE v Telegrame čokoľvek, čo ťa zaujme: odkaz, screenshot, fotku, PDF alebo hlasovku. VERA obsah prečíta, porovná s tým, čomu sa venuješ, a vytiahne know-how, frameworky aj biznis nápady. Tu ich triediš a pripravuješ na ďalšie použitie.</p></div></div>
 
     <div className="agent-metrics idea-metrics">
       <div><strong>{overview?.counts.inbox ?? '—'}</strong><span>nové na triedenie</span></div>
@@ -73,7 +82,7 @@ export function IdeaVaultView({ notify }: { notify:(message:string)=>void }) {
     {overview?.digest && <DigestPanel digest={overview.digest}/>}
 
     {overview && overview.signals.length > 0 && <section className="panel idea-signals">
-      <div className="idea-panel-heading"><Sparkles size={16}/><div><h3>Agent si všimol nové záujmy</h3><p>Potvrdené signály sa pridajú do tvojho profilu a ďalšie analýzy ich zohľadnia.</p></div></div>
+      <div className="idea-panel-heading"><Sparkles size={16}/><div><h3>VERA si všimla nové záujmy</h3><p>Potvrdené signály sa pridajú do tvojho profilu a ďalšie analýzy ich zohľadnia.</p></div></div>
       {overview.signals.map(item => <div className="idea-signal-row" key={item.captureId+item.signal}>
         <div><strong>{item.signal}</strong><small>z „{item.captureTitle}“</small></div>
         <div className="idea-row-actions">
@@ -104,7 +113,7 @@ export function IdeaVaultView({ notify }: { notify:(message:string)=>void }) {
     {profileOpen && overview && <ProfileEditor profile={overview.profile} onSaved={() => { setProfileOpen(false); notify('Profil je uložený. Ďalšie nápady sa vyhodnotia podľa neho.') }}/>}
 
     {captures === undefined && <div className="empty"><span><Lightbulb size={21}/></span><h3>Načítavam nápady…</h3><p>Chvíľu strpenia.</p></div>}
-    {captures && captures.length === 0 && <div className="empty"><span><Lightbulb size={21}/></span><h3>Zatiaľ tu nič nie je</h3><p>Pošli botovi odkaz, fotku alebo hlasovku. Do minúty sa tu objaví spracovaný záznam.</p></div>}
+    {captures && captures.length === 0 && <div className="empty"><span><Lightbulb size={21}/></span><h3>Zatiaľ tu nič nie je</h3><p>Pošli VERE v Telegrame odkaz, fotku alebo hlasovku. Do minúty sa tu objaví spracovaný záznam.</p></div>}
     <div className="idea-list">{captures?.map(capture => <CaptureCard key={capture.id} capture={capture} notify={notify}/>)}</div>
   </div>
 }
@@ -197,7 +206,7 @@ function ProfileEditor({ profile, onSaved }: { profile:Profile; onSaved:()=>void
     } finally { setSaving(false) }
   }
   return <section className="panel idea-profile">
-    <div className="idea-panel-heading"><UserRound size={16}/><div><h3>Čo o tebe agent vie</h3><p>{profile.isDefault ? 'Predvyplnené z registra projektov. Uprav a ulož.' : 'Každý riadok je jedna položka. Agent to pribalí ku každej analýze.'}</p></div></div>
+    <div className="idea-panel-heading"><UserRound size={16}/><div><h3>Čo o tebe VERA vie</h3><p>{profile.isDefault ? 'Predvyplnené z registra projektov. Uprav a ulož.' : 'Každý riadok je jedna položka. VERA to zohľadní pri každej analýze.'}</p></div></div>
     <div className="idea-profile-grid">{fields.map(field => <label key={field.key}><span>{field.label}</span><small>{field.hint}</small><textarea rows={5} value={draft[field.key]} onChange={event => setDraft(current => ({ ...current, [field.key]:event.target.value }))}/></label>)}</div>
     <div className="idea-row-actions"><button className="button-primary" disabled={saving} onClick={() => void submit()}>{saving ? 'Ukladám…' : 'Uložiť profil'}</button></div>
   </section>

@@ -202,7 +202,7 @@ const navItems: { id: View; label: string; icon: LucideIcon }[] = [
   { id:'decisions', label:'Rozhodnutia', icon:ListChecks },
   { id:'projects', label:'Projekty', icon:FolderKanban },
   { id:'tasks', label:'Úlohy', icon:BellRing },
-  { id:'ideas', label:'Nápady', icon:Lightbulb },
+  { id:'ideas', label:'VERA', icon:Lightbulb },
   { id:'agents', label:'Agent Control', icon:PlugZap },
   { id:'finance', label:'WOF Finance', icon:Banknote },
 ]
@@ -337,7 +337,7 @@ function NavButton({ item, active, count, onClick }: { item:(typeof navItems)[nu
 }
 
 function Topbar({ view }: { view:View }) {
-  const labels:Record<View,string>={ home:'Dnes', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', ideas:'Trezor nápadov', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
+  const labels:Record<View,string>={ home:'Dnes', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', ideas:'VERA · Idea Vault', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
   return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · 22. 10. 2026</div></div>
 }
 

@@ -33,6 +33,8 @@ import { IdeaVaultView } from "@/components/idea-vault"
 describe("IdeaVaultView", () => {
   it("shows the analyzed capture and expands frameworks and business ideas", () => {
     render(<IdeaVaultView notify={() => {}} />)
+    expect(screen.getByRole("heading", { name: "VERA" })).toBeInTheDocument()
+    expect(screen.getByLabelText("VERA · Idea Vault")).toBeInTheDocument()
     expect(screen.getByText("Jobs to be Done pre eventy")).toBeInTheDocument()
     expect(screen.getByText("Product discovery")).toBeInTheDocument()
     expect(screen.getByText("86")).toBeInTheDocument()

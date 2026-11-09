@@ -1,6 +1,6 @@
-# Idea Vault — osobný agent na nápady a know-how
+# VERA · Idea Vault — osobná kurátorka nápadov a know-how
 
-Agent, ktorému cez Telegram pošleš čokoľvek, čo ťa zaujme: odkaz, screenshot, fotku, PDF, textový súbor, preposlanú správu alebo hlasovku. Agent obsah prečíta, porovná s tým, čomu sa venuješ, a uloží ho upratane do trezora v dashboarde. Z každého záznamu vytiahne know-how, použiteľné frameworky a biznis nápady. Každý pondelok pošle týždennú syntézu, ktorá spája nápady medzi sebou.
+VERA je agentka, ktorej cez Telegram pošleš čokoľvek, čo ťa zaujme: odkaz, screenshot, fotku, PDF, textový súbor, preposlanú správu alebo hlasovku. VERA obsah prečíta, porovná s tým, čomu sa venuješ, a uloží ho upratane do trezora v dashboarde. Z každého záznamu vytiahne know-how, použiteľné frameworky a biznis nápady. Každý pondelok pošle týždennú syntézu, ktorá spája nápady medzi sebou.
 
 ## Ako to funguje
 
