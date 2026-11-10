@@ -10,7 +10,9 @@ Before enabling writes, run the inactive manual workflow `SARA v2 — Billdu Rea
 
 ## Verified Billdu capability
 
-The official client confirms API authentication, document listing and PDF download. No webhook API is exposed by that client, therefore production uses bounded polling twice daily. The first live call remains a read-only plan/access check and must not write accounting data.
+The production read-only probe on 2026-11-10 confirmed API authentication and a paginated document listing (`312` records at probe time). Billdu returns the page in `_embedded.items`; each document has a numeric `id`, string `status`, explicit `delivery_date`, `issue_date`, `due_date`, `modified`, totals, currency, client/supplier objects and document download links. The probe disclosed only field names and types and performed no accounting write or PDF download.
+
+No webhook API is exposed by the official client, therefore production uses bounded polling twice daily. PDF download and the exact issued-invoice/status mapping remain cutover gates before write automation is enabled.
 
 If the current Billdu plan rejects API access, stop the pilot and use scheduled export to the dedicated finance mailbox only after explicit approval. Do not introduce Composio as an unreviewed fallback.
 

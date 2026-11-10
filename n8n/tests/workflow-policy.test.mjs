@@ -259,6 +259,7 @@ test('Billdu pilot is read-only, bounded and manual until the response schema is
   assert.equal(/googleDrive|googleSheets|append|upload/i.test(billduProbeSerialized), false)
   assert.match(billduProbeNodes.get('Convex — Billdu zoznam 10 dokladov')?.parameters.jsonBody, /limit: 10/)
   assert.match(billduProbeNodes.get('Skontroluj schému bez účtovného zápisu')?.parameters.jsCode, /documentKeys/)
+  assert.match(billduProbeNodes.get('Skontroluj schému bez účtovného zápisu')?.parameters.jsCode, /_embedded\?\.items/)
   assert.match(billduProbeSerialized, /httpHeaderAuth/)
 })
 
