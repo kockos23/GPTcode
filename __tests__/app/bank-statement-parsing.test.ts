@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bankStatementNeedsResume, parseStatement, summaryNumber } from "../../convex/bankStatements"
+import { bankMatchPaymentCommand, bankStatementNeedsResume, parseStatement, summaryNumber } from "../../convex/bankStatements"
 
 describe("bank statement summary parsing", () => {
   it("parses a space-separated thousands amount", () => {
@@ -100,6 +100,23 @@ describe("bank statement CSV", () => {
     const received = csv.replace(";Príjem;;;;TATRSKBX", ";Prijatá platba;;;;TATRSKBX")
     expect(received).not.toBe(csv)
     expect(parseStatement(received).transactions[1].amount).toBe(50)
+  })
+})
+
+describe("bank match confirmation command", () => {
+  it("stores the query id so completion can mark the bank row confirmed", () => {
+    const command = bankMatchPaymentCommand({
+      id: "jd7banktransaction",
+      bookedOn: "2026-10-05",
+      amount: -40,
+      operationId: "op-1",
+      matchReason: "VS 26231243",
+    }, ["doc-1"])
+    expect(command.bankTransactionId).toBe("jd7banktransaction")
+    expect(command.amount).toBe(40)
+    expect(command.paymentDate).toBe("2026-10-05")
+    expect(command.reference).toBe("Banka: op-1")
+    expect(command.documentIds).toEqual(["doc-1"])
   })
 })
 
