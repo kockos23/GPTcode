@@ -45,6 +45,7 @@ for (const [key, value] of Object.entries(sheet.parameters.columns.value)) {
 }
 
 const normalizeCode = `const folderMap=${folderMap};
+const productionCutover=Date.parse('2026-11-10T12:20:00Z');
 const root=$json.data||{};
 const rows=Array.isArray(root?._embedded?.items)?root._embedded.items:[];
 const clean=v=>String(v??'').trim();
@@ -54,9 +55,10 @@ const safe=v=>clean(v).replace(/[\\/:*?"<>|]/g,'-').replace(/[\\r\\n]/g,' ').sli
 const out=[];
 for(const row of rows){
  const sourceDocumentId=clean(row.id), invoiceNumber=clean(row.serial_number), status=clean(row.status).toLowerCase();
+ const createdAt=Date.parse(clean(row.created));
  const deliveryDate=iso(row.delivery_date), issueDate=iso(row.issue_date), dueDate=iso(row.due_date), currency=clean(row.currency).toUpperCase(), totalAmount=amount(row.total_price), sourceVersion=clean(row.modified||row.updated||row.created);
  const accountingPeriod=deliveryDate.slice(0,7), targetFolderId=folderMap[accountingPeriod]?.Vystavene_FA||'', customer=clean(row.client)||'Billdu klient';
- if(status!=='exposed'||!sourceDocumentId||!sourceVersion||!invoiceNumber||!deliveryDate||!targetFolderId||!^[A-Z]{3}$/.test(currency)||totalAmount===null||totalAmount<0)continue;
+ if(!Number.isFinite(createdAt)||createdAt<productionCutover||status!=='exposed'||!sourceDocumentId||!sourceVersion||!invoiceNumber||!deliveryDate||!targetFolderId||!^[A-Z]{3}$/.test(currency)||totalAmount===null||totalAmount<0)continue;
  const processedAt=new Date().toISOString();
  out.push({json:{sourceDocumentId,sourceVersion,id:'WOF-billdu-'+sourceDocumentId,documentKey:'billdu:'+sourceDocumentId,invoiceNumber,sourceStatus:status,status:'Zaradené',type:'invoice',deliveryDate,docDate:issueDate,dueDate,currency,totalAmount,customer,supplier:customer,accountingPeriod,targetFolderId,fileName:[deliveryDate,safe(customer),safe(invoiceNumber),totalAmount.toFixed(2),currency].join('_').slice(0,180)+'.pdf',processedAt,updatedAt:processedAt,source:'billdu',sourceMessageId:sourceDocumentId,sha256:'',docType:'Vystavená faktúra',destination:'Vystavene_FA',ico:'',dic:'',icDph:'',variableSymbol:clean(row.vs),netAmount:null,vatAmount:null,routeReady:true,reviewReason:'',description:'Import z Billdu; stav '+status,originalFileName:'billdu-'+sourceDocumentId+'.pdf',runId:String($execution.id),extractionVersion:'billdu-api-v1'}});
 }
