@@ -6,21 +6,26 @@ const site = process.env.CONVEX_SITE_URL?.replace(/\/$/, "")
 if (!base || !apiKey || !site) throw new Error("Missing n8n/Convex runtime configuration")
 
 const api = async (path, options = {}) => {
-  const response = await fetch(`${base}${path}`, {
-    ...options,
-    headers: { "X-N8N-API-KEY": apiKey, "content-type": "application/json", ...(options.headers || {}) },
-  })
-  const text = await response.text()
-  if (!response.ok) throw new Error(`${path}: ${response.status} ${text.slice(0, 500)}`)
-  return text ? JSON.parse(text) : null
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await fetch(`${base}${path}`, {
+      ...options,
+      headers: { "X-N8N-API-KEY": apiKey, "content-type": "application/json", ...(options.headers || {}) },
+    })
+    const text = await response.text()
+    if (response.ok) return text ? JSON.parse(text) : null
+    if (response.status !== 401 || attempt === 3) {
+      throw new Error(`${path}: ${response.status} ${text.slice(0, 500)}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 750))
+  }
 }
 
-const [registerSync, probe, workflowList] = await Promise.all([
-  api("/api/v1/workflows/kp5UV1ZLKe5XjPWP"),
+const [controlCenter, probe, workflowList] = await Promise.all([
+  api("/api/v1/workflows/976VfstjatIijTZx"),
   api("/api/v1/workflows/GYjLHpte4wi3g06L"),
   api("/api/v1/workflows?limit=100"),
 ])
-const sheetsCredentials = registerSync.nodes.find((node) => node.credentials?.googleSheetsOAuth2Api)?.credentials
+const sheetsCredentials = controlCenter.nodes.find((node) => node.credentials?.googleSheetsOAuth2Api)?.credentials
 const convexCredentials = probe.nodes.find((node) => node.credentials?.httpHeaderAuth)?.credentials
 if (!sheetsCredentials || !convexCredentials) throw new Error("Required production credentials are not attached")
 
