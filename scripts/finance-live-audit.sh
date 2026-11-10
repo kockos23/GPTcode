@@ -106,9 +106,9 @@ jq -e '
 curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header" \
   "$N8N_BASE_URL/api/v1/executions?status=error&limit=100&includeData=false" --output "$temporary_directory/errors.json"
 active_json="$(printf '%s\n' "${active_ids[@]}" | jq -R . | jq -s .)"
-# Credential recovery and production cutover completed at 2026-11-10 08:55:24 Europe/Bratislava.
+# Final credential recovery, Billdu and bank cutover completed at 2026-11-10 14:16:08 Europe/Bratislava.
 # Keep older incidents in n8n history, but do not report them as current production regressions.
-production_cutover_epoch=1794297324
+production_cutover_epoch=1794316568
 rolling_cutoff="$(( $(date +%s) - 7 * 24 * 60 * 60 ))"
 cutoff="$rolling_cutoff"
 if (( production_cutover_epoch > rolling_cutoff )); then cutoff="$production_cutover_epoch"; fi
