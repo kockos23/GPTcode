@@ -26,7 +26,7 @@
 - Pripraviť zodpovedajúci PDF a CSV výpis s rovnakým základom názvu.
 - [x] PDF archivovať v správnom mesačnom `Vypisy`; CSV vložiť do rovnakého priečinka.
 - [x] Read-only pilot overil jeden PDF/CSV pár, obdobie, maskovaný účet, menu, zostatky a 75 transakcií bez Convex zápisu.
-- Najprv spustiť CSV workflow kontrolovane. Overiť obdobie, maskovaný účet, zostatky, počet transakcií a nulové opakovanie pri druhom importe.
+- [x] CSV workflow bol kontrolovane overený na PDF+CSV páre z `09/2026`: importoval 75 transakcií a druhý identický import vrátil `ALREADY_IMPORTED` s rovnakým statement ID.
 - Až potom zapnúť plán 07:30 a 17:30 Europe/Bratislava.
 
 Parser pred importom odmieta neplatné alebo nemožné dátumy, nečíselné sumy, zmiešané meny, duplicitné ID operácie, transakcie mimo obdobia a nesediacu rovnicu počiatočný stav + príjmy - výdavky = konečný stav.
