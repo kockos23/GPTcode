@@ -1,0 +1,48 @@
+name: Deploy Convex production once
+
+on:
+  push:
+    branches: [work]
+    paths: [.github/workflows/deploy-convex-once.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wof-convex-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - id: deployment
+        continue-on-error: true
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          set +e
+          result=success
+          npm test -- --run || result=validation-failed
+          if [ "$result" = success ]; then node --test n8n/tests/workflow-policy.test.mjs || result=validation-failed; fi
+          if [ "$result" = success ]; then npx tsc --noEmit || result=validation-failed; fi
+          if [ "$result" = success ]; then npm run build || result=validation-failed; fi
+          if [ "$result" = success ]; then npx convex deploy --yes || result=deploy-failed; fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+      - name: Publish deployment result
+        env:
+          RESULT: ${{ steps.deployment.outputs.result }}
+        run: git push --force origin "HEAD:refs/heads/automation/convex-deploy-${RESULT}"
+      - if: steps.deployment.outputs.result != 'success'
+        env:
+          RESULT: ${{ steps.deployment.outputs.result }}
+        run: |
+          echo "Convex deployment result: ${RESULT}"
+          exit 1
