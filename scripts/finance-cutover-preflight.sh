@@ -48,7 +48,7 @@ jq -e '(.ok | type)=="boolean" and (.checkedAt | type)=="number" and (.issues | 
 workflows_code="$(http_code "$temporary_directory/workflows.json" --header "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_BASE_URL/api/v1/workflows?limit=100")"
 [[ "$workflows_code" == "200" ]] || { echo "FAIL n8n workflow list expected 200, got $workflows_code" >&2; exit 1; }
 
-active_ids=(976VfstjatIijTZx kGkyEMhtp7qdGtFI ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy cmGxWnoZh613XRWTF7o09 Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG 2YGEEBjYBn8aNBsY)
+active_ids=(976VfstjatIijTZx kGkyEMhtp7qdGtFI ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy cmGxWnoZh613XRWTF7o09 Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG 2YGEEBjYBn8aNBsY Ux7URco0Z1YGmvgB)
 inactive_ids=(GYjLHpte4wi3g06L)
 
 for id in "${active_ids[@]}"; do
@@ -58,7 +58,7 @@ for id in "${inactive_ids[@]}"; do
   jq -e --arg id "$id" '.data | any(.id==$id and .active==false)' "$temporary_directory/workflows.json" >/dev/null || { echo "FAIL expected inactive workflow $id" >&2; exit 1; }
 done
 
-for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY; do
+for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY Ux7URco0Z1YGmvgB; do
   detail_code="$(http_code "$temporary_directory/workflow-$id.json" --header "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_BASE_URL/api/v1/workflows/$id")"
   [[ "$detail_code" == "200" ]] || { echo "FAIL workflow $id expected 200, got $detail_code" >&2; exit 1; }
   if grep -q 'REPLACE_WITH_' "$temporary_directory/workflow-$id.json"; then

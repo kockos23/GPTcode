@@ -14,8 +14,8 @@ api_header="X-N8N-API-KEY: $N8N_API_KEY"
 curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header" \
   "$N8N_BASE_URL/api/v1/workflows?limit=100" --output "$temporary_directory/workflows.json"
 
-active_ids=(976VfstjatIijTZx kGkyEMhtp7qdGtFI ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy cmGxWnoZh613XRWTF7o09)
-inactive_ids=(Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY)
+active_ids=(976VfstjatIijTZx kGkyEMhtp7qdGtFI ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy cmGxWnoZh613XRWTF7o09 Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG 2YGEEBjYBn8aNBsY Ux7URco0Z1YGmvgB)
+inactive_ids=(GYjLHpte4wi3g06L)
 
 for id in "${active_ids[@]}"; do
   jq -e --arg id "$id" '.data | any(.id==$id and .active==true)' "$temporary_directory/workflows.json" >/dev/null || { echo "FAIL expected active workflow $id" >&2; exit 1; }
@@ -31,9 +31,10 @@ declare -A expected_schedule=(
   [kp5UV1ZLKe5XjPWP]='27 7,17 * * *'
   [Rog0Z5TIQ6qSpzFX]='30 7,17 * * *'
   [2YGEEBjYBn8aNBsY]='35 7,17 * * *'
+  [Ux7URco0Z1YGmvgB]='12 7,17 * * *'
 )
 
-audited_ids=(ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY)
+audited_ids=(ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY Ux7URco0Z1YGmvgB)
 for id in "${audited_ids[@]}"; do
   output="$temporary_directory/workflow-$id.json"
   curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header" \
@@ -52,7 +53,7 @@ for id in cmGxWnoZh613XRWTF7o09 kGkyEMhtp7qdGtFI; do
 done
 
 sara_monitor="$temporary_directory/workflow-cmGxWnoZh613XRWTF7o09.json"
-for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY; do
+for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG GYjLHpte4wi3g06L 2YGEEBjYBn8aNBsY Ux7URco0Z1YGmvgB; do
   grep -q "$id" "$sara_monitor" || { echo "FAIL SARA monitor does not allow workflow $id" >&2; exit 1; }
 done
 for id in 976VfstjatIijTZx kGkyEMhtp7qdGtFI; do
@@ -93,7 +94,7 @@ for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy; do
   ' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has an unsafe AI extraction contract" >&2; exit 1; }
 done
 
-for id in Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG 2YGEEBjYBn8aNBsY; do
+for id in Rog0Z5TIQ6qSpzFX OXvMtU4eUHGuGqw2 kp5UV1ZLKe5XjPWP R0bTgnf4bcPX41tG 2YGEEBjYBn8aNBsY Ux7URco0Z1YGmvgB; do
   jq -e '.settings.saveDataSuccessExecution=="none" and .settings.saveDataErrorExecution=="all" and .settings.saveExecutionProgress==false and .settings.executionTimeout==900' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL future production workflow $id has unsafe execution retention" >&2; exit 1; }
 done
 
@@ -105,7 +106,12 @@ jq -e '
 curl --silent --show-error --fail-with-body --max-time 30 --header "$api_header" \
   "$N8N_BASE_URL/api/v1/executions?status=error&limit=100&includeData=false" --output "$temporary_directory/errors.json"
 active_json="$(printf '%s\n' "${active_ids[@]}" | jq -R . | jq -s .)"
-cutoff="$(( $(date +%s) - 7 * 24 * 60 * 60 ))"
+# Credential recovery and production cutover completed at 2026-11-10 08:55:24 Europe/Bratislava.
+# Keep older incidents in n8n history, but do not report them as current production regressions.
+production_cutover_epoch=1794297324
+rolling_cutoff="$(( $(date +%s) - 7 * 24 * 60 * 60 ))"
+cutoff="$rolling_cutoff"
+if (( production_cutover_epoch > rolling_cutoff )); then cutoff="$production_cutover_epoch"; fi
 jq --argjson active "$active_json" --argjson cutoff "$cutoff" \
   '[.data[] | select((.workflowId as $id | $active | index($id)) != null) | select((.startedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) >= $cutoff)]' \
   "$temporary_directory/errors.json" > "$temporary_directory/recent-errors.json"
