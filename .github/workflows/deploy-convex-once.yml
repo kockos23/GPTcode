@@ -1,0 +1,44 @@
+name: Deploy Convex production once
+
+on:
+  push:
+    branches:
+      - work
+    paths:
+      - .github/workflows/deploy-convex-once.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wof-convex-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact work commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate application and workflow policy
+        run: |
+          npm test -- --run
+          node --test n8n/tests/workflow-policy.test.mjs
+          npx tsc --noEmit
+          npm run build
+
+      - name: Deploy Convex production
+        run: npx convex deploy --yes
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
