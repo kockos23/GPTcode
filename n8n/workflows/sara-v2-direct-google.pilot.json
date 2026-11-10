@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "operation": "removeDuplicateItems",
+        "operation": "removeDuplicateInputItems",
         "compare": "selectedFields",
         "fieldsToCompare": "documentKey",
         "options": {}

@@ -76,7 +76,7 @@ for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy; do
   jq -e '
     ([.nodes[] | select(
       .type=="n8n-nodes-base.removeDuplicates"
-      and .parameters.operation=="removeDuplicateItems"
+      and .parameters.operation=="removeDuplicateInputItems"
       and .parameters.compare=="selectedFields"
       and .parameters.fieldsToCompare=="documentKey"
       and (.parameters | has("dedupeValue") | not)
