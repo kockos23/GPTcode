@@ -1,5 +1,7 @@
 # SARA WOF — cieľová produkčná architektúra
 
+Chief of Staff dashboard synchronization, health monitoring and cutover are documented in `docs/CHIEF_OF_STAFF_OPERATIONS.md`.
+
 ## Rozhodnutie
 
 Macaly zostáva miestom, kde sa projekt vyvíja a kde používateľ pracuje s rozhraním. Convex je operačná databáza, API a auditná vrstva. n8n je jediná automatizačná/orchestračná vrstva. Bežné operácie Google služieb používajú natívne n8n konektory a vlastné Google OAuth poverenia; nemajú prechádzať cez Composio.

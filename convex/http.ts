@@ -239,6 +239,41 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/chief-of-staff/snapshot",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const collections = ["calendar", "emails", "agents", "workQueue", "tasks", "commands"] as const
+    if (!body || collections.some(key => !Array.isArray(body[key]) || (body[key] as unknown[]).length > 500)) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const sourceErrors = Array.isArray(body.sourceErrors)
+      ? body.sourceErrors.filter((item): item is string => typeof item === "string").slice(0, 20)
+      : []
+    const result = await ctx.runMutation(internal.chiefOfStaff.syncSnapshot, {
+      calendar: body.calendar, emails: body.emails, agents: body.agents,
+      workQueue: body.workQueue, tasks: body.tasks, commands: body.commands,
+      sourceErrors, syncedAt: typeof body.syncedAt === "number" ? body.syncedAt : Date.now(),
+    })
+    return Response.json(result)
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/chief-of-staff/health",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const result = await ctx.runQuery(internal.chiefOfStaff.health, {})
+    return Response.json(result, {
+      status: result.ok ? 200 : 503,
+      headers: { "cache-control": "no-store" },
+    })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/health",
   method: "GET",
   handler: httpAction(async (ctx, request) => {

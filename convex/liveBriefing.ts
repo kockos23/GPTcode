@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { api } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import { action } from "./_generated/server"
 import { callMacalyJson } from "./macaly"
 
@@ -81,6 +81,20 @@ export const refresh = action({
   handler: async (ctx) => {
     const access = await ctx.runQuery(api.authz.currentAccess, {})
     if (!access.allowed) throw new Error("Nemáš oprávnenie obnoviť súkromné zdroje.")
+
+    const snapshot = await ctx.runQuery(internal.chiefOfStaff.getSnapshot, {})
+    if (snapshot) {
+      return {
+        generatedAt: snapshot.syncedAt,
+        calendar: snapshot.calendar as Array<{ id:string; title:string; start:string; end:string; allDay:boolean; url:string }>,
+        emails: snapshot.emails as Array<{ id:string; threadId:string; subject:string; sender:string; timestamp:string; preview:string; url:string; important:boolean }>,
+        agents: snapshot.agents as Array<{ id:string; name:string; role:string; connection:string; status:string; lastCheck:string; currentTask:string; nextStep:string; owner:string; notes:string }>,
+        workQueue: snapshot.workQueue as Array<{ id:string; projectId:string; title:string; owner:string; priority:string; status:string; updated:string; deadline:string; expectedOutput:string; result:string; nextAgent:string; approval:string; error:string; notes:string }>,
+        tasks: snapshot.tasks as Array<{ id:string; created:string; source:string; title:string; details:string; projectId:string; owner:string; priority:string; status:string; deadline:string; reminder:string; recurrence:string; related:string; result:string; updated:string }>,
+        commands: snapshot.commands as Array<{ id:string; received:string; channel:string; contextType:string; contextId:string; command:string; intent:string; targetApp:string; approval:string; status:string; agent:string; result:string; error:string; runId:string; updated:string }>,
+        sourceErrors: snapshot.sourceErrors,
+      }
+    }
 
     const now = new Date()
     const horizon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)

@@ -187,4 +187,95 @@ export default defineSchema({
     .index("by_source_document", ["sourceDocumentId"])
     .index("by_status", ["status"])
     .index("by_updated_at", ["updatedAt"]),
+  chiefOfStaffSnapshots: defineTable({
+    cacheKey: v.string(),
+    calendar: v.any(),
+    emails: v.any(),
+    agents: v.any(),
+    workQueue: v.any(),
+    tasks: v.any(),
+    commands: v.any(),
+    sourceErrors: v.array(v.string()),
+    syncedAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_cache_key", ["cacheKey"]),
+  chiefOfStaffProjects: defineTable({
+    projectId: v.string(),
+    area: v.string(),
+    name: v.string(),
+    status: v.string(),
+    priority: v.string(),
+    owner: v.string(),
+    horizon: v.string(),
+    deadline: v.optional(v.string()),
+    nextAction: v.string(),
+    blocker: v.optional(v.string()),
+    waitingFor: v.optional(v.string()),
+    progress: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_project_id", ["projectId"])
+    .index("by_status", ["status"])
+    .index("by_priority", ["priority"]),
+  chiefOfStaffDecisions: defineTable({
+    decisionId: v.string(),
+    projectId: v.string(),
+    question: v.string(),
+    recommendation: v.string(),
+    alternatives: v.array(v.string()),
+    reason: v.string(),
+    impact: v.string(),
+    deadline: v.string(),
+    status: v.string(),
+    context: v.string(),
+    source: v.string(),
+    relatedTask: v.optional(v.string()),
+    answer: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_decision_id", ["decisionId"])
+    .index("by_project_id", ["projectId"])
+    .index("by_status", ["status"]),
+  chiefOfStaffTasks: defineTable({
+    taskId: v.string(),
+    projectId: v.string(),
+    title: v.string(),
+    details: v.string(),
+    owner: v.string(),
+    assignee: v.string(),
+    priority: v.string(),
+    status: v.string(),
+    deadline: v.optional(v.string()),
+    expectedOutput: v.string(),
+    result: v.string(),
+    approval: v.string(),
+    source: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task_id", ["taskId"])
+    .index("by_project_id", ["projectId"])
+    .index("by_status", ["status"]),
+  chiefOfStaffCommands: defineTable({
+    commandId: v.string(),
+    command: v.string(),
+    contextType: v.string(),
+    contextId: v.string(),
+    channel: v.string(),
+    intent: v.string(),
+    targetApp: v.string(),
+    approval: v.string(),
+    status: v.string(),
+    agent: v.string(),
+    result: v.string(),
+    error: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_command_id", ["commandId"])
+    .index("by_status", ["status"])
+    .index("by_created_at", ["createdAt"]),
 })
