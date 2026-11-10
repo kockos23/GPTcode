@@ -51,6 +51,34 @@ describe("Billdu document normalization", () => {
 
   it("extracts rows only from supported collection envelopes", () => {
     expect(billduRows({ documents: [{ id: 1 }] })).toEqual([{ id: 1 }])
+    expect(billduRows({ _embedded: { items: [{ id: 2 }] } })).toEqual([{ id: 2 }])
     expect(billduRows({ unexpected: [{ id: 1 }] })).toEqual([])
+  })
+
+  it("normalizes the verified live Billdu invoice shape", () => {
+    const result = normalizeBillduDocument({
+      id: 42,
+      serial_number: "20260042",
+      status: "exposed",
+      issue_date: "2026-11-01T00:00:00+00:00",
+      delivery_date: "2026-10-31T00:00:00+00:00",
+      due_date: "2026-11-15T00:00:00+00:00",
+      currency: "EUR",
+      total_price: "1535.00",
+      client: "Example client",
+    })
+
+    expect(result).toMatchObject({
+      documentId: "billdu:42",
+      invoiceNumber: "20260042",
+      type: "invoice",
+      status: "exposed",
+      deliveryDate: "2026-10-31",
+      totalAmount: 1535,
+      currency: "EUR",
+      customer: "Example client",
+      safeToImport: true,
+      reviewReasons: [],
+    })
   })
 })

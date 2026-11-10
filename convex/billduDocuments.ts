@@ -65,6 +65,8 @@ export function billduRows(value: unknown): unknown[] {
   if (Array.isArray(value)) return value
   const root = record(value)
   for (const key of ["data", "documents", "items", "results"]) if (Array.isArray(root[key])) return root[key] as unknown[]
+  const embedded = record(root._embedded)
+  if (Array.isArray(embedded.items)) return embedded.items
   return []
 }
 
@@ -73,13 +75,14 @@ export function normalizeBillduDocument(value: unknown): BillduDocumentCandidate
   const customerRecord = record(source.customer ?? source.client)
   const id = firstText(source, ["id", "documentId", "document_id"])
   const status = firstText(source, ["status", "documentStatus", "document_status"]).toLocaleLowerCase("sk")
-  const type = firstText(source, ["type", "documentType", "document_type"]).toLocaleLowerCase("sk")
+  const explicitType = firstText(source, ["type", "documentType", "document_type"]).toLocaleLowerCase("sk")
+  const type = explicitType || (status === "exposed" && firstText(source, ["serial_number"]) ? "invoice" : "")
   const deliveryDate = isoDate(firstText(source, ["deliveryDate", "delivery_date", "dateOfSupply", "date_of_supply", "taxDate", "tax_date"]))
   const issueDate = isoDate(firstText(source, ["issueDate", "issue_date", "date", "createdDate", "created_date"]))
   const dueDate = isoDate(firstText(source, ["dueDate", "due_date", "maturityDate", "maturity_date"]))
   const currency = firstText(source, ["currency", "currencyCode", "currency_code"]).toUpperCase()
-  const totalAmount = numberValue(source, ["total", "totalAmount", "total_amount", "amount", "priceTotal", "price_total"])
-  const invoiceNumber = firstText(source, ["number", "documentNumber", "document_number", "invoiceNumber", "invoice_number"])
+  const totalAmount = numberValue(source, ["total_price", "total", "totalAmount", "total_amount", "amount", "priceTotal", "price_total"])
+  const invoiceNumber = firstText(source, ["serial_number", "number", "documentNumber", "document_number", "invoiceNumber", "invoice_number"])
   const reviewReasons: string[] = []
   if (!id) reviewReasons.push("Chýba Billdu ID")
   if (!invoiceNumber) reviewReasons.push("Chýba číslo faktúry")
@@ -87,7 +90,7 @@ export function normalizeBillduDocument(value: unknown): BillduDocumentCandidate
   if (!/^[A-Z]{3}$/.test(currency)) reviewReasons.push("Chýba platná mena")
   if (totalAmount === null || totalAmount < 0) reviewReasons.push("Chýba platná suma")
   const invoiceTypes = new Set(["invoice", "tax_invoice", "issued_invoice", "faktura", "faktúra"])
-  const issuedStatuses = new Set(["issued", "sent", "unpaid", "paid", "partially_paid", "overdue"])
+  const issuedStatuses = new Set(["exposed", "issued", "sent", "unpaid", "paid", "partially_paid", "overdue"])
   if (!invoiceTypes.has(type) || !issuedStatuses.has(status)) reviewReasons.push("Doklad nie je potvrdená vystavená faktúra")
   return {
     id,
@@ -100,7 +103,7 @@ export function normalizeBillduDocument(value: unknown): BillduDocumentCandidate
     dueDate,
     currency,
     totalAmount,
-    customer: firstText(customerRecord, ["name", "companyName", "company_name"]) || firstText(source, ["customerName", "customer_name", "clientName", "client_name"]),
+    customer: firstText(customerRecord, ["name", "companyName", "company_name"]) || firstText(source, ["customerName", "customer_name", "clientName", "client_name", "client"]),
     safeToImport: reviewReasons.length === 0,
     reviewReasons,
   }
