@@ -121,3 +121,29 @@ test('weekly digest runs Monday morning and only when there is something new', (
   assert.equal(digest.connections['Pribudli nápady?'].main.length, 1)
   assert.match(digestNodes.get('Načítaj nápady za týždeň').parameters.url, /\/ideas\/digest-input\?days=7$/)
 })
+
+test('a link to a PDF is read as a document, a web page as text', async () => {
+  const prepare = nodes.get('Priprav AI analýzu')
+  const base = {
+    sourceKey: 'telegram:1:9', chatId: '1', messageId: 9, kind: 'link', receivedAt: 1, rawText: 'pozri', caption: '',
+    urls: ['https://example.com/files/Report%202026.pdf'], forwardedFrom: '', telegramFileId: '', downloadFileId: '',
+    mimeType: '', fileName: '', context: { promptContext: 'P', recent: [] }, contextError: '',
+  }
+  const [pdf] = await runCode(prepare, {
+    input: [{ json: {}, binary: { data: { mimeType: 'application/octet-stream' } } }],
+    refs: { 'Spoj správu a profil': base }, binary: Buffer.from('%PDF-1.4'),
+  })
+  const pdfPart = pdf.json.requestBody.input[0].content[1]
+  assert.equal(pdfPart.type, 'input_file')
+  assert.equal(pdfPart.filename, 'Report 2026.pdf')
+  assert.deepEqual(pdf.json.notes, [])
+
+  const [html] = await runCode(prepare, {
+    input: [{ json: {}, binary: { data: { mimeType: 'text/html; charset=utf-8' } } }],
+    refs: { 'Spoj správu a profil': { ...base, urls: ['https://example.com/a'] } },
+    binary: Buffer.from('<html><title>Ahoj</title><p>' + 'text '.repeat(60) + '</p></html>'),
+  })
+  assert.equal(html.json.requestBody.input[0].content.length, 1)
+  assert.match(html.json.requestBody.input[0].content[0].text, /Web – názov a popis: Ahoj/)
+  assert.equal(nodes.get('Stiahni webovú stránku').parameters.options.response.response.responseFormat, 'file')
+})
