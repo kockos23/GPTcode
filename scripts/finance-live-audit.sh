@@ -74,6 +74,15 @@ for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy; do
     and ([.nodes[] | select(((.name + .type) | ascii_downcase | contains("openai")))] | length)==1
   ' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has unsafe cross-channel deduplication" >&2; exit 1; }
   jq -e '
+    ([.nodes[] | select(
+      .type=="n8n-nodes-base.removeDuplicates"
+      and .parameters.operation=="removeDuplicateItems"
+      and .parameters.compare=="selectedFields"
+      and .parameters.fieldsToCompare=="documentKey"
+      and (.parameters | has("dedupeValue") | not)
+    )] | length)==1
+  ' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id can poison retries with cross-execution transient dedupe" >&2; exit 1; }
+  jq -e '
     ([.nodes[] | (.parameters.jsCode // "")] | join("\n")) as $code
     | ($code | contains("store:false"))
       and ($code | contains("json_schema"))

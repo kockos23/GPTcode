@@ -81,6 +81,7 @@ test('content SHA-256 becomes the persistent document identity before dedupe', (
   const hash = nodes.get('SHA-256 obsahu prílohy')
   const merge = nodes.get('Spoj hash a prílohu')
   const identity = nodes.get('Nastav identitu podľa SHA-256')
+  const executionDedupe = nodes.get('Deduplikácia Gmail prílohy')
   const validate = nodes.get('Validuj a zaraď podľa dodania')
   assert.ok(hash)
   assert.ok(merge)
@@ -99,6 +100,10 @@ test('content SHA-256 becomes the persistent document identity before dedupe', (
   assert.equal(workflow.connections[hash.name].main[0][0].index, 0)
   assert.equal(workflow.connections[merge.name].main[0][0].node, identity.name)
   assert.equal(workflow.connections[identity.name].main[0][0].node, 'Deduplikácia Gmail prílohy')
+  assert.equal(executionDedupe.parameters.operation, 'removeDuplicateItems')
+  assert.equal(executionDedupe.parameters.compare, 'selectedFields')
+  assert.equal(executionDedupe.parameters.fieldsToCompare, 'documentKey')
+  assert.equal(Object.hasOwn(executionDedupe.parameters, 'dedupeValue'), false)
 })
 
 test('routing uses delivery or explicit report-period date and never 00_INBOX', () => {
@@ -278,6 +283,7 @@ test('future production finance workflows minimize successful execution retentio
 test('live audit reports grouped error metadata without requesting execution payloads', () => {
   assert.match(liveAuditScript, /includeData=false/)
   assert.match(liveAuditScript, /group_by\(\.workflowId\)/)
+  assert.match(liveAuditScript, /can poison retries with cross-execution transient dedupe/)
   assert.match(liveAuditScript, /first=/)
   assert.match(liveAuditScript, /last=/)
   assert.doesNotMatch(liveAuditScript, /includeData=true/)
