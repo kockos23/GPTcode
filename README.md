@@ -41,3 +41,9 @@ Macaly/Convex already manage the secret values used by the project. Never commit
 - Bank and Stripe reports use the end of their explicit report period.
 - Documents without trustworthy text or dates remain in the review queue and are not silently filed.
 - Bank matches are proposals only. A payable is marked paid only after user confirmation.
+
+## VERA · Idea Vault
+
+Osobná kurátorka nápadov (Telegram bot → n8n → Convex `/ideas/*` → sekcia **VERA** v dashboarde). Convex potrebuje `IDEA_VAULT_INGEST_TOKEN_SHA256`. Detail a postup: [`docs/IDEA_VAULT.md`](docs/IDEA_VAULT.md).
+
+**Pozor:** do produkčného Convexu nasadzujte iba kód, ktorý obsahuje `convex/ideaVault.ts` a jeho routy v `convex/http.ts`. Inak VERA prestane ukladať nápady.

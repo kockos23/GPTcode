@@ -3,6 +3,7 @@ import { auth } from "./auth"
 import { internal } from "./_generated/api"
 import { httpAction } from "./_generated/server"
 import { downloadBillduDocument, listBillduDocuments } from "./billdu"
+import { httpCapture, httpContext, httpDigest, httpDigestInput } from "./ideaVault"
 
 const http = httpRouter()
 
@@ -356,5 +357,11 @@ http.route({
     return Response.json(result, { status: result.ok ? 200 : 404 })
   }),
 })
+
+// VERA · Idea Vault – volá iba n8n s hlavičkou Authorization: Bearer <token>.
+http.route({ path: "/ideas/context", method: "GET", handler: httpContext })
+http.route({ path: "/ideas/capture", method: "POST", handler: httpCapture })
+http.route({ path: "/ideas/digest-input", method: "GET", handler: httpDigestInput })
+http.route({ path: "/ideas/digest", method: "POST", handler: httpDigest })
 
 export default http
