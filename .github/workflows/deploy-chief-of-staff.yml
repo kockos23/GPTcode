@@ -1,0 +1,32 @@
+name: Deploy Chief of Staff Convex update
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v4
+        with:
+          ref: work
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate application
+        run: |
+          npx tsc --noEmit
+          npm test -- --run
+      - name: Deploy Convex production
+        run: npx convex deploy
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
