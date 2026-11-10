@@ -57,8 +57,8 @@ Before any Drive or register write, n8n must atomically claim the normalized doc
 - authentication verified with one read-only request,
 - one invoice detail and PDF retrieved,
 - delivery date and totals validated,
-- one Drive PDF and one register row created,
-- second run produces zero duplicates,
+- one Drive PDF and one register row created (pilot invoice `2026293`, accounting period `2026-11`, 2026-11-10),
+- second claim returned `ALREADY_IMPORTED` and produced zero duplicates,
 - update/cancel behavior tested,
 - only then enable webhook or twice-daily polling.
 

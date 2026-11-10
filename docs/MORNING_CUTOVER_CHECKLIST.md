@@ -38,7 +38,7 @@ Parser pred importom odmieta neplatné alebo nemožné dátumy, nečíselné sum
 - [x] Po bezpečnom Convex deployi vykonať ohraničený read-only test: načítal 10 metadát z 312 dokladov, nič nezapísal a odhalil kolekciu `_embedded.items`.
 - [x] Uzamknúť živé mapovanie: `serial_number`, stav `exposed`, `delivery_date`, `issue_date`, `due_date`, `total_price`, `currency` a textové `client`. Dátum vystavenia, synchronizácie ani prijatia e-mailu nie je náhrada dátumu dodania.
 - [x] Overiť jeden PDF download iba technicky; odpoveď mala `application/pdf`, platnú `%PDF-` hlavičku a dočasný súbor bol okamžite zmazaný.
-- Prvý zápisový pilot obmedziť na jednu explicitne vybranú vystavenú faktúru; overiť jeden PDF v `Vystavene_FA`, jeden riadok registra a nulový duplikát pri druhom behu.
+- [x] Prvý zápisový pilot bol obmedzený na najnovšiu vystavenú faktúru `2026293`: vytvoril jeden PDF v `2026-11/Vystavene_FA`, jeden riadok registra a opakovaný claim skončil `ALREADY_IMPORTED` bez duplikátu.
 
 ## 5. Záverečný audit
 
