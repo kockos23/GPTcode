@@ -35,8 +35,9 @@ Parser pred importom odmieta neplatné alebo nemožné dátumy, nečíselné sum
 
 - [x] Overiť autentizáciu: `apiKey`, Unix timestamp a HMAC-SHA512 podpis cez `apiSecret`; oficiálny klient poskytuje zoznam dokladov a stiahnutie PDF, nie webhook API.
 - [x] Oba Billdu secrets uložiť iba v Macaly/Convex secrets. n8n pozná iba existujúci bearer credential k Convex proxy; Billdu secrets nesmú byť vo workflowe, Gite ani chate.
-- Po bezpečnom Convex deployi spustiť neaktívny manuálny workflow `GYjLHpte4wi3g06L` iba raz. Načíta maximálne 10 metadát, nič nezapisuje a nesťahuje PDF.
-- Podľa reálnej odpovede uzamknúť mapovanie typu, stavu a explicitného dátumu dodania. Dátum vystavenia, synchronizácie ani prijatia e-mailu nie je náhrada dátumu dodania.
+- [x] Po bezpečnom Convex deployi vykonať ohraničený read-only test: načítal 10 metadát z 312 dokladov, nič nezapísal a odhalil kolekciu `_embedded.items`.
+- [x] Uzamknúť živé mapovanie: `serial_number`, stav `exposed`, `delivery_date`, `issue_date`, `due_date`, `total_price`, `currency` a textové `client`. Dátum vystavenia, synchronizácie ani prijatia e-mailu nie je náhrada dátumu dodania.
+- [x] Overiť jeden PDF download iba technicky; odpoveď mala `application/pdf`, platnú `%PDF-` hlavičku a dočasný súbor bol okamžite zmazaný.
 - Prvý zápisový pilot obmedziť na jednu explicitne vybranú vystavenú faktúru; overiť jeden PDF v `Vystavene_FA`, jeden riadok registra a nulový duplikát pri druhom behu.
 
 ## 5. Záverečný audit
