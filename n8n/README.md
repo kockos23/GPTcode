@@ -54,9 +54,16 @@ Druhý Gmail pilot použil PDF faktúru s explicitným dátumom dodania. OpenAI 
 
 Drive štruktúra pre rok 2026 je kompletná. Audit najprv potvrdil iba existujúce `07/2026`, `09/2026` a `10/2026`; následne bolo vytvorených presne deväť chýbajúcich mesiacov a 36 kategórií. Nezávislá kontrola potvrdila všetkých 12 mesiacov a v každom presne štyri priečinky `Doklady`, `Stripe`, `Vystavene_FA`, `Vypisy`. Live n8n obsahuje 48 reálnych Drive ID, Git export iba 48 placeholderov.
 
+## Idea Vault workflowy
+
+- `workflows/idea-vault-telegram-intake.pilot.json` — Telegram bot → stiahnutie a archivácia súboru do Drive → prepis hlasovky → čítanie webu → AI analýza voči profilu → Convex `/ideas/capture` → potvrdenie v Telegrame.
+- `workflows/idea-vault-weekly-digest.pilot.json` — pondelok 7:40, syntéza týždňa z Convex a správa do Telegramu.
+
+Oba exporty sú neaktívne a bez credentials. Placeholdery a postup pilotu sú v [`../docs/IDEA_VAULT.md`](../docs/IDEA_VAULT.md).
+
 ## Lokálny policy test
 
 ```bash
-node --test n8n/tests/workflow-policy.test.mjs
+node --test n8n/tests/*.test.mjs
 ```
 

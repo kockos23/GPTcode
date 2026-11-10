@@ -23,6 +23,7 @@ Composio zostáva voliteľná výnimka pre jednorazové agentné úlohy, ktoré 
 | Zdrojová správa a príloha pred zaradením | Gmail | Pri nejasnom dátume ostáva príloha v Gmaili; Convex drží stabilné ID správy/prílohy. |
 | Banková transakcia | Convex + nemenný zdrojový výpis v Drive | Opakovaný import je idempotentný podľa účtu a ID operácie. |
 | Účtovný/reportovací register | Google Sheets | Synchronizovaná kompatibilná/reportovacia vrstva, nie workflow engine. |
+| Nápady, know-how a profil záujmov (Idea Vault) | Convex + originály v Drive | Vstup cez Telegram bota v n8n; detail v `IDEA_VAULT.md`. |
 | Workflow definície a vykonávanie | n8n | Export workflowov sa po pripojení n8n verziuje v repozitári bez credential ID a tajomstiev. |
 
 ## Povinné n8n workflowy

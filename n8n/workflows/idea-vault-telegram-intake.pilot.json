@@ -1,0 +1,643 @@
+{
+  "name": "VERA · Idea Vault — Telegram intake (PILOT)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Telegram — VERA bot",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c7776d6f-b4b7-5acd-946f-970b6a61c8e1",
+      "webhookId": "9ce74da3-7072-56d8-b896-136e22a2b1c7"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prijíma iba správy z vlastníkovho chatu. Cudzie správy sa ticho zahodia (bot nič neprezradí).\nconst OWNER_CHAT_ID = 'REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID';\nconst MAX_DOWNLOAD = 20 * 1024 * 1024; // limit Telegram Bot API na stiahnutie\nconst out = [];\nfor (const item of $input.all()) {\n  const m = item.json.message || {};\n  const chatId = String(m.chat?.id ?? '');\n  if (!chatId || chatId !== OWNER_CHAT_ID || !m.message_id) continue;\n  const text = String(m.text || '');\n  const caption = String(m.caption || '');\n  const entities = [...(m.entities || []), ...(m.caption_entities || [])];\n  const linkEntities = entities.filter(e => e.type === 'text_link' && e.url).map(e => e.url);\n  const inline = ((text + ' ' + caption).match(/https?:\\/\\/[^\\s<>\"')\\]]+/gi) || []).map(u => u.replace(/[.,;:!?]+$/, ''));\n  const urls = [...new Set([...linkEntities, ...inline])].slice(0, 10);\n  let fileId = '', mimeType = '', fileName = '', fileSize = 0, kind = urls.length ? 'link' : 'text';\n  if (m.voice) { fileId = m.voice.file_id; mimeType = m.voice.mime_type || 'audio/ogg'; fileName = 'hlasovka-' + m.message_id + '.ogg'; fileSize = m.voice.file_size || 0; kind = 'voice'; }\n  else if (m.audio) { fileId = m.audio.file_id; mimeType = m.audio.mime_type || 'audio/mpeg'; fileName = m.audio.file_name || ('audio-' + m.message_id); fileSize = m.audio.file_size || 0; kind = 'voice'; }\n  else if (m.photo?.length) { const p = m.photo[m.photo.length - 1]; fileId = p.file_id; mimeType = 'image/jpeg'; fileName = 'foto-' + m.message_id + '.jpg'; fileSize = p.file_size || 0; kind = 'image'; }\n  else if (m.document) {\n    fileId = m.document.file_id; mimeType = String(m.document.mime_type || 'application/octet-stream').toLowerCase();\n    fileName = m.document.file_name || ('dokument-' + m.message_id); fileSize = m.document.file_size || 0;\n    kind = mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('audio/') ? 'voice' : 'document';\n  }\n  else if (m.video || m.video_note) { kind = 'video'; mimeType = m.video?.mime_type || 'video/mp4'; fileName = m.video?.file_name || ''; }\n  const fileTooBig = fileSize > MAX_DOWNLOAD;\n  const origin = m.forward_origin || {};\n  const forwardedFrom = origin.sender_user?.first_name || origin.sender_user_name || origin.chat?.title || m.forward_from_chat?.title || '';\n  out.push({ json: {\n    sourceKey: 'telegram:' + chatId + ':' + m.message_id,\n    source: 'telegram', chatId, messageId: m.message_id, kind,\n    receivedAt: Number(m.date || Math.floor(Date.now() / 1000)),\n    rawText: text, caption, urls, forwardedFrom,\n    telegramFileId: fileId, downloadFileId: fileTooBig ? '' : fileId,\n    mimeType, fileName, fileTooBig,\n  } });\n}\nreturn out;"
+      },
+      "name": "Over vlastníka a rozpoznaj obsah",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "549d53be-11ac-5052-80e4-99eaf48c6a8c"
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/ideas/context",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "name": "Načítaj profil z Convex",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "bddf7872-d2f7-58a4-aa13-2028f6d6ae28",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Spojí správu s kontextom profilu z Convex. Bez profilu analýza beží ďalej, iba menej osobne.\nconst message = $('Over vlastníka a rozpoznaj obsah').first().json;\nconst ctx = $input.first().json || {};\nconst ok = ctx.ok === true && typeof ctx.promptContext === 'string';\nreturn [{ json: { ...message, context: ok ? ctx : { promptContext: 'Profil nie je dostupný.', recent: [] }, contextError: ok ? '' : 'Profil z Convex sa nepodarilo načítať' } }];"
+      },
+      "name": "Spoj správu a profil",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "e693a796-3e9f-5bd9-be88-9a0ca5eb8b5a"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d43846ed-5dbf-5646-9503-0d8e71843526",
+              "leftValue": "={{ $json.downloadFileId }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Má súbor na stiahnutie?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ],
+      "id": "2c2ae3e8-de5f-5f86-93c9-2e63e554a13b"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.downloadFileId }}",
+        "additionalFields": {}
+      },
+      "name": "Telegram — stiahni súbor",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        -200
+      ],
+      "id": "ca598205-b06a-542a-96a3-7f96885d1a31",
+      "webhookId": "0475a144-cd4e-56b5-87d3-369ad91cc5e5",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Spoj správu a profil').first().json.sourceKey.replace(/[:]/g, '-') + '_' + ($('Spoj správu a profil').first().json.fileName || 'subor') }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_IDEA_VAULT_DRIVE_FOLDER_ID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "name": "Archivuj originál do Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1440,
+        -300
+      ],
+      "id": "4a566f4a-03c5-5e70-9b1c-1b162dec4b75",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "name": "Spoj súbor a archív",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1680,
+        -200
+      ],
+      "id": "c95bb152-ec1c-51e5-a3c1-c060784e8dbb"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "5571c161-ca32-5522-8a3e-83ebc232f864",
+              "leftValue": "={{ $('Spoj správu a profil').first().json.kind }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "voice"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Je to hlasovka?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        -200
+      ],
+      "id": "3989b980-0760-5957-84ab-377e0bda8df4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "gpt-4o-transcribe"
+            },
+            {
+              "name": "response_format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "OpenAI — prepis hlasovky",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        -300
+      ],
+      "id": "ed1e3015-1873-59ca-b022-63bcb379900b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "a9925e05-d824-5549-9675-5f944dd6497a",
+              "leftValue": "={{ $json.urls.length }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Je v správe odkaz?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        200
+      ],
+      "id": "ce8c1f9e-fd7a-5c6f-a62e-6b932a406572"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.urls[0] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; IdeaVaultBot/1.0)"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "sk,cs;q=0.9,en;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "name": "Stiahni webovú stránku",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        120
+      ],
+      "id": "7968945a-db67-5eaf-bdb8-deef319da280",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zostaví vstup pre AI: text + prepis hlasovky + text webu + obrázok/PDF priamo ako multimodálny vstup.\nconst base = $('Spoj správu a profil').first().json;\nconst item = $input.first();\nconst j = item.json || {};\nconst clean = (s, max) => String(s || '').replace(/\\u0000/g, '').trim().slice(0, max);\nconst stripHtml = html => String(html || '')\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ').replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<noscript[\\s\\S]*?<\\/noscript>/gi, ' ').replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .replace(/<(br|p|div|li|h[1-6]|tr)[^>]*>/gi, '\\n').replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\").replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n  .replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n+/g, '\\n').trim();\nconst meta = html => {\n  const pick = re => (String(html || '').match(re) || [])[1] || '';\n  return [pick(/<title[^>]*>([^<]{1,300})<\\/title>/i), pick(/<meta[^>]+(?:name|property)=[\"'](?:og:)?description[\"'][^>]+content=[\"']([^\"']{1,600})/i)].filter(Boolean).join(' — ');\n};\n\nlet transcript = '', pageText = '', pageMeta = '', extractedText = '', driveFileId = '', driveUrl = '';\nconst notes = [];\nif (base.contextError) notes.push(base.contextError);\nif (base.fileTooBig) notes.push('Súbor je väčší ako 20 MB, Telegram ho nedovolí stiahnuť – analyzuje sa iba popis.');\nif (base.kind === 'video') notes.push('Video sa neanalyzuje, použije sa iba popis a odkazy.');\nif (base.kind === 'voice' && base.downloadFileId) {\n  transcript = clean(j.text, 15000);\n  if (!transcript) notes.push('Prepis hlasovky zlyhal.');\n}\n// Odkaz sa sťahuje ako súbor: HTML sa prečíta ako text, PDF ide do AI ako dokument.\nconst linkBinary = base.kind === 'link' && !base.downloadFileId ? item.binary?.data : null;\nconst linkUrl = base.urls[0] || '';\nlet linkMime = String(linkBinary?.mimeType || '').toLowerCase().split(';')[0].trim();\nif (linkBinary && (!linkMime || linkMime === 'application/octet-stream' || linkMime === 'binary/octet-stream') && /\\.pdf($|[?#])/i.test(linkUrl)) linkMime = 'application/pdf';\nlet pageHtml = typeof j.pageHtml === 'string' ? j.pageHtml : '';\nif (linkBinary && (linkMime.includes('html') || linkMime.startsWith('text/') || linkMime.includes('xml'))) {\n  pageHtml = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\n}\nif (pageHtml) {\n  pageMeta = clean(meta(pageHtml), 900);\n  pageText = clean(stripHtml(pageHtml), 15000);\n  if (pageText.length < 200) notes.push('Webová stránka vrátila málo textu (možno vyžaduje JavaScript alebo prihlásenie).');\n} else if (base.kind === 'link' && !base.downloadFileId && linkMime !== 'application/pdf') {\n  notes.push(linkBinary ? 'Odkaz vedie na formát ' + (linkMime || 'neznámy') + ', ktorý sa automaticky nečíta.' : 'Webovú stránku sa nepodarilo stiahnuť.');\n}\ntry {\n  const archived = $('Spoj súbor a archív').first().json || {};\n  if (archived.id && !archived.error) { driveFileId = String(archived.id); driveUrl = 'https://drive.google.com/file/d/' + driveFileId + '/view'; }\n  else if (base.downloadFileId) notes.push('Originál sa nepodarilo uložiť do Drive.');\n} catch { /* súbor nebol v správe */ }\n\nconst content = [];\nconst isLinkPdf = Boolean(linkBinary) && linkMime === 'application/pdf';\nconst mime = isLinkPdf ? 'application/pdf' : String(base.mimeType || '').toLowerCase();\nconst binary = base.kind === 'link' ? (isLinkPdf ? linkBinary : null) : item.binary?.data;\nconst pdfName = isLinkPdf ? (decodeURIComponent((linkUrl.split(/[?#]/)[0].split('/').pop() || '')) || 'dokument.pdf') : base.fileName;\nif (base.downloadFileId && base.kind !== 'voice' && !binary) notes.push('Súbor sa nepodarilo stiahnuť z Telegramu.');\nif (binary && base.kind !== 'voice') {\n  const buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n  if (buffer.length > 30 * 1024 * 1024) notes.push('Súbor je väčší ako 30 MB – analyzuje sa iba popis a odkaz.');\n  else if (mime.startsWith('image/')) content.push({ type: 'input_image', image_url: 'data:' + mime + ';base64,' + buffer.toString('base64'), detail: 'high' });\n  else if (mime === 'application/pdf') content.push({ type: 'input_file', filename: pdfName || 'dokument.pdf', file_data: 'data:application/pdf;base64,' + buffer.toString('base64') });\n  else if (/^text\\/|json|csv|markdown|xml/.test(mime)) extractedText = clean(buffer.toString('utf8'), 20000);\n  else notes.push('Formát ' + (mime || 'neznámy') + ' sa automaticky nečíta – analyzuje sa popis. Tip: pošli PDF alebo screenshot.');\n}\n\nconst parts = [\n  'Typ záznamu: ' + base.kind,\n  base.forwardedFrom ? 'Preposlané od: ' + base.forwardedFrom : '',\n  base.rawText ? 'Moja správa:\\n' + clean(base.rawText, 4000) : '',\n  base.caption ? 'Popis k súboru:\\n' + clean(base.caption, 2000) : '',\n  base.urls.length ? 'Odkazy: ' + base.urls.join(' ') : '',\n  base.fileName ? 'Súbor: ' + base.fileName : '',\n  transcript ? 'Prepis hlasovej správy:\\n' + transcript : '',\n  pageMeta ? 'Web – názov a popis: ' + pageMeta : '',\n  pageText ? 'Text webovej stránky (skrátený):\\n' + pageText : '',\n  extractedText ? 'Text dokumentu:\\n' + extractedText : '',\n  notes.length ? 'Technické poznámky: ' + notes.join(' ') : '',\n].filter(Boolean);\ncontent.unshift({ type: 'input_text', text: parts.join('\\n\\n') });\n\nconst instructions = [\n  'Si VERA, moja osobná kurátorka nápadov a sparring partnerka (Idea Vault). Posielam ti veci, ktoré ma zaujali. Tvoja úloha je upratať ich a vytiahnuť z nich to, čo je pre MŇA užitočné.',\n  'Píš po slovensky, stručne a konkrétne. Žiadne všeobecné frázy.',\n  '- title: výstižný názov do 80 znakov (nie názov webu, ale o čom to je).',\n  '- summary: 2–4 vety, čo to je a prečo je to zaujímavé.',\n  '- keyPoints: max 7 konkrétnych poznatkov / know-how, ktoré si mám zapamätať.',\n  '- frameworks: iba ak obsah obsahuje alebo prirodzene ponúka použiteľný postup/model. Pomenuj ho, kedy ho použiť a kroky. Inak prázdne pole.',\n  '- businessIdeas: max 3 biznis nápady, ktoré z toho vyplývajú PRE MŇA – nadväzuj na moje oblasti a projekty. Ak nič zmysluplné, prázdne pole.',\n  '- relevanceScore 0–100: ako veľmi to súvisí s mojimi oblasťami, projektmi, cieľmi a otázkami. 80+ = priamo použiteľné teraz, 50–79 = súvisí, pod 30 = mimo mojich tém. Témy z „Čo ma nezaujíma“ hodnoť nízko.',\n  '- relevanceWhy: jedna veta, na čo konkrétne z môjho profilu to nadväzuje. linkedFocus: presné názvy oblastí/projektov z profilu.',\n  '- nextActions: max 3 konkrétne kroky (napr. „Otestovať X na projekte Y“). Prázdne, ak nedáva zmysel.',\n  '- tags: 3–6 krátkych tagov malými písmenami, opakuj existujúce tagy z mojich tém, ak sedia.',\n  '- relatedCaptureIds: ID nedávnych záznamov, ktoré s týmto naozaj súvisia. Používaj IBA ID zo zoznamu nižšie.',\n  '- profileSignals: max 2 nové záujmy, ktoré v mojom profile chýbajú, ale z tohto a mojich opakovaných tém vyplývajú. Väčšinou prázdne.',\n  '- category: Know-how | Framework | Biznis nápad | Nástroj | Inšpirácia | Referencia | Úloha (Úloha = je to pripomienka niečo urobiť).',\n  'Ak sa obsah nepodarilo prečítať, napíš to v summary, nevymýšľaj si obsah a daj relevanceScore podľa toho, čo vieš.',\n  '',\n  'MÔJ PROFIL A KONTEXT:',\n  base.context.promptContext,\n].join('\\n');\n\nconst str = { type: 'string' };\nconst arr = items => ({ type: 'array', items });\nconst obj = props => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });\nconst schema = obj({\n  title: str, summary: str,\n  category: { type: 'string', enum: ['Know-how', 'Framework', 'Biznis nápad', 'Nástroj', 'Inšpirácia', 'Referencia', 'Úloha'] },\n  keyPoints: arr(str),\n  frameworks: arr(obj({ name: str, whenToUse: str, steps: arr(str) })),\n  businessIdeas: arr(obj({ title: str, problem: str, audience: str, firstStep: str })),\n  relevanceScore: { type: 'integer', minimum: 0, maximum: 100 },\n  relevanceWhy: str, linkedFocus: arr(str), nextActions: arr(str), tags: arr(str),\n  relatedCaptureIds: arr(str), profileSignals: arr(str),\n});\n\nconst capture = {\n  sourceKey: base.sourceKey, source: 'telegram', kind: base.kind, receivedAt: base.receivedAt,\n  rawText: base.rawText, caption: base.caption, urls: base.urls, fileName: base.fileName, mimeType: base.mimeType,\n  telegramFileId: base.telegramFileId, driveFileId, driveUrl,\n  extractedText: [transcript && ('Prepis: ' + transcript), pageText && ('Web: ' + pageText), extractedText].filter(Boolean).join('\\n\\n').slice(0, 20000),\n};\n\nreturn [{ json: {\n  chatId: base.chatId, messageId: base.messageId, notes, capture,\n  requestBody: {\n    model: 'gpt-5-mini',\n    instructions,\n    input: [{ role: 'user', content }],\n    reasoning: { effort: 'low' },\n    max_output_tokens: 6000,\n    text: { format: { type: 'json_schema', name: 'idea_capture', strict: true, schema } },\n  },\n} }];"
+      },
+      "name": "Priprav AI analýzu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ],
+      "id": "eabe47f2-60c2-5ed4-8803-e2c38f0dfd4f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "OpenAI — analýza nápadu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        0
+      ],
+      "id": "31c14306-07f2-5c3c-87df-c9423766c215",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rozparsuje AI výstup. Pri chybe sa záznam uloží aj tak – surový, s chybou na neskoršie spracovanie.\nconst prepared = $('Priprav AI analýzu').first().json;\nconst j = $input.first().json || {};\nlet text = j.output_text || '';\nif (!text && Array.isArray(j.output)) text = j.output.flatMap(x => x.content || []).filter(x => x.type === 'output_text').map(x => x.text || '').join('');\nlet enrichment = null, analysisError = '';\nif (j.error) analysisError = 'OpenAI: ' + String(j.error.message || j.error).slice(0, 200);\nelse if (j.status === 'incomplete') analysisError = 'OpenAI odpoveď je neúplná: ' + String(j.incomplete_details?.reason || '');\nelse {\n  try { enrichment = JSON.parse(text); if (!enrichment || typeof enrichment !== 'object' || Array.isArray(enrichment)) throw new Error('bad'); }\n  catch { enrichment = null; analysisError = 'AI nevrátila platný JSON'; }\n}\nconst notes = prepared.notes || [];\nif (!analysisError && notes.length) analysisError = notes.join(' ').slice(0, 300);\nreturn [{ json: { chatId: prepared.chatId, messageId: prepared.messageId, payload: { ...prepared.capture, enrichment, analysisError } } }];"
+      },
+      "name": "Zostav záznam pre Convex",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        0
+      ],
+      "id": "e02fa9ce-0503-5703-8ad2-981337c7bebe"
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/ideas/capture",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 20000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}"
+      },
+      "name": "Ulož do trezora (Convex)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3120,
+        0
+      ],
+      "id": "575c8e27-f0a7-5bdd-8605-ff7afbe24cb1",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Krátke potvrdenie späť do Telegramu.\nconst built = $('Zostav záznam pre Convex').first().json;\nconst saved = $input.first().json || {};\nconst e = built.payload.enrichment || {};\nconst lines = [];\nif (saved.ok !== true) {\n  lines.push('⚠️ VERA: záznam sa nepodarilo uložiť do trezora. Skús ho poslať znova o pár minút.');\n  if (saved.errors) lines.push(String(saved.errors).slice(0, 300));\n} else if (!e.title) {\n  lines.push('📥 Uložené bez AI analýzy: ' + (saved.title || 'záznam'));\n  if (built.payload.analysisError) lines.push(built.payload.analysisError);\n} else {\n  lines.push((saved.duplicate ? '🔁 Aktualizované: ' : '💡 Uložené: ') + e.title);\n  lines.push(e.category + ' · relevancia ' + e.relevanceScore + '/100' + (e.tags?.length ? ' · ' + e.tags.slice(0, 4).map(t => '#' + String(t).toLowerCase().trim().replace(/\\s+/g, '-')).join(' ') : ''));\n  if (e.relevanceWhy) lines.push('🎯 ' + e.relevanceWhy);\n  if (e.keyPoints?.length) lines.push('', ...e.keyPoints.slice(0, 3).map(p => '• ' + p));\n  if (e.frameworks?.length) lines.push('', '🧩 Framework: ' + e.frameworks.map(f => f.name).join(', '));\n  if (e.businessIdeas?.length) lines.push('🚀 Biznis nápad: ' + e.businessIdeas.map(b => b.title).join(' | '));\n  if (e.nextActions?.length) lines.push('➡️ ' + e.nextActions[0]);\n  if (e.relatedCaptureIds?.length) lines.push('🔗 Súvisí s ' + e.relatedCaptureIds.length + ' staršími záznamami.');\n  if (e.profileSignals?.length) lines.push('✨ Nový záujem do profilu? ' + e.profileSignals.join(', ') + ' (potvrď v dashboarde)');\n}\nreturn [{ json: { chatId: built.chatId, messageId: built.messageId, text: lines.join('\\n').slice(0, 3900) } }];"
+      },
+      "name": "Zostav potvrdenie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        0
+      ],
+      "id": "cf2be838-b635-57a5-88dd-d19f013f3d08"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "reply_to_message_id": "={{ $json.messageId }}"
+        }
+      },
+      "name": "Telegram — potvrdenie",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3600,
+        0
+      ],
+      "id": "f0c67a80-033d-5f9b-afcc-920cd1e869fc",
+      "webhookId": "70820160-67dc-54ed-b07e-96d68b887518"
+    }
+  ],
+  "connections": {
+    "Telegram — VERA bot": {
+      "main": [
+        [
+          {
+            "node": "Over vlastníka a rozpoznaj obsah",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Over vlastníka a rozpoznaj obsah": {
+      "main": [
+        [
+          {
+            "node": "Načítaj profil z Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Načítaj profil z Convex": {
+      "main": [
+        [
+          {
+            "node": "Spoj správu a profil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spoj správu a profil": {
+      "main": [
+        [
+          {
+            "node": "Má súbor na stiahnutie?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Má súbor na stiahnutie?": {
+      "main": [
+        [
+          {
+            "node": "Telegram — stiahni súbor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Je v správe odkaz?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram — stiahni súbor": {
+      "main": [
+        [
+          {
+            "node": "Archivuj originál do Drive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Spoj súbor a archív",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Archivuj originál do Drive": {
+      "main": [
+        [
+          {
+            "node": "Spoj súbor a archív",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spoj súbor a archív": {
+      "main": [
+        [
+          {
+            "node": "Je to hlasovka?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Je to hlasovka?": {
+      "main": [
+        [
+          {
+            "node": "OpenAI — prepis hlasovky",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Priprav AI analýzu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — prepis hlasovky": {
+      "main": [
+        [
+          {
+            "node": "Priprav AI analýzu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Je v správe odkaz?": {
+      "main": [
+        [
+          {
+            "node": "Stiahni webovú stránku",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Priprav AI analýzu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stiahni webovú stránku": {
+      "main": [
+        [
+          {
+            "node": "Priprav AI analýzu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priprav AI analýzu": {
+      "main": [
+        [
+          {
+            "node": "OpenAI — analýza nápadu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — analýza nápadu": {
+      "main": [
+        [
+          {
+            "node": "Zostav záznam pre Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zostav záznam pre Convex": {
+      "main": [
+        [
+          {
+            "node": "Ulož do trezora (Convex)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ulož do trezora (Convex)": {
+      "main": [
+        [
+          {
+            "node": "Zostav potvrdenie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zostav potvrdenie": {
+      "main": [
+        [
+          {
+            "node": "Telegram — potvrdenie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

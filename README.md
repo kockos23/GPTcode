@@ -29,6 +29,11 @@ Macaly/Convex already manage the secret values used by the project. Never commit
 - `OTP_ENDPOINT`, `CHAT_ID`, `APP_NAME`, `SECRET_KEY`
 - `WOF_FINANCE_GMAIL_QUERY` (optional; defaults to the `WOF_FINANCE_INTAKE` Gmail label)
 - `WOF_FINANCE_EMAIL_CRON_ENABLED` (keep `false`; the target scheduler lives in n8n)
+- `IDEA_VAULT_INGEST_TOKEN_SHA256` (SHA-256 hex of the random token that n8n sends as a Bearer token to `/ideas/*`; the token itself lives only in n8n. Legacy fallback: `IDEA_VAULT_INGEST_TOKEN` with the plain token)
+
+## Idea Vault
+
+A personal idea/know-how agent: send links, screenshots, photos, PDFs or voice notes to a private Telegram bot, n8n analyses them against your profile, Convex stores them and the dashboard section **Nápady** organises them. Setup and pilot steps: [`docs/IDEA_VAULT.md`](docs/IDEA_VAULT.md).
 
 ## Finance routing rules
 
