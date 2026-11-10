@@ -67,6 +67,9 @@ for id in ajAP0czttC0c9syg JcLXUmhJ0Kevytvi 9Ynr2a9IaT5m0UJy Rog0Z5TIQ6qSpzFX OX
   fi
   jq -e '.settings.errorWorkflow=="cmGxWnoZh613XRWTF7o09"' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has no SARA error workflow" >&2; exit 1; }
   case "$id" in
+    Rog0Z5TIQ6qSpzFX)
+      jq -e '[.nodes[] | select(.name=="Convex — import bank statement" and ((.disabled // false)==false))] | length==1' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL bank Convex import node is disabled" >&2; exit 1; }
+      ;;
     ajAP0czttC0c9syg|JcLXUmhJ0Kevytvi|9Ynr2a9IaT5m0UJy)
       jq -e '.settings.saveDataSuccessExecution=="none" and .settings.saveDataErrorExecution=="all" and .settings.saveExecutionProgress==false and .settings.executionTimeout==900' "$temporary_directory/workflow-$id.json" >/dev/null || { echo "FAIL workflow $id has unsafe execution retention" >&2; exit 1; }
       ;;

@@ -101,6 +101,12 @@ describe("bank statement CSV", () => {
     expect(received).not.toBe(csv)
     expect(parseStatement(received).transactions[1].amount).toBe(50)
   })
+
+  it("treats an incoming instant euro payment as income", () => {
+    const incoming = csv.replace(";Príjem;;;;TATRSKBX", ";Okamžitá prichádzajúca Europlatba;;;;TATRSKBX")
+    expect(incoming).not.toBe(csv)
+    expect(parseStatement(incoming).transactions[1].amount).toBe(50)
+  })
 })
 
 describe("bank statement recovery", () => {

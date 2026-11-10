@@ -119,7 +119,7 @@ export function parseStatement(text: string): ParsedStatement {
     const type = row[13].trim()
     let amount = decimal(row[2])
     const normalizedType = type.toLocaleLowerCase("sk")
-    if (/príjem|prijem|vratka|prijat/.test(normalizedType)) amount = Math.abs(amount)
+    if (/príjem|prijem|vratka|prijat|prichádz|prichadz/.test(normalizedType)) amount = Math.abs(amount)
     else if (/výdaj|vydaj|odchádz|odchaz|platba/.test(normalizedType)) amount = -Math.abs(amount)
     transactions.push({
       operationId: row[0].trim(),
