@@ -8,6 +8,8 @@ Legacy Macaly/Composio helpers remain disabled for compatibility, while the fina
 
 Claude Code, Cursor, Codex, and other coding agents must start with [`AGENTS.md`](AGENTS.md). It contains the canonical architecture, security, live-system safety, workflow, and validation rules. [`CLAUDE.md`](CLAUDE.md) and [`.cursor/rules/project.mdc`](.cursor/rules/project.mdc) load the same policy for their respective tools; do not maintain competing copies of project rules in those adapters.
 
+Cross-agent tasks use the audited handoff contract in [`docs/AGENT_COLLABORATION.md`](docs/AGENT_COLLABORATION.md). GitHub remains the source of code; the Convex Agent Handoff Bus carries bounded task state, results and artifact links.
+
 ## Local validation
 
 ```bash

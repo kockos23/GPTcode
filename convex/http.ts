@@ -24,6 +24,24 @@ function authorizedN8n(request: Request): boolean {
   return Boolean(configuredSecret) && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)
 }
 
+function authorizedAgent(request: Request): boolean {
+  const configuredSecret = process.env.AGENT_HANDOFF_SECRET
+  const authorization = request.headers.get("authorization") ?? ""
+  return Boolean(configuredSecret) && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)
+}
+
+function safeAgentText(value: unknown, limit: number): string {
+  return typeof value === "string" ? value.trim().slice(0, limit) : ""
+}
+
+function safeArtifactUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => {
+    if (typeof item !== "string" || item.length > 1000) return false
+    try { return new URL(item).protocol === "https:" } catch { return false }
+  }).slice(0, 20)
+}
+
 const MAX_REGISTER_ROWS = 5001
 const MAX_REGISTER_COLUMNS = 100
 const MAX_REGISTER_CELL_CHARS = 5000
@@ -355,6 +373,80 @@ http.route({
       error: typeof body.error === "string" ? body.error.trim().slice(0, 500) : undefined,
     })
     return Response.json(result, { status: result.ok ? 200 : 404 })
+  }),
+})
+
+http.route({
+  path: "/integrations/agents/handoffs",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedAgent(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const url = new URL(request.url)
+    const rows = await ctx.runQuery(internal.agentHandoffs.list, {
+      agent: safeAgentText(url.searchParams.get("agent"), 80) || undefined,
+      threadId: safeAgentText(url.searchParams.get("threadId"), 120) || undefined,
+      limit: Number(url.searchParams.get("limit") || 25),
+    })
+    return Response.json({ ok: true, rows }, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/agents/handoffs",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedAgent(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const toAgents = Array.isArray(body?.toAgents)
+      ? body.toAgents.map(value => safeAgentText(value, 80)).filter(Boolean).slice(0, 10) : []
+    const args = {
+      handoffId: safeAgentText(body?.handoffId, 120), threadId: safeAgentText(body?.threadId, 120),
+      fromAgent: safeAgentText(body?.fromAgent, 80), toAgents,
+      kind: safeAgentText(body?.kind, 40), title: safeAgentText(body?.title, 240),
+      summary: safeAgentText(body?.summary, 2000), context: safeAgentText(body?.context, 10_000),
+      requestedAction: safeAgentText(body?.requestedAction, 2000), priority: safeAgentText(body?.priority, 20),
+      artifactUrls: safeArtifactUrls(body?.artifactUrls), correlationId: safeAgentText(body?.correlationId, 120),
+    }
+    if (!args.handoffId || !args.threadId || !args.fromAgent || !args.toAgents.length || !args.title || !args.requestedAction) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    return Response.json(await ctx.runMutation(internal.agentHandoffs.submit, args))
+  }),
+})
+
+http.route({
+  path: "/integrations/agents/handoffs/claim",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedAgent(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const agent = safeAgentText(body?.agent, 80)
+    if (!agent) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const rows = await ctx.runMutation(internal.agentHandoffs.claim, {
+      agent, limit: typeof body?.limit === "number" ? body.limit : undefined,
+    })
+    return Response.json({ ok: true, rows })
+  }),
+})
+
+http.route({
+  path: "/integrations/agents/handoffs/complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedAgent(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const handoffId = safeAgentText(body?.handoffId, 120)
+    const agent = safeAgentText(body?.agent, 80)
+    if (!handoffId || !agent || typeof body?.ok !== "boolean") {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.agentHandoffs.complete, {
+      handoffId, agent, ok: body.ok,
+      result: safeAgentText(body?.result, 10_000) || undefined,
+      error: safeAgentText(body?.error, 2000) || undefined,
+      artifactUrls: safeArtifactUrls(body?.artifactUrls),
+    })
+    return Response.json(result, { status: result.ok ? 200 : 409 })
   }),
 })
 

@@ -11,6 +11,7 @@ Read these sources in order:
 3. `docs/OPERATIONS.md` — pilot and production operating procedure.
 4. `n8n/README.md` — live workflow status, credential boundaries, and workflow policy.
 5. Read the task-specific runbook before related work:
+   - `docs/AGENT_COLLABORATION.md` for cross-agent tasks and handoffs.
    - `docs/CUTOVER_RUNBOOK.md` for production cutover.
    - `docs/SECRET_ROTATION_RUNBOOK.md` for credential recovery and rotation.
    - `docs/BILLDU_CUTOVER.md` for Billdu.
@@ -91,6 +92,8 @@ Direct SARA Gmail, Drive, and Telegram intake and separate SARA/NORA error monit
 Before enabling any of them, follow `docs/CUTOVER_RUNBOOK.md`. Billdu must first run as a single read-only schema probe; do not implement a write path from assumed API fields.
 
 ## Handoff expectations
+
+For work exchanged with another agent, use the contract in `docs/AGENT_COLLABORATION.md`. Claim work before editing, keep code in Git, and complete the handoff with validation and live-mutation evidence. If the bus is not configured, leave a normal Git commit/PR handoff and explicitly state that runtime delivery is pending; never invent a successful delivery.
 
 Report:
 

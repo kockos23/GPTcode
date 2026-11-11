@@ -278,6 +278,31 @@ export default defineSchema({
     .index("by_command_id", ["commandId"])
     .index("by_status", ["status"])
     .index("by_created_at", ["createdAt"]),
+  agentHandoffs: defineTable({
+    handoffId: v.string(),
+    threadId: v.string(),
+    fromAgent: v.string(),
+    toAgents: v.array(v.string()),
+    kind: v.string(),
+    title: v.string(),
+    summary: v.string(),
+    context: v.string(),
+    requestedAction: v.string(),
+    priority: v.string(),
+    status: v.string(),
+    artifactUrls: v.array(v.string()),
+    correlationId: v.string(),
+    claimedBy: v.optional(v.string()),
+    leaseUntil: v.optional(v.number()),
+    result: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_handoff_id", ["handoffId"])
+    .index("by_thread_id", ["threadId"])
+    .index("by_status_created_at", ["status", "createdAt"])
+    .index("by_created_at", ["createdAt"]),
   ideaCaptures: defineTable({
     sourceKey: v.string(),
     source: v.string(),
