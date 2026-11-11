@@ -198,6 +198,11 @@ export default defineSchema({
     sourceErrors: v.array(v.string()),
     syncedAt: v.number(),
     updatedAt: v.number(),
+    workQueueDecisions: v.optional(v.array(v.object({
+      taskId: v.string(),
+      status: v.union(v.literal("READY"), v.literal("PLÁNOVANÉ")),
+      updated: v.string(),
+    }))),
   }).index("by_cache_key", ["cacheKey"]),
   chiefOfStaffProjects: defineTable({
     projectId: v.string(),

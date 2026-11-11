@@ -2,10 +2,29 @@ import { v } from "convex/values"
 import { internalMutation, internalQuery } from "./_generated/server"
 
 const MAX_COLLECTION = 500
+const WAITING_FOR_APPROVAL = "ČAKÁ NA SCHVÁLENIE"
+
+export type WorkQueueDecision = {
+  taskId: string
+  status: "READY" | "PLÁNOVANÉ"
+  updated: string
+}
 
 function bounded(value: unknown): unknown[] {
   if (!Array.isArray(value)) return []
   return value.slice(0, MAX_COLLECTION)
+}
+
+export function applyWorkQueueDecisions(queue: unknown, decisions: readonly WorkQueueDecision[]): unknown[] {
+  const rows = Array.isArray(queue) ? queue : []
+  const byId = new Map(decisions.map(decision => [decision.taskId, decision]))
+  return rows.map(item => {
+    if (!item || typeof item !== "object") return item
+    const row = item as Record<string, unknown>
+    const decision = byId.get(String(row.id ?? ""))
+    if (!decision || String(row.status ?? "") !== WAITING_FOR_APPROVAL) return item
+    return { ...row, status: decision.status, updated: decision.updated }
+  })
 }
 
 export const syncSnapshot = internalMutation({
@@ -22,7 +41,8 @@ export const syncSnapshot = internalMutation({
     const snapshot = {
       cacheKey: "primary",
       calendar: bounded(args.calendar), emails: bounded(args.emails), agents: bounded(args.agents),
-      workQueue: bounded(args.workQueue), tasks: bounded(args.tasks), commands: bounded(args.commands),
+      workQueue: applyWorkQueueDecisions(bounded(args.workQueue), existing?.workQueueDecisions ?? []),
+      tasks: bounded(args.tasks), commands: bounded(args.commands),
       sourceErrors: args.sourceErrors.slice(0, 20).map(error => error.slice(0, 500)),
       syncedAt: args.syncedAt, updatedAt: now,
     }
@@ -69,7 +89,8 @@ export const getSnapshot = internalQuery({
       updated: new Date(item.updatedAt).toISOString(),
     })), ...sheetCommands].slice(0, MAX_COLLECTION)
     return {
-      calendar: row.calendar, emails: row.emails, agents: row.agents, workQueue: row.workQueue,
+      calendar: row.calendar, emails: row.emails, agents: row.agents,
+      workQueue: applyWorkQueueDecisions(row.workQueue, row.workQueueDecisions ?? []),
       tasks, commands, sourceErrors: row.sourceErrors,
       syncedAt: row.syncedAt, updatedAt: row.updatedAt,
     }
@@ -148,11 +169,19 @@ export const decideWorkQueueTask = internalMutation({
     const index = queue.findIndex(item => item.id === args.taskId)
     if (index < 0) return { ok: false, code: "NOT_FOUND", status: "" }
     const oldStatus = String(queue[index].status ?? "")
-    if (oldStatus !== "ČAKÁ NA SCHVÁLENIE") return { ok: false, code: "CONFLICT", status: oldStatus }
-    const status = args.decision === "approve" ? "READY" : "PLÁNOVANÉ"
+    if (oldStatus !== WAITING_FOR_APPROVAL) return { ok: false, code: "CONFLICT", status: oldStatus }
+    const status = args.decision === "approve" ? "READY" as const : "PLÁNOVANÉ" as const
+    const updatedAt = new Date().toISOString()
     const updated = [...queue]
-    updated[index] = { ...updated[index], status, updated: new Date().toISOString() }
-    await ctx.db.patch(snapshot._id, { workQueue: updated, updatedAt: Date.now() })
+    updated[index] = { ...updated[index], status, updated: updatedAt }
+    const workQueueDecisions: WorkQueueDecision[] = [
+      ...(snapshot.workQueueDecisions ?? []).flatMap(item => {
+        if (item.taskId === args.taskId || (item.status !== "READY" && item.status !== "PLÁNOVANÉ")) return []
+        return [{ taskId: item.taskId, status: item.status, updated: item.updated }]
+      }),
+      { taskId: args.taskId, status, updated: updatedAt },
+    ].slice(-MAX_COLLECTION)
+    await ctx.db.patch(snapshot._id, { workQueue: updated, workQueueDecisions, updatedAt: Date.now() })
     return { ok: true, code: "OK", status }
   },
 })
