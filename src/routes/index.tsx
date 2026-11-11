@@ -538,7 +538,7 @@ function FinanceView() {
     try {
       const result = await listPayables({force})
       if (!result.ok) { setRows([]); setError(result.message); return }
-      setRows(result.rows)
+      setRows(Array.isArray(result.rows) ? result.rows.filter((row): row is WofPayable => Boolean(row && typeof row.id === 'string')) : [])
       if (result.code === 'STALE_CACHE') setError(result.message)
     } catch {
       setError('WOF register sa nepodarilo obnoviť. Skontroluj pripojenie a skús to neskôr.')
@@ -548,22 +548,25 @@ function FinanceView() {
     setBankLoading(true); setBankError('')
     try {
       const history = await listBankStatements({})
-      setBankStatements(history.statements)
-      setBankTransactions(history.transactions)
+      setBankStatements(Array.isArray(history?.statements) ? history.statements : [])
+      setBankTransactions(Array.isArray(history?.transactions) ? history.transactions : [])
     } catch {
       setBankError('Výpisy sa nepodarilo načítať zo synchronizovaného registra.')
     } finally { setBankLoading(false) }
   }
   const refreshFinanceReviews = async () => {
     setIntakeLoading(true)
-    try { setFinanceReviews(await listFinanceReviews({})) }
+    try {
+      const reviews=await listFinanceReviews({})
+      setFinanceReviews(Array.isArray(reviews) ? reviews : [])
+    }
     catch { setIntakeFeedback('Review front SARY sa nepodarilo načítať.') }
     finally { setIntakeLoading(false) }
   }
   const refreshFinanceHealth = async () => {
     try {
       const result=await getFinanceHealth({})
-      setFinanceHealth(result.allowed?result.health:null)
+      setFinanceHealth(result?.allowed && result.health && Array.isArray(result.health.issues) ? result.health : null)
     } catch { setFinanceHealth(null) }
   }
   const resolveReview = async (item:FinanceReview) => {
@@ -677,8 +680,8 @@ function FinanceView() {
     </div>
     {financeHealth&&<div className={'source-notice '+(financeHealth.ok?'connected':'finance-warning')}>
       {financeHealth.ok?<CircleCheckBig size={15}/>:<AlertCircle size={15}/>}<span>{financeHealth.ok
-        ? `SARA finance je v poriadku · register ${financeHealth.register.payableCount} položiek · kontrola ${new Date(financeHealth.checkedAt).toLocaleString('sk-SK')}`
-        : `SARA finance vyžaduje pozornosť: ${financeHealth.issues.map(issue=>FINANCE_HEALTH_LABELS[issue]||issue).join(' · ')}`}</span>
+        ? `SARA finance je v poriadku · register ${financeHealth.register?.payableCount??0} položiek · kontrola ${new Date(financeHealth.checkedAt).toLocaleString('sk-SK')}`
+        : `SARA finance vyžaduje pozornosť: ${(financeHealth.issues??[]).map(issue=>FINANCE_HEALTH_LABELS[issue]||issue).join(' · ')}`}</span>
     </div>}
     {error&&<div className="source-notice finance-warning"><AlertCircle size={15}/><span>{error}</span></div>}
     {feedback&&<div className="source-notice connected"><CircleCheckBig size={15}/><span>{feedback}</span></div>}
@@ -808,11 +811,11 @@ function outstandingAmount(row:WofPayable): number {
   return Math.max(0,parseMoney(row.amount)-parseMoney(row.paidAmount||'0'))
 }
 function isPaid(row:WofPayable): boolean {
-  const status=row.paymentStatus.toLocaleLowerCase('sk').trim()
+  const status=String(row.paymentStatus??'').toLocaleLowerCase('sk').trim()
   return status==='uhradené'||status==='uhradene'||status==='paid'||status==='zaplatené'||status==='zaplatene'
 }
-function daysOverdue(value:string): number {
-  const match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+function daysOverdue(value:string|undefined): number {
+  const match=String(value??'').match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if(!match) return 0
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Bratislava',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date())
   const current=parts.reduce<Record<string,string>>((acc,item)=>{if(item.type!=='literal')acc[item.type]=item.value;return acc},{})
@@ -822,7 +825,8 @@ function daysOverdue(value:string): number {
 }
 function groupPayables(rows:WofPayable[]): WofPayableGroup[] {
   const groups=new Map<string,WofPayable[]>()
-  for(const row of rows) {
+  for(const row of Array.isArray(rows)?rows:[]) {
+    if(!row||typeof row.id!=='string') continue
     const amount=parseMoney(row.amount)
     const hasStableIdentity=Boolean(row.supplier&&row.invoiceNumber&&row.currency&&Number.isFinite(amount))
     const key=hasStableIdentity
@@ -830,9 +834,8 @@ function groupPayables(rows:WofPayable[]): WofPayableGroup[] {
       : row.id
     groups.set(key,[...(groups.get(key)??[]),row])
   }
-  return [...groups.values()].map(documents=>({
-    primary:documents.find(isPaid)??documents.find(document=>document.transactionId)??documents[0],
-    documents,
+  return [...groups.values()].filter(documents=>documents.length>0).map(documents=>({
+    primary:documents.find(isPaid)??documents.find(document=>document.transactionId)??documents[0]!, documents,
   }))
 }
 function formatDate(value:string): string {
