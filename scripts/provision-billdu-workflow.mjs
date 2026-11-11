@@ -69,7 +69,11 @@ const nodes = [
   { id: crypto.randomUUID(), name: "Convex — načítaj Billdu faktúry", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [220, 0], credentials: convexCredentials, parameters: { method: "POST", url: `${site}/integrations/n8n/billdu/documents`, authentication: "genericCredentialType", genericAuthType: "httpHeaderAuth", sendBody: true, specifyBody: "json", jsonBody: "={{ JSON.stringify({page:1,limit:100}) }}", options: {} } },
   { id: crypto.randomUUID(), name: normalizeName, type: "n8n-nodes-base.code", typeVersion: 2, position: [460, 0], parameters: { jsCode: normalizeCode } },
   { id: crypto.randomUUID(), name: claimName, type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [700, 0], credentials: convexCredentials, parameters: { method: "POST", url: `${site}/integrations/n8n/billdu/imports/claim`, authentication: "genericCredentialType", genericAuthType: "httpHeaderAuth", sendBody: true, specifyBody: "json", jsonBody: `={{ JSON.stringify({sourceDocumentId:$json.sourceDocumentId,sourceVersion:$json.sourceVersion,invoiceNumber:$json.invoiceNumber,deliveryDate:$json.deliveryDate,currency:$json.currency,totalAmount:$json.totalAmount}) }}`, options: {} } },
-  { id: crypto.randomUUID(), name: "Pokračuj iba s novým importom", type: "n8n-nodes-base.code", typeVersion: 2, position: [900, 0], parameters: { jsCode: `if($json.ok!==true)throw new Error('Billdu claim zlyhal'); if($json.status!=='CLAIMED')return []; return $input.all();` } },
+  { id: crypto.randomUUID(), name: "Pokračuj iba s novým importom", type: "n8n-nodes-base.code", typeVersion: 2, position: [900, 0], parameters: { mode: "runOnceForAllItems", jsCode: `const items = $input.all();
+if (items.some((item) => item.json?.ok !== true)) throw new Error('Billdu claim zlyhal');
+return items.flatMap((item, index) => item.json.status === 'CLAIMED'
+  ? [{ json: item.json, pairedItem: { item: index }, ...(item.binary ? { binary: item.binary } : {}) }]
+  : []);` } },
   { id: crypto.randomUUID(), name: "Convex — stiahni Billdu PDF", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [1080, 0], credentials: convexCredentials, parameters: { method: "POST", url: `${site}/integrations/n8n/billdu/documents/download`, authentication: "genericCredentialType", genericAuthType: "httpHeaderAuth", sendBody: true, specifyBody: "json", jsonBody: `={{ JSON.stringify({id:$('${normalizeName}').item.json.sourceDocumentId}) }}`, options: { response: { response: { responseFormat: "file", outputPropertyName: "data" } } } } },
   upload,
   sheet,
