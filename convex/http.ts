@@ -42,6 +42,25 @@ function safeArtifactUrls(value: unknown): string[] {
   }).slice(0, 20)
 }
 
+const agentToolDefinitions = [
+  { name: "list_handoffs", description: "List coordination handoffs addressed to GROK_BOT without claiming them.", inputSchema: { type: "object", additionalProperties: false, properties: { threadId: { type: "string" }, limit: { type: "number", minimum: 1, maximum: 50 } } } },
+  { name: "claim_handoffs", description: "Atomically claim pending GROK_BOT work with a 15 minute lease.", inputSchema: { type: "object", additionalProperties: false, properties: { limit: { type: "number", minimum: 1, maximum: 10 } } } },
+  { name: "send_handoff", description: "Send an idempotent structured handoff from GROK_BOT to one or more collaborating agents.", inputSchema: { type: "object", additionalProperties: false, properties: { handoffId: { type: "string" }, threadId: { type: "string" }, toAgents: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 10 }, kind: { type: "string" }, title: { type: "string" }, summary: { type: "string" }, context: { type: "string" }, requestedAction: { type: "string" }, priority: { type: "string" }, artifactUrls: { type: "array", items: { type: "string", format: "uri" }, maxItems: 20 }, correlationId: { type: "string" } }, required: ["handoffId", "threadId", "toAgents", "title", "requestedAction"] } },
+  { name: "complete_handoff", description: "Complete or block a handoff currently claimed by GROK_BOT.", inputSchema: { type: "object", additionalProperties: false, properties: { handoffId: { type: "string" }, ok: { type: "boolean" }, result: { type: "string" }, error: { type: "string" }, artifactUrls: { type: "array", items: { type: "string", format: "uri" }, maxItems: 20 } }, required: ["handoffId", "ok"] } },
+] as const
+
+function mcpResult(id: unknown, value: unknown): Response {
+  return Response.json({ jsonrpc: "2.0", id, result: value }, { headers: { "cache-control": "no-store" } })
+}
+
+function mcpError(id: unknown, code: number, message: string): Response {
+  return Response.json({ jsonrpc: "2.0", id, error: { code, message } }, { headers: { "cache-control": "no-store" } })
+}
+
+function mcpToolContent(value: unknown, isError = false) {
+  return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value, isError }
+}
+
 const MAX_REGISTER_ROWS = 5001
 const MAX_REGISTER_COLUMNS = 100
 const MAX_REGISTER_CELL_CHARS = 5000
@@ -447,6 +466,60 @@ http.route({
       artifactUrls: safeArtifactUrls(body?.artifactUrls),
     })
     return Response.json(result, { status: result.ok ? 200 : 409 })
+  }),
+})
+
+// Stateless Streamable HTTP MCP endpoint for standalone assistants such as Grok Bot.
+// It exposes only the handoff bus, never Convex or n8n administration.
+http.route({
+  path: "/integrations/agents/mcp",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedAgent(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    if (!body || body.jsonrpc !== "2.0" || typeof body.method !== "string") return mcpError(body?.id ?? null, -32600, "Invalid Request")
+    const id = body.id ?? null
+    if (body.method === "notifications/initialized") return new Response(null, { status: 202 })
+    if (body.method === "ping") return mcpResult(id, {})
+    if (body.method === "initialize") return mcpResult(id, {
+      protocolVersion: "2025-03-26", capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: "WOF Chief of Staff Agent Bus", version: "1.0.0" },
+      instructions: "Use identity GROK_BOT. Claim work before completing it. Never include passwords, API keys, or private tokens in handoffs.",
+    })
+    if (body.method === "tools/list") return mcpResult(id, { tools: agentToolDefinitions })
+    if (body.method !== "tools/call") return mcpError(id, -32601, "Method not found")
+    const params = body.params as undefined | Record<string, unknown>
+    const name = safeAgentText(params?.name, 80)
+    const args = (params?.arguments && typeof params.arguments === "object" ? params.arguments : {}) as Record<string, unknown>
+    try {
+      if (name === "list_handoffs") {
+        const rows = await ctx.runQuery(internal.agentHandoffs.list, { agent: "GROK_BOT", threadId: safeAgentText(args.threadId, 120) || undefined, limit: typeof args.limit === "number" ? args.limit : undefined })
+        return mcpResult(id, mcpToolContent({ ok: true, rows }))
+      }
+      if (name === "claim_handoffs") {
+        const rows = await ctx.runMutation(internal.agentHandoffs.claim, { agent: "GROK_BOT", limit: typeof args.limit === "number" ? args.limit : undefined })
+        return mcpResult(id, mcpToolContent({ ok: true, rows }))
+      }
+      if (name === "send_handoff") {
+        const toAgents = Array.isArray(args.toAgents) ? args.toAgents.map(value => safeAgentText(value, 80)).filter(Boolean).slice(0, 10) : []
+        const payload = {
+          handoffId: safeAgentText(args.handoffId, 120), threadId: safeAgentText(args.threadId, 120), fromAgent: "GROK_BOT", toAgents,
+          kind: safeAgentText(args.kind, 40), title: safeAgentText(args.title, 240), summary: safeAgentText(args.summary, 4000), context: safeAgentText(args.context, 12000),
+          requestedAction: safeAgentText(args.requestedAction, 4000), priority: safeAgentText(args.priority, 20), artifactUrls: safeArtifactUrls(args.artifactUrls), correlationId: safeAgentText(args.correlationId, 120),
+        }
+        if (!payload.handoffId || !payload.threadId || !payload.fromAgent || !payload.toAgents.length || !payload.title || !payload.requestedAction) return mcpResult(id, mcpToolContent({ code: "INVALID_PAYLOAD" }, true))
+        return mcpResult(id, mcpToolContent(await ctx.runMutation(internal.agentHandoffs.submit, payload)))
+      }
+      if (name === "complete_handoff") {
+        const handoffId = safeAgentText(args.handoffId, 120)
+        if (!handoffId || typeof args.ok !== "boolean") return mcpResult(id, mcpToolContent({ code: "INVALID_PAYLOAD" }, true))
+        const result = await ctx.runMutation(internal.agentHandoffs.complete, { handoffId, agent: "GROK_BOT", ok: args.ok, result: safeAgentText(args.result, 10000) || undefined, error: safeAgentText(args.error, 2000) || undefined, artifactUrls: safeArtifactUrls(args.artifactUrls) })
+        return mcpResult(id, mcpToolContent(result, !result.ok))
+      }
+      return mcpResult(id, mcpToolContent({ code: "UNKNOWN_TOOL" }, true))
+    } catch {
+      return mcpResult(id, mcpToolContent({ code: "TOOL_EXECUTION_FAILED" }, true))
+    }
   }),
 })
 
