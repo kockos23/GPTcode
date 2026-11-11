@@ -10,6 +10,8 @@ Claude Code, Cursor, Codex, and other coding agents must start with [`AGENTS.md`
 
 Cross-agent tasks use the audited handoff contract in [`docs/AGENT_COLLABORATION.md`](docs/AGENT_COLLABORATION.md). GitHub remains the source of code; the Convex Agent Handoff Bus carries bounded task state, results and artifact links.
 
+Grok used through a Cursor subscription participates as `CURSOR_GROK`. A standalone `GROK_BOT` requires separate xAI API access and is intentionally not assumed from the Cursor subscription.
+
 ## Local validation
 
 ```bash

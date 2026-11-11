@@ -9,8 +9,9 @@ ChatGPT/Codex, Claude Code, Cursor and Grok Bot exchange durable work through th
 - `NORA` — central coordinator and owner-facing Chief of Staff.
 - `CODEX` — repository implementation and operational verification.
 - `CLAUDE_CODE` — repository analysis and implementation.
-- `CURSOR` — interactive repository implementation.
-- `GROK_BOT` — external conversational/research bot connected through n8n.
+- `CURSOR` — interactive repository implementation with Cursor's default model.
+- `CURSOR_GROK` — Grok selected inside Cursor; it uses the same repository and handoff adapter, but keeps its own agent identity.
+- `GROK_BOT` — reserved for a future standalone xAI API worker connected through n8n. Cursor model access alone does not activate this identity.
 - `SARA_FINANCE` and `VERA_IDEA_VAULT` — isolated specialist assistants; address them only for their domains.
 - `ALL` — broadcast only for high-value state changes, never routine chatter.
 
@@ -51,7 +52,13 @@ All endpoints require `Authorization: Bearer <AGENT_HANDOFF_SECRET>` and fail cl
 - `POST /integrations/agents/handoffs/claim` — atomically claim matching work.
 - `POST /integrations/agents/handoffs/complete` — finish or block a valid claim.
 
-Configure the URL and secret separately in each authorized environment as `AGENT_HANDOFF_URL` and `AGENT_HANDOFF_SECRET`. Do not commit either value. Grok Bot must access these endpoints only through a narrow n8n workflow; it never receives Convex deploy credentials.
+Configure the URL and secret separately in each authorized environment as `AGENT_HANDOFF_URL` and `AGENT_HANDOFF_SECRET`. Do not commit either value. Grok used inside Cursor identifies as `CURSOR_GROK` and uses Cursor's environment. A future standalone Grok Bot must access these endpoints only through a narrow n8n workflow; it never receives Convex deploy credentials.
+
+## Cursor with Grok
+
+Selecting Grok as the model in Cursor does not create an external xAI bot and does not provide xAI API credentials. Start Cursor in this repository, let `.cursor/rules/project.mdc` load, set `AGENT_ID=CURSOR_GROK` in that environment, and use the same handoff CLI as other coding agents. Its code changes still go through the `work` branch and the normal validation rules.
+
+Only build the n8n `GROK_BOT` adapter after a separate xAI API account/key is available and its cost, data retention and model policy have been approved.
 
 ## Deployment gate
 
