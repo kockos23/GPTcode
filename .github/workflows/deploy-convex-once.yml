@@ -18,6 +18,11 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx tsc --noEmit
       - run: npm test -- --run
+      - name: Configure agent handoff secret
+        run: npx convex env set AGENT_HANDOFF_SECRET "$AGENT_HANDOFF_SECRET"
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          AGENT_HANDOFF_SECRET: ${{ secrets.AGENT_HANDOFF_SECRET }}
       - run: npx convex deploy --yes
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
