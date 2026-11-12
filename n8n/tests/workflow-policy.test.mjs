@@ -228,6 +228,62 @@ test('finance review resolution updates the original file and register row', () 
     reviewNodes.get('Review — twice daily')?.parameters.rule.interval[0].expression,
     '22 7,17 * * *',
   )
+  assert.equal(
+    reviewNodes.get('Priprav aktualizáciu existujúceho riadku')?.parameters.mode,
+    'runOnceForAllItems',
+  )
+})
+
+function prepareReviewRegisterUpdates(sheetItems, decisions, movedFiles) {
+  const jsCode = reviewNodes.get('Priprav aktualizáciu existujúceho riadku').parameters.jsCode
+  const sources = {
+    'Validuj review rozhodnutie': decisions,
+    'Drive — presuň existujúci originál': movedFiles,
+  }
+  const $ = (name) => ({
+    item: sources[name][0],
+    itemMatching: (index) => sources[name][index],
+  })
+  const $input = { all: () => sheetItems }
+  return new Function('$', '$input', jsCode)($, $input)
+}
+
+test('every ready review in one run updates its own register row', () => {
+  const rows = [
+    ['Doklad ID'],
+    ['doc-a'],
+    ['doc-b'],
+  ]
+  const sheetItems = [{ json: { values: rows } }, { json: { values: rows } }]
+  const decisions = [
+    { json: { documentId: 'doc-a', period: '2026-10', deliveryDate: '2026-10-05', currency: 'EUR' } },
+    { json: { documentId: 'doc-b', period: '2026-11', deliveryDate: '2026-11-02', currency: 'EUR', resolutionNote: 'Druhý doklad' } },
+  ]
+  const movedFiles = [{ json: { id: 'file-a' } }, { json: { id: 'file-b' } }]
+  const updates = prepareReviewRegisterUpdates(sheetItems, decisions, movedFiles)
+  assert.deepEqual(updates.map((item) => item.json.documentId), ['doc-a', 'doc-b'])
+  assert.deepEqual(updates.map((item) => item.json.targetFileId), ['file-a', 'file-b'])
+  assert.deepEqual(updates.map((item) => item.pairedItem), [{ item: 0 }, { item: 1 }])
+  assert.equal(updates[0].json.body.data[0].range, 'Doklady!C2')
+  assert.equal(updates[1].json.body.data[0].range, 'Doklady!C3')
+  assert.deepEqual(updates[0].json.body.data[1].values, [['Zaradené']])
+  assert.deepEqual(updates[1].json.body.data[7].values, [['Druhý doklad']])
+  assert.equal(updates[1].json.targetFileUrl, 'https://drive.google.com/file/d/file-b/view')
+})
+
+test('a review batch does not continue when a document is missing from the register', () => {
+  const rows = [['Doklad ID'], ['doc-a']]
+  assert.throws(
+    () => prepareReviewRegisterUpdates(
+      [{ json: { values: rows } }, { json: { values: rows } }],
+      [
+        { json: { documentId: 'doc-a', period: '2026-10', deliveryDate: '2026-10-05', currency: 'EUR' } },
+        { json: { documentId: 'doc-missing', period: '2026-10', deliveryDate: '2026-10-06', currency: 'EUR' } },
+      ],
+      [{ json: { id: 'file-a' } }, { json: { id: 'file-missing' } }],
+    ),
+    /Register neobsahuje Doklad ID doc-missing/,
+  )
 })
 
 test('finance register sync is direct, bounded and sanitized', () => {
