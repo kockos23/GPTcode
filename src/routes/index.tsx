@@ -10,7 +10,7 @@ import { api } from '@/convex/_generated/api'
 import {
   AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Banknote, BellRing, Bot, CalendarDays,
   Check, ChevronRight, CircleCheckBig, Clock3, Command, FileQuestion, FolderKanban,
-  Inbox, LayoutDashboard, ListChecks, Mail, Menu, MessageSquareText, MoreHorizontal,
+  Inbox, LayoutDashboard, LayoutGrid, List, ListChecks, Mail, Menu, MessageSquareText, MoreHorizontal,
   Pause, PlugZap, Plus, RefreshCw, Search, Send, SlidersHorizontal, Sparkles, Target, X,
   Link2,
 } from 'lucide-react'
@@ -537,8 +537,9 @@ function FinanceView() {
     setLoading(true); setError('')
     try {
       const result = await listPayables({force})
-      if (!result.ok) { setRows([]); setError(result.message); return }
-      setRows(Array.isArray(result.rows) ? result.rows.filter((row): row is WofPayable => Boolean(row && typeof row.id === 'string')) : [])
+      if (!result || typeof result!=='object') { setRows([]); setError('WOF register vrátil neplatnú odpoveď.'); return }
+      if (!result.ok) { setRows([]); setError(safeText(result.message)||'WOF register sa nepodarilo načítať.'); return }
+      setRows(normalizePayables(result.rows))
       if (result.code === 'STALE_CACHE') setError(result.message)
     } catch {
       setError('WOF register sa nepodarilo obnoviť. Skontroluj pripojenie a skús to neskôr.')
@@ -548,8 +549,8 @@ function FinanceView() {
     setBankLoading(true); setBankError('')
     try {
       const history = await listBankStatements({})
-      setBankStatements(Array.isArray(history?.statements) ? history.statements : [])
-      setBankTransactions(Array.isArray(history?.transactions) ? history.transactions : [])
+      setBankStatements(normalizeBankStatements(history?.statements))
+      setBankTransactions(normalizeBankTransactions(history?.transactions))
     } catch {
       setBankError('Výpisy sa nepodarilo načítať zo synchronizovaného registra.')
     } finally { setBankLoading(false) }
@@ -558,7 +559,7 @@ function FinanceView() {
     setIntakeLoading(true)
     try {
       const reviews=await listFinanceReviews({})
-      setFinanceReviews(Array.isArray(reviews) ? reviews : [])
+      setFinanceReviews(normalizeFinanceReviews(reviews))
     }
     catch { setIntakeFeedback('Review front SARY sa nepodarilo načítať.') }
     finally { setIntakeLoading(false) }
@@ -801,8 +802,15 @@ function todayInputDate(): string {
   const values=parts.reduce<Record<string,string>>((acc,item)=>{if(item.type!=='literal')acc[item.type]=item.value;return acc},{})
   return `${values.year}-${values.month}-${values.day}`
 }
-function parseMoney(value:string): number {
-  const compact=value.replace(/\s/g,'')
+function safeText(value:unknown): string {
+  return typeof value==='string'?value:value==null?'':String(value)
+}
+function safeNumber(value:unknown): number {
+  const number=typeof value==='number'?value:Number(value)
+  return Number.isFinite(number)?number:0
+}
+function parseMoney(value:unknown): number {
+  const compact=safeText(value).replace(/\s/g,'')
   const normalized=compact.includes(',')&&compact.includes('.')?compact.replace(/\./g,'').replace(',','.'):compact.replace(',','.')
   const parsed=Number(normalized)
   return Number.isFinite(parsed)?parsed:NaN
@@ -838,13 +846,88 @@ function groupPayables(rows:WofPayable[]): WofPayableGroup[] {
     primary:documents.find(isPaid)??documents.find(document=>document.transactionId)??documents[0]!, documents,
   }))
 }
-function formatDate(value:string): string {
-  const date=new Date(value+'T12:00:00')
-  return Number.isNaN(date.getTime())?value:date.toLocaleDateString('sk-SK',{day:'numeric',month:'short',year:'numeric'})
+function formatDate(value:unknown): string {
+  const text=safeText(value)
+  const date=new Date(text+'T12:00:00')
+  return Number.isNaN(date.getTime())?text||'—':date.toLocaleDateString('sk-SK',{day:'numeric',month:'short',year:'numeric'})
 }
-function formatMoney(value:number,currency:string): string {
+function formatMoney(value:number,currency:unknown): string {
+  const currencyCode=safeText(currency).toUpperCase()||'EUR'
   if(!Number.isFinite(value)) return '—'
-  try{return new Intl.NumberFormat('sk-SK',{style:'currency',currency}).format(value)}catch{return value.toFixed(2)+' '+currency}
+  try{return new Intl.NumberFormat('sk-SK',{style:'currency',currency:currencyCode}).format(value)}catch{return value.toFixed(2)+' '+currencyCode}
+}
+
+function normalizePayables(value:unknown): WofPayable[] {
+  if(!Array.isArray(value)) return []
+  return value.flatMap(entry=>{
+    if(!entry||typeof entry!=='object') return []
+    const row=entry as Record<string,unknown>
+    const id=safeText(row.id).trim()
+    if(!id) return []
+    return [{
+      id, kind:safeText(row.kind), documentStatus:safeText(row.documentStatus), supplier:safeText(row.supplier),
+      invoiceNumber:safeText(row.invoiceNumber), dueDate:safeText(row.dueDate), amount:safeText(row.amount),
+      currency:safeText(row.currency)||'EUR', paymentMethod:safeText(row.paymentMethod), paymentStatus:safeText(row.paymentStatus)||'Neoverené',
+      transactionId:safeText(row.transactionId), fileUrl:safeText(row.fileUrl), note:safeText(row.note),
+      paidAmount:safeText(row.paidAmount), paymentHistory:safeText(row.paymentHistory),
+    } satisfies WofPayable]
+  })
+}
+
+function normalizeBankStatements(value:unknown): BankStatementRecord[] {
+  if(!Array.isArray(value)) return []
+  return value.flatMap(entry=>{
+    if(!entry||typeof entry!=='object') return []
+    const row=entry as Record<string,unknown>
+    const id=safeText(row.id).trim()
+    if(!id) return []
+    return [{
+      id, sourceFileId:safeText(row.sourceFileId), sourceFileName:safeText(row.sourceFileName), sourceFileUrl:safeText(row.sourceFileUrl),
+      pdfFileId:safeText(row.pdfFileId)||undefined, pdfFileName:safeText(row.pdfFileName)||undefined, accountKey:safeText(row.accountKey),
+      accountLabel:safeText(row.accountLabel), currency:safeText(row.currency)||'EUR', accountNumberMasked:safeText(row.accountNumberMasked),
+      statementNumber:safeText(row.statementNumber), periodStart:safeText(row.periodStart), periodEnd:safeText(row.periodEnd),
+      openingBalance:safeNumber(row.openingBalance), closingBalance:safeNumber(row.closingBalance), incomeTotal:safeNumber(row.incomeTotal),
+      expenseTotal:safeNumber(row.expenseTotal), transactionCount:safeNumber(row.transactionCount), duplicateCount:safeNumber(row.duplicateCount),
+      importedAt:safeNumber(row.importedAt), status:safeText(row.status),
+    } satisfies BankStatementRecord]
+  })
+}
+
+function normalizeBankTransactions(value:unknown): BankTransactionRecord[] {
+  if(!Array.isArray(value)) return []
+  return value.flatMap(entry=>{
+    if(!entry||typeof entry!=='object') return []
+    const row=entry as Record<string,unknown>
+    const id=safeText(row.id).trim()
+    if(!id) return []
+    return [{
+      id, statementId:safeText(row.statementId), accountKey:safeText(row.accountKey), operationId:safeText(row.operationId), bookedOn:safeText(row.bookedOn),
+      amount:safeNumber(row.amount), currency:safeText(row.currency)||'EUR', counterpartyAccount:safeText(row.counterpartyAccount), counterpartyName:safeText(row.counterpartyName),
+      bankName:safeText(row.bankName), constantSymbol:safeText(row.constantSymbol), variableSymbol:safeText(row.variableSymbol), specificSymbol:safeText(row.specificSymbol),
+      note:safeText(row.note), recipientMessage:safeText(row.recipientMessage), transactionType:safeText(row.transactionType), bic:safeText(row.bic),
+      instructionId:safeText(row.instructionId), matchStatus:safeText(row.matchStatus), matchedPayableId:safeText(row.matchedPayableId),
+      matchScore:Number.isFinite(Number(row.matchScore))?Number(row.matchScore):undefined, matchReason:safeText(row.matchReason)||undefined,
+    } satisfies BankTransactionRecord]
+  })
+}
+
+function normalizeFinanceReviews(value:unknown): FinanceReview[] {
+  if(!Array.isArray(value)) return []
+  return value.flatMap(entry=>{
+    if(!entry||typeof entry!=='object') return []
+    const row=entry as Record<string,unknown>
+    const id=safeText(row.id).trim()
+    if(!id) return []
+    return [{
+      id, documentId:safeText(row.documentId), source:safeText(row.source), sourceFileId:safeText(row.sourceFileId), sourceFileName:safeText(row.sourceFileName),
+      fileUrl:safeText(row.fileUrl), supplier:safeText(row.supplier), invoiceNumber:safeText(row.invoiceNumber),
+      totalAmount:Number.isFinite(Number(row.totalAmount))?Number(row.totalAmount):undefined, extractedDeliveryDate:safeText(row.extractedDeliveryDate)||undefined,
+      extractedCategory:safeText(row.extractedCategory)||undefined, extractedCurrency:safeText(row.extractedCurrency)||undefined,
+      reviewReason:safeText(row.reviewReason), status:safeText(row.status), resolvedDeliveryDate:safeText(row.resolvedDeliveryDate)||undefined,
+      resolvedCategory:safeText(row.resolvedCategory)||undefined, resolvedCurrency:safeText(row.resolvedCurrency)||undefined,
+      completionError:safeText(row.completionError)||undefined, updatedAt:safeNumber(row.updatedAt),
+    } satisfies FinanceReview]
+  })
 }
 
 function ProjectsView({ openProject }: { openProject:(p:Project)=>void }) {
@@ -852,6 +935,14 @@ function ProjectsView({ openProject }: { openProject:(p:Project)=>void }) {
   const [priority,setPriority]=useState('Všetky priority')
   const [status,setStatus]=useState('Všetky stavy')
   const [area,setArea]=useState('Všetky oblasti')
+  const [layout,setLayout]=useState<'cards'|'rows'>('cards')
+  useEffect(()=>{
+    try { if(window.localStorage.getItem('project-layout')==='rows') setLayout('rows') } catch { /* private browsing */ }
+  },[])
+  const changeLayout=(next:'cards'|'rows')=>{
+    setLayout(next)
+    try { window.localStorage.setItem('project-layout',next) } catch { /* private browsing */ }
+  }
   const areas=['Všetky oblasti',...Array.from(new Set(projects.map(p=>p.area)))]
   const filtered=useMemo(()=>projects.filter(project=>{
     const matchesQuery=(project.name+' '+project.area).toLowerCase().includes(query.toLowerCase())
@@ -869,10 +960,21 @@ function ProjectsView({ openProject }: { openProject:(p:Project)=>void }) {
       <select value={status} onChange={e=>setStatus(e.target.value)}><option>Všetky stavy</option><option>Aktívny</option><option>Plánovaný</option><option>Čaká</option><option>Pozastavený</option></select>
       <select value={area} onChange={e=>setArea(e.target.value)}>{areas.map(item=><option key={item}>{item}</option>)}</select>
     </div>
-    <div className="result-meta"><span>{filtered.length} z {projects.length} projektov</span><span><SlidersHorizontal size={13}/>Filtre priority, stavu a oblasti</span></div>
-    <div className="projects-grid">{filtered.map(project=><ProjectCard key={project.id} project={project} onClick={()=>openProject(project)}/>)}</div>
+    <div className="result-meta"><span>{filtered.length} z {projects.length} projektov</span><div className="project-view-switch" role="group" aria-label="Zobrazenie projektov"><button type="button" className={layout==='cards'?'active':''} onClick={()=>changeLayout('cards')} aria-pressed={layout==='cards'}><LayoutGrid size={14}/>Karty</button><button type="button" className={layout==='rows'?'active':''} onClick={()=>changeLayout('rows')} aria-pressed={layout==='rows'}><List size={15}/>Riadky</button></div></div>
+    {layout==='cards'
+      ? <div className="projects-grid">{filtered.map(project=><ProjectCard key={project.id} project={project} onClick={()=>openProject(project)}/>)}</div>
+      : <div className="projects-list">{filtered.map(project=><ProjectRow key={project.id} project={project} onClick={()=>openProject(project)}/>)}</div>}
     {filtered.length===0&&<EmptyState icon={Search} title="Nič sme nenašli" text="Skús zmeniť hľadaný výraz alebo filter."/>}
   </div>
+}
+
+function ProjectRow({ project,onClick }: { project:Project; onClick:()=>void }) {
+  return <button className="project-row" onClick={onClick}>
+    <div className="project-row-identity"><PriorityBadge value={project.priority}/><span className="area">{project.area}</span><strong>{project.name}</strong></div>
+    <p>{project.nextAction}</p>
+    <div className="project-row-progress"><span><i style={{width:project.progress+'%'}}/></span><b>{project.progress}%</b></div>
+    <StatusBadge value={project.status}/><span className="project-row-horizon">{project.horizon}</span><ArrowUpRight size={16}/>
+  </button>
 }
 
 function ProjectCard({ project,onClick }: { project:Project; onClick:()=>void }) {
