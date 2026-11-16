@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto"
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
 import { basename, extname, join, relative, resolve, sep } from "node:path"
 import { spawnSync } from "node:child_process"
 
@@ -17,7 +16,7 @@ if (!existsSync(source)) {
   process.exit(1)
 }
 
-const temporary = extname(source).toLowerCase() === ".zip" ? mkdtempSync(join(tmpdir(), "macaly-audit-")) : null
+const temporary = extname(source).toLowerCase() === ".zip" ? mkdtempSync(join(repoRoot, ".macaly-audit-")) : null
 
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: "utf8" })
@@ -72,7 +71,12 @@ try {
   let archiveEntries = []
   if (temporary) {
     archiveEntries = safeArchiveEntries(source)
-    run("unzip", ["-q", source, "-d", temporary])
+    run("python3", [
+      "-c",
+      "import pathlib,sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); out=pathlib.Path(sys.argv[2]); [(setattr(i, 'filename', i.filename.replace('\\\\', '/')), z.extract(i, out)) for i in z.infolist()]",
+      source,
+      temporary,
+    ])
     const candidates = directories(temporary)
     if (candidates.length !== 1) throw new Error(`Expected one Macaly project in archive, found ${candidates.length}.`)
     exportRoot = candidates[0]
