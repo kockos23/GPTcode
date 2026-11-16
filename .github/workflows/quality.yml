@@ -1,0 +1,31 @@
+name: Quality checks
+
+on:
+  pull_request:
+    branches: [work, main]
+  push:
+    branches: [work]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test -- --run
+      - run: node --test n8n/tests/workflow-policy.test.mjs
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: git diff --check

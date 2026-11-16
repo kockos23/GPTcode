@@ -9,6 +9,8 @@
     "test": "vitest run",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "verify": "npm test -- --run && node --test n8n/tests/workflow-policy.test.mjs && tsc --noEmit && vite build && git diff --check",
+    "macaly:audit": "node scripts/macaly-export-audit.mjs",
     "finance:preflight": "bash scripts/finance-cutover-preflight.sh",
     "finance:audit": "bash scripts/finance-live-audit.sh"
   },

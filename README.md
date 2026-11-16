@@ -21,6 +21,8 @@ npx tsc --noEmit
 npm run build
 ```
 
+Run the complete required gate with `npm run verify`. While Macaly remains the live frontend workspace, follow [`docs/DEVELOPMENT_WORKFLOW.md`](docs/DEVELOPMENT_WORKFLOW.md) so Macaly and GitHub do not drift and no `.env.local` file enters the repository.
+
 The production build does not prove that live Gmail, Drive, Sheets, Convex authentication, or scheduled jobs work. Validate those integrations in the Macaly pilot environment using `docs/OPERATIONS.md`.
 
 ## Runtime configuration

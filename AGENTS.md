@@ -10,7 +10,8 @@ Read these sources in order:
 2. `docs/ARCHITECTURE.md` — system boundaries, ownership of data, and cutover gates.
 3. `docs/OPERATIONS.md` — pilot and production operating procedure.
 4. `n8n/README.md` — live workflow status, credential boundaries, and workflow policy.
-5. Read the task-specific runbook before related work:
+5. `docs/DEVELOPMENT_WORKFLOW.md` — Macaly/GitHub source-of-truth boundary, export audit and release order.
+6. Read the task-specific runbook before related work:
    - `docs/AGENT_COLLABORATION.md` for cross-agent tasks and handoffs.
    - `docs/CUTOVER_RUNBOOK.md` for production cutover.
    - `docs/SECRET_ROTATION_RUNBOOK.md` for credential recovery and rotation.
