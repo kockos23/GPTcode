@@ -122,9 +122,18 @@ const priorityMeta: Record<Priority, { label: string; description: string }> = {
 }
 
 const saraPortrait = 'https://assets.macaly-user-data.dev/yZYv-7lt1FKxV0lpzqrWv3Gn/s9rj1345yz8hlofl1inrkhkw/mYan0mv_xchNlDAZVUcp3/sara-wof-finance-238jdilu.png'
+const noraPortrait = '/nora-avatar.webp'
+
+function assistantPortrait(id:string): string|undefined {
+  if(id==='NORA') return noraPortrait
+  if(id==='WOF_FIN') return saraPortrait
+  return undefined
+}
 
 function AssistantAvatar({ id }: { id:string }) {
-  return <span className="agent-avatar">{id==='WOF_FIN'?<img src={saraPortrait} alt="SARA — WOF Finance" width={36} height={36} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'inherit'}} loading="lazy"/>:<Bot size={17}/>}</span>
+  const portrait=assistantPortrait(id)
+  const name=id==='NORA'?'NORA — Chief of Staff':'SARA — WOF Finance'
+  return <span className="agent-avatar">{portrait?<img src={portrait} alt={name} width={36} height={36} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'inherit'}} loading="lazy"/>:<Bot size={17}/>}</span>
 }
 
 const directAssistants = [
@@ -378,7 +387,7 @@ function HomeView({ pending, openTasks, go, openProject, live, briefingState, re
     <section className="command-center panel" id="command-center">
       <div className="command-heading"><span><Command size={18}/></span><div><p className="eyebrow">Command Center</p><h3>Čo mám urobiť?</h3></div><small>Príkaz sa uloží do spoločnej fronty</small></div>
       {commandContext&&<div className="command-context"><Mail size={14}/><span>E-mail: <strong>{commandContext.label}</strong></span><button onClick={()=>setCommandContext(null)}><X size={13}/></button></div>}
-      <div className="assistant-routing"><span>Adresát</span><div>{directAssistants.map(agent=><button key={agent.id} className={selectedAgent===agent.id?'active':''} onClick={()=>setSelectedAgent(agent.id)} title={agent.hint}><strong>{agent.id==='WOF_FIN'&&<img src={saraPortrait} alt="" width={26} height={26} style={{display:'inline-block',verticalAlign:'middle',marginRight:7,borderRadius:'50%',objectFit:'cover'}}/>}{agent.name}</strong><small>{agent.role}</small></button>)}</div></div>
+      <div className="assistant-routing"><span>Adresát</span><div>{directAssistants.map(agent=>{const portrait=assistantPortrait(agent.id);return <button key={agent.id} className={selectedAgent===agent.id?'active':''} onClick={()=>setSelectedAgent(agent.id)} title={agent.hint}><strong>{portrait&&<img src={portrait} alt="" width={26} height={26} style={{display:'inline-block',verticalAlign:'middle',marginRight:7,borderRadius:'50%',objectFit:'cover'}}/>}{agent.name}</strong><small>{agent.role}</small></button>})}</div></div>
       <div className="command-entry"><textarea value={commandText} onChange={e=>setCommandText(e.target.value)} placeholder="Napr. priprav draft odpovede, vytvor udalosť, ulož prílohu na Drive alebo pridaj pripomienku…"/><button className="button-primary" onClick={()=>void queueCommand()} disabled={!commandText.trim()||commandState==='saving'}>{commandState==='saving'?<RefreshCw className="spin" size={16}/>:<Send size={16}/>} Zaradiť príkaz</button></div>
       <div className="command-chips">
         {['Priprav mi dnešné priority','Pridaj úlohu a pripomienku','Skontroluj, čo čaká na moje rozhodnutie','Priprav ranný briefing'].map(text=><button key={text} onClick={()=>{setCommandContext(null);setCommandText(text)}}>{text}</button>)}
