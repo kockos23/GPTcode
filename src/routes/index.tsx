@@ -355,6 +355,7 @@ function HomeView({ pending, openTasks, go, openProject, live, briefingState, re
   const [commandContext,setCommandContext]=useState<{type:string;id:string;label:string}|null>(null)
   const [selectedAgent,setSelectedAgent]=useState<(typeof directAssistants)[number]['id']>('NORA')
   const [commandState,setCommandState]=useState<'idle'|'saving'|'done'|'error'>('idle')
+  const todayLabel=new Intl.DateTimeFormat('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Bratislava'}).format(new Date())
   const focus=projects.filter(p=>p.priority==='P0').slice(0,3)
   const liveEvents=live?.calendar.map(item=>{
     const start=new Date(item.start)
@@ -383,7 +384,7 @@ function HomeView({ pending, openTasks, go, openProject, live, briefingState, re
   }
   return <div className="page today-page">
     <section className="hero today-hero">
-      <div><p className="eyebrow">Štvrtok · 22. október 2026</p><h2>Dobré dopoludnie,<br/><span>Tomáš.</span></h2></div>
+      <div><p className="eyebrow">{todayLabel}</p><h2>Dobré dopoludnie,<br/><span>Tomáš.</span></h2></div>
       <div className={'brief-status '+briefingState}><Sparkles size={16}/><div><strong>Denný briefing</strong><small>{briefingState==='ready'&&live?'Živé zdroje · obnovené '+new Date(live.generatedAt).toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'}):briefingState==='loading'?'Načítavam Gmail, Kalendár a Control Center…':briefingState==='error'?'Obnovenie zlyhalo · skús znova':'Gmail, Kalendár a Drive sú pripojené'}</small></div><button onClick={()=>void refreshBriefing()} disabled={briefingState==='loading'} aria-label="Obnoviť briefing"><RefreshCw className={briefingState==='loading'?'spin':''} size={16}/></button></div>
     </section>
 
