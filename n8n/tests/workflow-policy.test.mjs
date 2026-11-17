@@ -298,6 +298,10 @@ test('Billdu production provisioning filters every claim result independently', 
   assert.match(billduProvisionScript, /items\.find\(item=>item\.json\.ok!==true\)/)
   assert.match(billduProvisionScript, /items\.filter\(item=>item\.json\.status==='CLAIMED'\)/)
   assert.doesNotMatch(billduProvisionScript, /if\(\$json\.status!=='CLAIMED'\)return \[\]/)
+  assert.match(billduProvisionScript, /JSON\.parse\(value\)/)
+  assert.match(billduProvisionScript, /value\?\.company\|\|value\?\.company_name\|\|value\?\.name\|\|value\?\.fullname/)
+  assert.match(billduProvisionScript, /customer=clientName\(row\.client\)/)
+  assert.doesNotMatch(billduProvisionScript, /customer=clean\(row\.client\)/)
 })
 
 test('finance health monitor is direct, credential-safe and runs after all cutover jobs', () => {

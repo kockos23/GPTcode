@@ -52,12 +52,13 @@ const clean=v=>String(v??'').trim();
 const iso=v=>{const s=clean(v).slice(0,10);if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s))return '';const d=new Date(s+'T00:00:00Z');return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===s?s:''};
 const amount=v=>{const s=clean(v).replace(/\\s/g,'');const n=Number(s.includes(',')&&!s.includes('.')?s.replace(',','.'):s);return Number.isFinite(n)?n:null};
 const safe=v=>clean(v).replace(/[\\/:*?"<>|]/g,'-').replace(/[\\r\\n]/g,' ').slice(0,100);
+const clientName=v=>{let value=v;if(typeof value==='string'&&value.trim().startsWith('{')){try{value=JSON.parse(value)}catch{return ''}}return typeof value==='string'?clean(value):clean(value?.company||value?.company_name||value?.name||value?.fullname||value?.full_name)};
 const out=[];
 for(const row of rows){
  const sourceDocumentId=clean(row.id), invoiceNumber=clean(row.serial_number), status=clean(row.status).toLowerCase();
  const createdAt=Date.parse(clean(row.created));
  const deliveryDate=iso(row.delivery_date), issueDate=iso(row.issue_date), dueDate=iso(row.due_date), currency=clean(row.currency).toUpperCase(), totalAmount=amount(row.total_price), sourceVersion=clean(row.modified||row.updated||row.created);
- const accountingPeriod=deliveryDate.slice(0,7), targetFolderId=folderMap[accountingPeriod]?.Vystavene_FA||'', customer=clean(row.client)||'Billdu klient';
+ const accountingPeriod=deliveryDate.slice(0,7), targetFolderId=folderMap[accountingPeriod]?.Vystavene_FA||'', customer=clientName(row.client)||'Billdu klient';
  if(!Number.isFinite(createdAt)||createdAt<productionCutover||status!=='exposed'||!sourceDocumentId||!sourceVersion||!invoiceNumber||!deliveryDate||!targetFolderId||!/^[A-Z]{3}$/.test(currency)||totalAmount===null||totalAmount<0)continue;
  const processedAt=new Date().toISOString();
  out.push({json:{sourceDocumentId,sourceVersion,id:'WOF-billdu-'+sourceDocumentId,documentKey:'billdu:'+sourceDocumentId,invoiceNumber,sourceStatus:status,status:'Zaradené',type:'invoice',deliveryDate,docDate:issueDate,dueDate,currency,totalAmount,customer,supplier:customer,accountingPeriod,targetFolderId,fileName:[deliveryDate,safe(customer),safe(invoiceNumber),totalAmount.toFixed(2),currency].join('_').slice(0,180)+'.pdf',processedAt,updatedAt:processedAt,source:'billdu',sourceMessageId:sourceDocumentId,sha256:'',docType:'Vystavená faktúra',destination:'Vystavene_FA',ico:'',dic:'',icDph:'',variableSymbol:clean(row.vs),netAmount:null,vatAmount:null,routeReady:true,reviewReason:'',description:'Import z Billdu; stav '+status,originalFileName:'billdu-'+sourceDocumentId+'.pdf',runId:String($execution.id),extractionVersion:'billdu-api-v1'}});
