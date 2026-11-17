@@ -316,6 +316,7 @@ export default defineSchema({
     telegramFileId: v.optional(v.string()),
     driveFileId: v.optional(v.string()),
     driveUrl: v.optional(v.string()),
+    fileStorageId: v.optional(v.id("_storage")),
     extractedText: v.optional(v.string()),
     analysisStatus: v.string(),
     analysisIssues: v.array(v.string()),
@@ -341,6 +342,7 @@ export default defineSchema({
     tags: v.array(v.string()),
     relatedCaptureIds: v.array(v.string()),
     profileSignals: v.array(v.string()),
+    intent: v.optional(v.string()),
     stage: v.string(),
     starred: v.boolean(),
     userNote: v.optional(v.string()),
@@ -349,6 +351,11 @@ export default defineSchema({
   }).index("by_source_key", ["sourceKey"])
     .index("by_received_at", ["receivedAt"])
     .index("by_stage_received_at", ["stage", "receivedAt"]),
+  ideaMessageLinks: defineTable({
+    messageKey: v.string(),
+    sourceKey: v.string(),
+    createdAt: v.number(),
+  }).index("by_message_key", ["messageKey"]),
   ideaProfile: defineTable({
     profileKey: v.string(),
     focusAreas: v.array(v.string()),

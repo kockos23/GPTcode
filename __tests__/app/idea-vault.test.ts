@@ -9,6 +9,8 @@ import {
   inferKind,
   isAuthorizedBearer,
   isAuthorizedIngest,
+  mergeNote,
+  telegramMessageKey,
   sha256Hex,
   matchesSearch,
   normalizeCaptureInput,
@@ -162,5 +164,29 @@ describe("idea vault digest and auth", () => {
     expect(await isAuthorizedIngest("Bearer " + token + "x", { tokenSha256 })).toBe(false)
     expect(await isAuthorizedIngest("Bearer " + token, { tokenSha256: "abc" })).toBe(false)
     expect(await isAuthorizedIngest("Bearer " + token, { token })).toBe(true)
+  })
+
+})
+
+describe("idea vault comments and replies", () => {
+  it("keeps the owner comment and the understood intent", () => {
+    const input = normalizeCaptureInput({ sourceKey: "telegram:1:2", source: "telegram", telegramFileId: "F", mimeType: "image/png", userComment: "  chcem iba cenotvorbu  " })
+    expect(input.ok && input.value.userComment).toBe("chcem iba cenotvorbu")
+    const { enrichment } = normalizeEnrichment({ title: "T", summary: "S", category: "Know-how", intent: "Zamerať sa na cenotvorbu" })
+    expect(enrichment.intent).toBe("Zamerať sa na cenotvorbu")
+  })
+
+  it("appends comments to the note without duplicates", () => {
+    expect(mergeNote(undefined, "prvý")).toBe("prvý")
+    expect(mergeNote("prvý", "druhý")).toBe("prvý\n\ndruhý")
+    expect(mergeNote("prvý\n\ndruhý", "druhý")).toBe("prvý\n\ndruhý")
+    expect(mergeNote("prvý", "  ")).toBe("prvý")
+  })
+
+  it("builds Telegram message keys only from numeric ids", () => {
+    expect(telegramMessageKey("6149199157", 17)).toBe("telegram:6149199157:17")
+    expect(telegramMessageKey("-100123", "5")).toBe("telegram:-100123:5")
+    expect(telegramMessageKey("abc", 1)).toBeNull()
+    expect(telegramMessageKey("1", "")).toBeNull()
   })
 })

@@ -22,6 +22,8 @@ import {
   emptyEnrichment,
   isAuthorizedIngest,
   matchesSearch,
+  mergeNote,
+  telegramMessageKey,
   normalizeCaptureInput,
   normalizeDigest,
   normalizeEnrichment,
@@ -73,9 +75,10 @@ async function writeProfile(ctx: MutationCtx, profile: IdeaProfile) {
   else await ctx.db.insert("ideaProfile", doc)
 }
 
-function publicCapture(capture: Doc<"ideaCaptures">) {
-  const { _id, _creationTime, extractedText, ...rest } = capture
-  return { ...rest, id: _id as string, hasExtractedText: Boolean(extractedText) }
+async function publicCapture(ctx: QueryCtx, capture: Doc<"ideaCaptures">) {
+  const { _id, _creationTime, extractedText, fileStorageId, ...rest } = capture
+  const fileUrl = fileStorageId ? await ctx.storage.getUrl(fileStorageId) : null
+  return { ...rest, id: _id as string, hasExtractedText: Boolean(extractedText), fileUrl }
 }
 
 // ---------------------------------------------------------------------------
@@ -136,15 +139,19 @@ export const upsertCapture = internalMutation({
     if (!enrichment.title) enrichment.title = emptyEnrichment(input).title
 
     const now = Date.now()
+    const { userComment, fileStorageId: storageIdText, ...inputFields } = input
+    const fileStorageId = storageIdText ? ((await ctx.db.system.get(storageIdText as Id<"_storage">)) ? (storageIdText as Id<"_storage">) : undefined) : undefined
     const fields = {
-      ...input,
+      ...inputFields,
       fileName: input.fileName || undefined,
       mimeType: input.mimeType || undefined,
       telegramFileId: input.telegramFileId || undefined,
       driveFileId: input.driveFileId || undefined,
       driveUrl: input.driveUrl || undefined,
       extractedText: input.extractedText || undefined,
+      fileStorageId: fileStorageId ?? existing?.fileStorageId,
       ...enrichment,
+      intent: enrichment.intent || existing?.intent || undefined,
       analysisStatus,
       analysisIssues: issues,
       updatedAt: now,
@@ -152,20 +159,101 @@ export const upsertCapture = internalMutation({
 
     if (existing) {
       // Retry of the same Telegram message: refresh the analysis, keep the owner's curation.
+      const userNote = mergeNote(existing.userNote, userComment) || undefined
       if (existing.analysisStatus === "ok" && analysisStatus !== "ok") {
+        if (userNote !== existing.userNote) await ctx.db.patch(existing._id, { userNote, updatedAt: now })
         return { ok: true as const, id: existing._id as string, duplicate: true, analysisStatus: existing.analysisStatus, title: existing.title }
       }
-      await ctx.db.patch(existing._id, fields)
+      await ctx.db.patch(existing._id, { ...fields, userNote })
       return { ok: true as const, id: existing._id as string, duplicate: true, analysisStatus, title: enrichment.title }
     }
 
     const id = await ctx.db.insert("ideaCaptures", {
       ...fields,
+      userNote: userComment || undefined,
       stage: enrichment.category === "Úloha" ? "action" : "inbox",
       starred: false,
       createdAt: now,
     })
     return { ok: true as const, id: id as string, duplicate: false, analysisStatus, title: enrichment.title }
+  },
+})
+
+// Finds the capture a Telegram reply refers to: the original message or VERA's confirmation of it.
+export const lookupByMessage = internalQuery({
+  args: { messageKey: v.string() },
+  handler: async (ctx, { messageKey }) => {
+    let capture = await ctx.db
+      .query("ideaCaptures")
+      .withIndex("by_source_key", (q) => q.eq("sourceKey", messageKey))
+      .unique()
+    if (!capture) {
+      const link = await ctx.db
+        .query("ideaMessageLinks")
+        .withIndex("by_message_key", (q) => q.eq("messageKey", messageKey))
+        .unique()
+      if (link) {
+        capture = await ctx.db
+          .query("ideaCaptures")
+          .withIndex("by_source_key", (q) => q.eq("sourceKey", link.sourceKey))
+          .unique()
+      }
+    }
+    if (!capture) return null
+    return {
+      id: capture._id as string,
+      sourceKey: capture.sourceKey,
+      source: capture.source,
+      kind: capture.kind,
+      receivedAt: capture.receivedAt,
+      rawText: capture.rawText,
+      caption: capture.caption,
+      urls: capture.urls,
+      fileName: capture.fileName ?? "",
+      mimeType: capture.mimeType ?? "",
+      telegramFileId: capture.telegramFileId ?? "",
+      driveFileId: capture.driveFileId ?? "",
+      driveUrl: capture.driveUrl ?? "",
+      fileStorageId: capture.fileStorageId ?? "",
+      extractedText: capture.extractedText ?? "",
+      title: capture.title,
+      summary: capture.summary,
+      keyPoints: capture.keyPoints,
+      userNote: capture.userNote ?? "",
+    }
+  },
+})
+
+export const linkMessage = internalMutation({
+  args: { messageKey: v.string(), sourceKey: v.string() },
+  handler: async (ctx, { messageKey, sourceKey }) => {
+    const capture = await ctx.db
+      .query("ideaCaptures")
+      .withIndex("by_source_key", (q) => q.eq("sourceKey", sourceKey))
+      .unique()
+    if (!capture) return { ok: false as const, error: "Záznam neexistuje" }
+    const existing = await ctx.db
+      .query("ideaMessageLinks")
+      .withIndex("by_message_key", (q) => q.eq("messageKey", messageKey))
+      .unique()
+    if (existing) await ctx.db.patch(existing._id, { sourceKey })
+    else await ctx.db.insert("ideaMessageLinks", { messageKey, sourceKey, createdAt: Date.now() })
+    return { ok: true as const }
+  },
+})
+
+// Attaches an uploaded original to the capture (used for new files and for backfilling older ones).
+export const attachFile = internalMutation({
+  args: { sourceKey: v.string(), storageId: v.id("_storage") },
+  handler: async (ctx, { sourceKey, storageId }) => {
+    const capture = await ctx.db
+      .query("ideaCaptures")
+      .withIndex("by_source_key", (q) => q.eq("sourceKey", sourceKey))
+      .unique()
+    if (!capture) return { attached: false }
+    if (capture.fileStorageId && capture.fileStorageId !== storageId) await ctx.storage.delete(capture.fileStorageId)
+    await ctx.db.patch(capture._id, { fileStorageId: storageId, updatedAt: Date.now() })
+    return { attached: true }
   },
 })
 
@@ -251,12 +339,12 @@ export const listCaptures = query({
       ? await ctx.db.query("ideaCaptures").withIndex("by_stage_received_at", (q) => q.eq("stage", stage)).order("desc").take(300)
       : await ctx.db.query("ideaCaptures").withIndex("by_received_at").order("desc").take(300)
     const search = cleanText(args.search, 120)
-    return docs
+    const page = docs
       .filter((c) => !args.category || c.category === args.category)
       .filter((c) => !args.starredOnly || c.starred)
       .filter((c) => matchesSearch(c, search))
       .slice(0, 150)
-      .map(publicCapture)
+    return Promise.all(page.map((c) => publicCapture(ctx, c)))
   },
 })
 
@@ -393,4 +481,50 @@ export const httpDigest = httpAction(async (ctx, request) => {
   }
   const result = await ctx.runMutation(internal.ideaVault.saveDigest, { payload })
   return json(result, result.ok ? 200 : 422)
+})
+
+export const httpLookup = httpAction(async (ctx, request) => {
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  const params = new URL(request.url).searchParams
+  const messageKey = telegramMessageKey(params.get("chatId"), params.get("messageId"))
+  if (!messageKey) return json({ ok: false, error: "Neplatná správa" }, 400)
+  const capture = await ctx.runQuery(internal.ideaVault.lookupByMessage, { messageKey })
+  return json({ ok: true, found: Boolean(capture), capture })
+})
+
+export const httpLink = httpAction(async (ctx, request) => {
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  let payload: Record<string, unknown>
+  try { payload = (await readJson(request)) as Record<string, unknown> } catch {
+    return json({ ok: false, error: "Neplatný JSON" }, 400)
+  }
+  const ids = Array.isArray(payload?.messageIds) ? payload.messageIds.slice(0, 5) : [payload?.messageId]
+  const messageKeys = ids.map((id) => telegramMessageKey(payload?.chatId, id)).filter((key): key is string => Boolean(key))
+  const sourceKey = cleanText(payload?.sourceKey, 200)
+  if (!messageKeys.length || !/^[a-z]+:[\w:.-]+$/i.test(sourceKey)) return json({ ok: false, error: "Neplatné údaje" }, 400)
+  let linked = 0
+  for (const messageKey of messageKeys) {
+    if (messageKey === sourceKey) continue
+    const result = await ctx.runMutation(internal.ideaVault.linkMessage, { messageKey, sourceKey })
+    if (!result.ok) return json(result, 404)
+    linked++
+  }
+  return json({ ok: true, linked })
+})
+
+const MAX_FILE_BYTES = 20 * 1024 * 1024
+
+// Stores the original file (body = raw bytes). n8n sends it right after downloading it from Telegram.
+export const httpFile = httpAction(async (ctx, request) => {
+  if (!(await authorized(request))) return json({ ok: false, error: "UNAUTHORIZED" }, 401)
+  const params = new URL(request.url).searchParams
+  const sourceKey = cleanText(params.get("key"), 200)
+  if (!/^[a-z]+:[\w:.-]+$/i.test(sourceKey)) return json({ ok: false, error: "Neplatný kľúč záznamu" }, 400)
+  const mime = cleanText(params.get("mime"), 100).toLowerCase() || "application/octet-stream"
+  const bytes = await request.arrayBuffer()
+  if (!bytes.byteLength) return json({ ok: false, error: "Prázdny súbor" }, 400)
+  if (bytes.byteLength > MAX_FILE_BYTES) return json({ ok: false, error: "Súbor je väčší ako 20 MB" }, 413)
+  const storageId = await ctx.storage.store(new Blob([bytes], { type: /^[\w.+-]+\/[\w.+-]+$/.test(mime) ? mime : "application/octet-stream" }))
+  const { attached } = await ctx.runMutation(internal.ideaVault.attachFile, { sourceKey, storageId })
+  return json({ ok: true, storageId, attached, bytes: bytes.byteLength })
 })

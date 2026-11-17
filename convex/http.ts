@@ -3,7 +3,7 @@ import { auth } from "./auth"
 import { internal } from "./_generated/api"
 import { httpAction } from "./_generated/server"
 import { downloadBillduDocument, listBillduDocuments } from "./billdu"
-import { httpCapture, httpContext, httpDigest, httpDigestInput } from "./ideaVault"
+import { httpCapture, httpContext, httpDigest, httpDigestInput, httpFile, httpLink, httpLookup } from "./ideaVault"
 
 const http = httpRouter()
 
@@ -528,5 +528,8 @@ http.route({ path: "/ideas/context", method: "GET", handler: httpContext })
 http.route({ path: "/ideas/capture", method: "POST", handler: httpCapture })
 http.route({ path: "/ideas/digest-input", method: "GET", handler: httpDigestInput })
 http.route({ path: "/ideas/digest", method: "POST", handler: httpDigest })
+http.route({ path: "/ideas/lookup", method: "GET", handler: httpLookup })
+http.route({ path: "/ideas/link", method: "POST", handler: httpLink })
+http.route({ path: "/ideas/file", method: "POST", handler: httpFile })
 
 export default http
