@@ -30,7 +30,6 @@ test('exports are inactive, sanitized and contain no credentials or Composio', (
     assert.match(serialized, /REPLACE_WITH_CONVEX_SITE_URL/)
     assert.match(serialized, /REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID/)
   }
-  assert.match(JSON.stringify(intake), /REPLACE_WITH_IDEA_VAULT_DRIVE_FOLDER_ID/)
 })
 
 test('every connection points to an existing node', () => {
@@ -63,12 +62,18 @@ test('owner filter drops foreign chats and classifies voice, photo, PDF and link
   assert.equal(out[0].json.sourceKey, 'telegram:' + owner + ':7')
 })
 
-test('files are archived in Drive in parallel and voice goes through transcription', () => {
+test('originals are stored in the vault in parallel and voice goes through transcription', () => {
   const c = intake.connections
-  assert.deepEqual(c['Telegram — stiahni súbor'].main[0].map((t) => t.node).sort(), ['Archivuj originál do Drive', 'Spoj súbor a archív'])
+  assert.deepEqual(c['Telegram — stiahni súbor'].main[0].map((t) => t.node).sort(), ['Spoj súbor a archív', 'Uložiť originál?'])
+  assert.equal(c['Uložiť originál?'].main[0][0].node, 'Ulož originál do trezora (Convex)')
+  assert.equal(c['Uložiť originál?'].main[1][0].node, 'Spoj súbor a archív')
+  const upload = nodes.get('Ulož originál do trezora (Convex)')
+  assert.equal(upload.onError, 'continueRegularOutput')
+  assert.equal(upload.parameters.contentType, 'binaryData')
+  assert.match(upload.parameters.url, /\/ideas\/file\?key=/)
+  assert.equal(intake.nodes.some((n) => n.type === 'n8n-nodes-base.googleDrive'), false)
   assert.equal(c['Je to hlasovka?'].main[0][0].node, 'OpenAI — prepis hlasovky')
   assert.equal(c['Je to hlasovka?'].main[1][0].node, 'Priprav AI analýzu')
-  assert.equal(nodes.get('Archivuj originál do Drive').onError, 'continueRegularOutput')
   assert.equal(nodes.get('OpenAI — prepis hlasovky').parameters.contentType, 'multipart-form-data')
 })
 
@@ -81,7 +86,7 @@ test('analysis request is schema constrained and personalized with the profile',
   }
   const [out] = await runCode(prepare, {
     input: [{ json: { id: 'drive123' }, binary: { data: { mimeType: 'image/jpeg' } } }],
-    refs: { 'Spoj správu a profil': base, 'Spoj súbor a archív': { id: 'drive123' } },
+    refs: { 'Základ záznamu': base, 'Spoj súbor a archív': { ok: true, storageId: 'kg2abcdefghijklmnopqrstu' } },
     binary: Buffer.from('img'),
   })
   const body = out.json.requestBody
@@ -90,7 +95,7 @@ test('analysis request is schema constrained and personalized with the profile',
   assert.match(body.instructions, /AI agentúra/)
   assert.deepEqual(body.text.format.schema.required.sort(), Object.keys(body.text.format.schema.properties).sort())
   assert.equal(body.input[0].content[1].type, 'input_image')
-  assert.equal(out.json.capture.driveUrl, 'https://drive.google.com/file/d/drive123/view')
+  assert.equal(out.json.capture.fileStorageId, 'kg2abcdefghijklmnopqrstu')
 })
 
 test('a failed AI call still saves the raw capture and replies honestly', async () => {
@@ -131,7 +136,7 @@ test('a link to a PDF is read as a document, a web page as text', async () => {
   }
   const [pdf] = await runCode(prepare, {
     input: [{ json: {}, binary: { data: { mimeType: 'application/octet-stream' } } }],
-    refs: { 'Spoj správu a profil': base }, binary: Buffer.from('%PDF-1.4'),
+    refs: { 'Základ záznamu': base }, binary: Buffer.from('%PDF-1.4'),
   })
   const pdfPart = pdf.json.requestBody.input[0].content[1]
   assert.equal(pdfPart.type, 'input_file')
@@ -140,10 +145,89 @@ test('a link to a PDF is read as a document, a web page as text', async () => {
 
   const [html] = await runCode(prepare, {
     input: [{ json: {}, binary: { data: { mimeType: 'text/html; charset=utf-8' } } }],
-    refs: { 'Spoj správu a profil': { ...base, urls: ['https://example.com/a'] } },
+    refs: { 'Základ záznamu': { ...base, urls: ['https://example.com/a'] } },
     binary: Buffer.from('<html><title>Ahoj</title><p>' + 'text '.repeat(60) + '</p></html>'),
   })
   assert.equal(html.json.requestBody.input[0].content.length, 1)
   assert.match(html.json.requestBody.input[0].content[0].text, /Web – názov a popis: Ahoj/)
   assert.equal(nodes.get('Stiahni webovú stránku').parameters.options.response.response.responseFormat, 'file')
+})
+
+test('caption is the owner instruction and takes precedence in the analysis', async () => {
+  const classify = nodes.get('Over vlastníka a rozpoznaj obsah')
+  const owner = 'REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID'
+  const [photo, link] = await runCode(classify, { input: [
+    { json: { message: { message_id: 3, chat: { id: owner }, photo: [{ file_id: 'P' }], caption: 'chcem iba cenotvorbu' } } },
+    { json: { message: { message_id: 4, chat: { id: owner }, text: 'https://ex.com/a zaujíma ma ich onboarding' } } },
+  ] })
+  assert.equal(photo.json.userComment, 'chcem iba cenotvorbu')
+  assert.equal(photo.json.mode, 'capture')
+  assert.equal(link.json.userComment, 'zaujíma ma ich onboarding')
+
+  const prepare = nodes.get('Priprav AI analýzu')
+  const base = { ...photo.json, downloadFileId: '', context: { promptContext: 'P', recent: [] }, contextError: '' }
+  const [out] = await runCode(prepare, { input: [{ json: {} }], refs: { 'Základ záznamu': base } })
+  const text = out.json.requestBody.input[0].content[0].text
+  assert.match(text, /^MOJE ZADANIE \/ KOMENTÁR K TOMUTO ZÁZNAMU \(má prednosť\):\nchcem iba cenotvorbu/)
+  assert.doesNotMatch(text, /Popis k súboru/)
+  assert.match(out.json.requestBody.instructions, /MOJE ZADANIE, je to môj pokyn/)
+  assert.ok(out.json.requestBody.text.format.schema.required.includes('intent'))
+  assert.equal(out.json.capture.userComment, 'chcem iba cenotvorbu')
+})
+
+test('a reply with text or voice becomes a comment on the original capture', async () => {
+  const classify = nodes.get('Over vlastníka a rozpoznaj obsah')
+  const owner = 'REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID'
+  const [textReply, voiceReply, photoReply] = await runCode(classify, { input: [
+    { json: { message: { message_id: 20, chat: { id: owner }, text: 'použi to pri AI audite', reply_to_message: { message_id: 7 } } } },
+    { json: { message: { message_id: 21, chat: { id: owner }, voice: { file_id: 'VC', file_size: 10 }, reply_to_message: { message_id: 8 } } } },
+    { json: { message: { message_id: 22, chat: { id: owner }, photo: [{ file_id: 'X' }], reply_to_message: { message_id: 8 } } } },
+  ] })
+  assert.equal(textReply.json.mode, 'comment')
+  assert.equal(textReply.json.replyToMessageId, 7)
+  assert.equal(textReply.json.userComment, 'použi to pri AI audite')
+  assert.equal(voiceReply.json.mode, 'comment')
+  assert.equal(voiceReply.json.commentVoiceFileId, 'VC')
+  assert.equal(photoReply.json.mode, 'capture')
+
+  const c = intake.connections
+  assert.equal(c['Spoj správu a profil'].main[0][0].node, 'Je to komentár k záznamu?')
+  assert.equal(c['Je to komentár k záznamu?'].main[0][0].node, 'Je komentár hlasovka?')
+  assert.equal(c['Je to komentár k záznamu?'].main[1][0].node, 'Základ záznamu')
+  assert.equal(c['Je komentár hlasovka?'].main[0][0].node, 'Telegram — stiahni hlasový komentár')
+  assert.equal(c['Priprav prepracovanie záznamu'].main[0][0].node, 'Základ záznamu')
+  assert.match(nodes.get('Načítaj pôvodný záznam').parameters.url, /\/ideas\/lookup\?chatId=/)
+
+  const prep = nodes.get('Priprav prepracovanie záznamu')
+  const msg = { ...voiceReply.json, context: { promptContext: 'P' }, contextError: '' }
+  const original = { sourceKey: 'telegram:1:8', kind: 'image', receivedAt: 5, rawText: '', caption: 'staré', urls: [], fileName: 'foto.jpg',
+    mimeType: 'image/jpeg', telegramFileId: 'ORIG', driveFileId: '', driveUrl: '', fileStorageId: 'kg2x', extractedText: '', title: 'Starý titulok', userNote: 'stará poznámka' }
+  const [found] = await runCode(prep, {
+    input: [{ json: { ok: true, found: true, capture: original } }],
+    refs: { 'Spoj správu a profil': msg, 'OpenAI — prepis komentára': { text: 'zameraj sa na ceny' } },
+  })
+  assert.equal(found.json.sourceKey, 'telegram:1:8')
+  assert.equal(found.json.downloadFileId, 'ORIG')
+  assert.equal(found.json.userComment, 'zameraj sa na ceny')
+  assert.equal(found.json.fileStorageId, 'kg2x')
+  assert.equal(found.json.mode, 'comment')
+
+  const [orphan] = await runCode(prep, {
+    input: [{ json: { ok: true, found: false, capture: null } }],
+    refs: { 'Spoj správu a profil': { ...textReply.json, context: {} } },
+  })
+  assert.equal(orphan.json.mode, 'orphan-comment')
+  assert.equal(orphan.json.rawText, 'použi to pri AI audite')
+  assert.equal(orphan.json.sourceKey, textReply.json.sourceKey)
+
+  const reply = nodes.get('Zostav potvrdenie')
+  const [msgOut] = await runCode(reply, {
+    input: [{ json: { ok: true, duplicate: true } }],
+    refs: { 'Zostav záznam pre Convex': { chatId: '1', messageId: 21, mode: 'comment', payload: { sourceKey: 'telegram:1:8',
+      enrichment: { title: 'Ceny', category: 'Know-how', relevanceScore: 70, tags: [], intent: 'Chceš porovnať ceny' } } } },
+  })
+  assert.match(msgOut.json.text, /^📝 Komentár pridaný a záznam prehodnotený: Ceny/)
+  assert.match(msgOut.json.text, /📌 Tvoje zadanie: Chceš porovnať ceny/)
+  assert.equal(msgOut.json.sourceKey, 'telegram:1:8')
+  assert.equal(c['Telegram — potvrdenie'].main[0][0].node, 'Prepoj odpoveď so záznamom')
 })

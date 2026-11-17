@@ -8,7 +8,8 @@ const capture = {
   frameworks: [{ name: "JTBD", whenToUse: "Pri návrhu MVP", steps: ["Identifikuj job"] }],
   businessIdeas: [{ title: "JTBD audit", problem: "Nejasná motivácia účastníkov", audience: "Organizátori", firstStep: "3 rozhovory" }],
   relevanceScore: 86, relevanceWhy: "Nadväzuje na WOF Event Platform", linkedFocus: ["WOF Event Platform"], nextActions: [],
-  tags: ["jtbd"], relatedCaptureIds: [], profileSignals: [], stage: "inbox", starred: false, updatedAt: Date.now(), hasExtractedText: true,
+  tags: ["jtbd"], relatedCaptureIds: [], profileSignals: [], stage: "inbox", starred: false, updatedAt: Date.now(), hasExtractedText: true, intent: "Zaujíma ma, ako to použiť pri WOF eventoch",
+  fileUrl: "https://example.convex.cloud/api/storage/abc",
 }
 
 vi.mock("convex/react", () => ({
@@ -42,6 +43,8 @@ describe("IdeaVaultView", () => {
     expect(screen.getByText("Framework · JTBD")).toBeInTheDocument()
     expect(screen.getByText("Nadväzuje na WOF Event Platform")).toBeInTheDocument()
     expect(screen.getByText(/JTBD audit/)).toBeInTheDocument()
+    expect(screen.getByText("Zaujíma ma, ako to použiť pri WOF eventoch")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /Pôvodný súbor/ })).toHaveAttribute("href", "https://example.convex.cloud/api/storage/abc")
   })
 
   it("opens the profile editor prefilled with focus areas", () => {

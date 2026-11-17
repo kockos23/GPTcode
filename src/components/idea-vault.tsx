@@ -3,7 +3,7 @@ import { makeFunctionReference } from 'convex/server'
 import { useMutation, useQuery } from 'convex/react'
 import {
   Archive, ArrowUpRight, BookOpen, Check, ChevronDown, FileText, Image as ImageIcon, Lightbulb,
-  Link2, Mic, Rocket, Search, Sparkles, Star, Target, UserRound, X,
+  Link2, MessageSquareQuote, Mic, Rocket, Search, Sparkles, Star, Target, UserRound, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -16,7 +16,7 @@ type IdeaCapture = {
   analysisIssues:string[]; title:string; summary:string; category:string; keyPoints:string[]; frameworks:Framework[]
   businessIdeas:BusinessIdea[]; relevanceScore:number; relevanceWhy:string; linkedFocus:string[]; nextActions:string[]
   tags:string[]; relatedCaptureIds:string[]; profileSignals:string[]; stage:Stage; starred:boolean; userNote?:string
-  updatedAt:number; hasExtractedText:boolean
+  updatedAt:number; hasExtractedText:boolean; intent?:string; fileUrl?:string|null
 }
 type Profile = { focusAreas:string[]; activeProjects:string[]; goals:string[]; openQuestions:string[]; avoid:string[]; isDefault:boolean; updatedAt:number|null }
 type Digest = { id:string; title:string; summary:string; periodStart:number; periodEnd:number; themes:{ name:string; insight:string; captureIds:string[] }[]; topActions:string[]; businessBets:string[]; questions:string[]; captureCount:number }
@@ -157,6 +157,8 @@ function CaptureCard({ capture, notify }: { capture:IdeaCapture; notify:(message
     </button>
 
     {open && <div className="idea-card-body">
+      {capture.fileUrl && capture.kind === 'image' && <a className="idea-original-preview" href={capture.fileUrl} target="_blank" rel="noreferrer"><img src={capture.fileUrl} alt={'Originál: '+capture.title} loading="lazy"/></a>}
+      {capture.intent && <div className="idea-block intent"><MessageSquareQuote size={14}/><div><strong>Tvoje zadanie</strong><p>{capture.intent}</p></div></div>}
       {capture.relevanceWhy && <div className="idea-block why"><Target size={14}/><div><strong>Prečo je to pre teba</strong><p>{capture.relevanceWhy}</p>{capture.linkedFocus.length > 0 && <small>{capture.linkedFocus.join(' · ')}</small>}</div></div>}
       {capture.keyPoints.length > 0 && <div className="idea-block"><strong>Know-how</strong><ul>{capture.keyPoints.map(item => <li key={item}>{item}</li>)}</ul></div>}
       {capture.frameworks.map(framework => <div className="idea-block framework" key={framework.name}><strong>Framework · {framework.name}</strong>{framework.whenToUse && <p>{framework.whenToUse}</p>}<ol>{framework.steps.map(step => <li key={step}>{step}</li>)}</ol></div>)}
@@ -166,6 +168,7 @@ function CaptureCard({ capture, notify }: { capture:IdeaCapture; notify:(message
       {capture.analysisIssues.length > 0 && <p className="idea-issues">Poznámka k analýze: {capture.analysisIssues.join('; ')}</p>}
       <div className="context-links">
         {capture.urls.map(url => <a key={url} href={url} target="_blank" rel="noreferrer">{hostname(url)} <ArrowUpRight size={11}/></a>)}
+        {capture.fileUrl && <a href={capture.fileUrl} target="_blank" rel="noreferrer">{originalLabel(capture.kind)} <ArrowUpRight size={11}/></a>}
         {capture.driveUrl && <a href={capture.driveUrl} target="_blank" rel="noreferrer">Originál v Drive <ArrowUpRight size={11}/></a>}
       </div>
       <label className="idea-note"><span>Moja poznámka</span><textarea rows={2} value={note} onChange={event => setNote(event.target.value)} onBlur={() => { if (note !== (capture.userNote ?? '')) void update({ id:capture.id, userNote:note }).then(() => notify('Poznámka uložená.')) }} placeholder="Prečo ma to zaujalo, kde to použijem…"/></label>
@@ -210,6 +213,10 @@ function ProfileEditor({ profile, onSaved }: { profile:Profile; onSaved:()=>void
     <div className="idea-profile-grid">{fields.map(field => <label key={field.key}><span>{field.label}</span><small>{field.hint}</small><textarea rows={5} value={draft[field.key]} onChange={event => setDraft(current => ({ ...current, [field.key]:event.target.value }))}/></label>)}</div>
     <div className="idea-row-actions"><button className="button-primary" disabled={saving} onClick={() => void submit()}>{saving ? 'Ukladám…' : 'Uložiť profil'}</button></div>
   </section>
+}
+
+function originalLabel(kind:string) {
+  return kind === 'image' ? 'Pôvodný obrázok' : kind === 'voice' ? 'Pôvodná hlasovka' : kind === 'document' ? 'Pôvodný dokument' : 'Pôvodný súbor'
 }
 
 function hostname(url:string) {

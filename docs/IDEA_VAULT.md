@@ -74,6 +74,12 @@ V dashboarde **Nápady → Môj profil** upravíš oblasti, aktívne projekty, c
    Skontroluj odpoveď bota, záznam v dashboarde a originál v Drive.
 7. Digest workflow najprv spusti manuálne a až potom ho aktivuj.
 
+## Komentár, zadanie a originály
+
+- **Zadanie k súboru:** text pod fotkou alebo súborom (caption) alebo text pri odkaze je tvoj pokyn, napr. „chcem z toho iba cenotvorbu a použiť to pri AI audite“. Má prednosť pred všeobecnou analýzou. VERA v odpovedi napíše, ako ho pochopila („📌 Tvoje zadanie“), a v dashboarde je pri zázname blok „Tvoje zadanie“. Komentár sa uloží aj do tvojej poznámky.
+- **Komentár neskôr:** odpovedz (Reply) na pôvodnú správu alebo na VERINU odpoveď textom alebo hlasovkou. VERA nájde pôvodný záznam, znova načíta originál a prehodnotí ho podľa komentára. Komentár sa pripojí k poznámke a štítky, stav ani hviezdička sa nemenia. Ak pôvodný záznam nenájde, uloží komentár ako novú poznámku a povie to.
+- **Originály:** každý súbor z Telegramu (obrázok, PDF, hlasovka, dokument do 20 MB) sa uloží do úložiska Convex (`/ideas/file`). V dashboarde je pri zázname odkaz „Pôvodný súbor“ a pri obrázkoch náhľad. Pri odkazoch slúži pôvodná URL.
+
 ## Limity prvej verzie
 
 - Telegram dovolí botovi stiahnuť súbor najviac 20 MB. Väčší súbor sa uloží iba s popisom.

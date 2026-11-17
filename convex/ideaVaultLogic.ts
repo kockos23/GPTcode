@@ -40,6 +40,7 @@ export type IdeaEnrichment = {
   tags: string[]
   relatedCaptureIds: string[]
   profileSignals: string[]
+  intent: string
 }
 
 export type IdeaProfile = {
@@ -64,6 +65,8 @@ export type CaptureInput = {
   driveFileId: string
   driveUrl: string
   extractedText: string
+  userComment: string
+  fileStorageId: string
 }
 
 export const LIMITS = {
@@ -210,7 +213,9 @@ export function normalizeCaptureInput(raw: unknown):
     : Date.now()
 
   const extractedText = cleanText(r.extractedText, LIMITS.extractedText)
-  if (!rawText && !caption && !urls.length && !telegramFileId && !driveFileId && !extractedText) {
+  const userComment = cleanText(r.userComment, 2000)
+  const fileStorageId = cleanText(r.fileStorageId, 64)
+  if (!rawText && !caption && !urls.length && !telegramFileId && !driveFileId && !extractedText && !fileStorageId) {
     errors.push("Záznam neobsahuje text, odkaz ani súbor")
   }
   if (errors.length || !source) return { ok: false, errors }
@@ -234,6 +239,8 @@ export function normalizeCaptureInput(raw: unknown):
       driveFileId,
       driveUrl,
       extractedText,
+      userComment,
+      fileStorageId: /^[a-z0-9]{20,64}$/.test(fileStorageId) ? fileStorageId : "",
     },
   }
 }
@@ -318,6 +325,7 @@ export function normalizeEnrichment(
       tags: normalizeTags(r.tags),
       relatedCaptureIds,
       profileSignals: cleanList(r.profileSignals, 3, 160),
+      intent: cleanText(r.intent, 400),
     },
   }
 }
@@ -337,6 +345,7 @@ export function emptyEnrichment(input: Pick<CaptureInput, "rawText" | "caption" 
     tags: [],
     relatedCaptureIds: [],
     profileSignals: [],
+    intent: "",
   }
 }
 
@@ -485,4 +494,22 @@ export async function isAuthorizedIngest(
     return timingSafeEqualText(await sha256Hex(provided), expectedHash)
   }
   return isAuthorizedBearer(header, config.token)
+}
+
+// Appends a new owner comment to an existing note without duplicating it.
+export function mergeNote(existing: string | undefined, comment: string): string {
+  const current = (existing ?? "").trim()
+  const next = comment.trim()
+  if (!next) return current
+  if (!current) return next.slice(0, 4000)
+  if (current.includes(next)) return current
+  return (current + "\n\n" + next).slice(-4000)
+}
+
+// Key of a Telegram message, used to find the capture a reply belongs to.
+export function telegramMessageKey(chatId: unknown, messageId: unknown): string | null {
+  const chat = String(chatId ?? "").trim()
+  const message = String(messageId ?? "").trim()
+  if (!/^-?\d{1,20}$/.test(chat) || !/^\d{1,12}$/.test(message)) return null
+  return "telegram:" + chat + ":" + message
 }
