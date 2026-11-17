@@ -18,7 +18,7 @@ Follow `docs/SECRET_ROTATION_RUNBOOK.md` for the exact locations, ordering, and 
 
 1. replace `BILLDU_API_KEY` and `BILLDU_API_SECRET` with Billdu, revoke the old pair, and update both the deployment environment and Macaly `.env.local` without copying values into chat or Git,
 2. generate a new `N8N_INTEGRATION_SECRET` and update both the deployment environment, Macaly `.env.local`, and the encrypted n8n Header Auth credential; do not leave either side on the exposed value,
-3. reconnect the n8n `Google Drive account` OAuth credential and pass a read-only Drive check; its refresh token failed on 2026-11-03,
+3. reconnect the n8n `SARA Google Drive account` OAuth credential and pass a read-only Drive check; its refresh token failed on 2026-11-03,
 4. deploy the current Convex schema, actions and HTTP routes using only the rotated Macaly-managed deploy key,
 5. run `npm run finance:preflight`; it is read-only and verifies endpoint authorization, the current bank/Billdu health schema, workflow states, placeholder absence, command attempt tokens and SARA error routing,
 6. verify unauthenticated bank/review calls return 401,

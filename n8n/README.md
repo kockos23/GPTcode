@@ -26,7 +26,7 @@
 `workflows/sara-v2-direct-google.pilot.json` je sanitizovaný export bez credential ID a bez konkrétnych Google resource ID. Live workflow v n8n má credentials a reálne ID pripojené; po importe exportu do inej inštancie treba nahradiť pomenované `REPLACE_WITH_...` hodnoty a ručne vybrať:
 
 - Gmail OAuth: `SARA Gmail — wof.alliance.sk@gmail.com`
-- Google Drive OAuth: `Google Drive account`
+- Google Drive OAuth: `SARA Google Drive account`
 - Google Sheets OAuth: `Google Sheets account 2`
 - OpenAI credential: `OpenAI Angie`
 

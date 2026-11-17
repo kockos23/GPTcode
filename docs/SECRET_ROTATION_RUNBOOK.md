@@ -8,7 +8,7 @@ Do not deploy Convex or activate additional finance workflows until every item b
 
 ## 1. Restore the active Google Drive connection
 
-This is an availability repair, not part of the key exposure. In n8n, reconnect the existing credential named `Google Drive account` to the same WOF Google identity. Do not create a second credential unless reconnecting the existing one is impossible.
+This is an availability repair, not part of the key exposure. In n8n, reconnect the existing credential named `SARA Google Drive account` to the same WOF Google identity. Do not create a second credential unless reconnecting the existing one is impossible.
 
 Acceptance checks:
 

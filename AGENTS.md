@@ -88,7 +88,7 @@ The known pre-cutover baseline is 6 active workflows, 6 inactive workflows, and 
 
 ## Current cutover boundary
 
-Direct SARA Gmail, Drive, and Telegram intake and separate SARA/NORA error monitoring are live. The shared n8n `Google Drive account` OAuth credential must be reconnected after its refresh token failed on 2026-11-03; do not send new intake documents until a read-only Drive check passes. Bank import, review resolution, register sync, command processing, Billdu probe, and Finance Health Monitor remain deliberately inactive until project-owned secrets are rotated, the current Convex deployment is published, and authenticated pilots pass.
+Direct SARA Gmail, Drive, and Telegram intake and separate SARA/NORA error monitoring are live. The shared n8n `SARA Google Drive account` OAuth credential must be reconnected after its refresh token failed on 2026-11-03; do not send new intake documents until a read-only Drive check passes. Bank import, review resolution, register sync, command processing, Billdu probe, and Finance Health Monitor remain deliberately inactive until project-owned secrets are rotated, the current Convex deployment is published, and authenticated pilots pass.
 
 Before enabling any of them, follow `docs/CUTOVER_RUNBOOK.md`. Billdu must first run as a single read-only schema probe; do not implement a write path from assumed API fields.
 
