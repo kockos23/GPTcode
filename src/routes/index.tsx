@@ -9,7 +9,7 @@ import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
 import {
   AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Banknote, BellRing, Bot, CalendarDays,
-  Check, ChevronRight, CircleCheckBig, Clock3, Command, FileQuestion, FolderKanban,
+  Check, ChevronRight, CircleCheckBig, Clock3, Command, FileQuestion, FileText, FolderKanban,
   Inbox, LayoutDashboard, LayoutGrid, List, ListChecks, Mail, Menu, MessageSquareText, MoreHorizontal,
   Pause, PlugZap, Plus, RefreshCw, Search, Send, SlidersHorizontal, Sparkles, Target, X,
   Link2,
@@ -497,12 +497,15 @@ function CalendarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
   const events=(live?.calendar??[]).map(item=>({ ...item,startDate:new Date(item.start),endDate:new Date(item.end) })).sort((a,b)=>a.startDate.getTime()-b.startDate.getTime())
   const [selectedId,setSelectedId]=useState<string|null>(events[0]?.id??null)
   const selected=events.find(event=>event.id===selectedId)??events[0]
+  const activeDay=selected?.startDate??new Date()
+  const weekDays=Array.from({length:6},(_,index)=>{const date=new Date(activeDay);date.setDate(activeDay.getDate()+index-3);return date})
   const dayLabel=new Intl.DateTimeFormat('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Bratislava'}).format(selected?.startDate??new Date())
   return <div className="page workspace-page calendar-workspace">
     <section className="workspace-heading calendar-heading">
       <div><p className="eyebrow">Chief of Staff HQ / Kalendár & časový harmonogram</p><h2>Kalendár · {dayLabel}</h2><p>Prehľad dňa, prepojené meetingy a AI príprava na schôdzky od Nory.</p></div>
       <div className="workspace-heading-actions"><button onClick={()=>go('home')}><Sparkles size={15}/> Briefing ku všetkým schôdzkam</button></div>
     </section>
+    <div className="calendar-toolbar"><div className="week-strip">{weekDays.map(date=><button key={date.toISOString()} className={date.toDateString()===activeDay.toDateString()?'active':''}><small>{date.toLocaleDateString('sk-SK',{weekday:'short',timeZone:'Europe/Bratislava'}).replace('.','')}</small><strong>{date.toLocaleDateString('sk-SK',{day:'numeric',timeZone:'Europe/Bratislava'})}</strong></button>)}</div><div className="calendar-modes"><button className="active">Deň</button><button>Týždeň</button><button>Mesiac</button><button><SlidersHorizontal size={14}/> Filtrovať</button></div></div>
     <div className="calendar-summary"><div><small>Plánované meetingy</small><strong>{events.length} schôdzok</strong></div><div><small>Hlboká práca</small><strong>2 bloky</strong></div><div><small>AI triage status</small><strong>100 %</strong></div></div>
     <div className="calendar-layout">
       <section className="schedule-list">
@@ -516,7 +519,9 @@ function CalendarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
       <aside className="meeting-detail panel">
         {selected?<><p className="meeting-status">Najbližší meeting</p><h2>{selected.title}</h2><div className="meeting-time"><Clock3 size={15}/>{selected.allDay?'Celý deň':selected.startDate.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Bratislava'})+' – '+selected.endDate.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Bratislava'})}</div>
           <a className="meeting-open" href={selected.url} target="_blank" rel="noreferrer"><CalendarDays size={17}/> Otvoriť v Google Calendar</a>
-          <div className="meeting-brief"><div><Sparkles size={16}/><span><strong>Nora AI · Executive briefing</strong><small>Príprava k schôdzke</small></span></div><p>Nora spojí kontext z kalendára, e-mailov a projektov. Detailné rozhodovacie body sa vytvoria až na explicitný príkaz.</p></div>
+          <div className="meeting-brief"><div><Sparkles size={16}/><span><strong>Nora AI · Executive briefing</strong><small>Príprava k schôdzke</small></span><b>Pripravené</b></div><p>Nora spojí kontext z kalendára, e-mailov a projektov. Detailné rozhodovacie body sa vytvoria až na explicitný príkaz.</p><div className="meeting-points"><small>Kľúčové body k rozhodnutiu</small><span><i>1</i>Overiť cieľ a požadovaný výsledok stretnutia</span><span><i>2</i>Skontrolovať otvorené rozhodnutia a súvisiace úlohy</span><span><i>3</i>Určiť vlastníka ďalšieho kroku</span></div></div>
+          <div className="meeting-resources"><p>Prepojené podklady & komunikácia</p><span><FileText size={15}/> Podklady sa načítajú na explicitný príkaz</span><span><Mail size={15}/> Súvisiace e-maily z Inbox Radaru</span></div>
+          <div className="meeting-attendees"><p>Účastníci stretnutia</p><span><b>TK</b><strong>Tomáš (vy)</strong><small>Organizátor</small></span></div>
           <div className="meeting-actions"><button className="button-secondary" onClick={()=>go('home')}><Bot size={15}/> Zadať AI zápis</button><button className="button-secondary" onClick={()=>go('tasks')}><Plus size={15}/> Pridať úlohu</button></div>
         </>:<div className="connection-empty"><span><CalendarDays size={18}/></span><div><strong>Vyber udalosť</strong><p>Detail udalosti sa zobrazí na tomto mieste.</p></div></div>}
       </aside>
