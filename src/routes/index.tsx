@@ -286,6 +286,9 @@ function ChiefOfStaffHQ() {
     ? liveBriefing.tasks.filter(item => item.status !== 'HOTOVO' && item.status !== 'ZRUŠENÉ').length
       + liveBriefing.workQueue.filter(item => item.status !== 'HOTOVO').length
     : aiTasks.filter(item => item.status !== 'Hotové').length
+  const snapshotDate = liveBriefing
+    ? new Date(liveBriefing.generatedAt).toLocaleDateString('sk-SK')
+    : 'čaká na synchronizáciu'
 
   return <div className="app-shell" data-testid="dashboard" data-state="ready">
     <aside className="sidebar-desktop">
@@ -294,7 +297,7 @@ function ChiefOfStaffHQ() {
         {navItems.map(item => <NavButton key={item.id} item={item} active={view === item.id} count={item.id === 'decisions' ? pending.length : undefined} onClick={() => go(item.id)} />)}
       </nav>
       <div className="sidebar-footer">
-        <div className="snapshot-note"><Sparkles size={14}/><div><strong>Pracovná verzia</strong><span>Dáta aktualizované · 22. 10. 2026</span></div></div>
+        <div className="snapshot-note"><Sparkles size={14}/><div><strong>Pracovná verzia</strong><span>Dáta aktualizované · {snapshotDate}</span></div></div>
         <div className="owner"><span>TK</span><div><strong>Tomáš</strong><small>Owner workspace</small></div></div>
         <SignOutButton />
       </div>
@@ -311,7 +314,7 @@ function ChiefOfStaffHQ() {
     </div>}
 
     <main className="main">
-      <Topbar view={view}/>
+      <Topbar view={view} snapshotDate={snapshotDate}/>
       {view === 'home' && <HomeView pending={pending} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'decisions' && <DecisionsView decisions={decisions} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
       {view === 'projects' && <ProjectsView openProject={setSelectedProject}/>}
@@ -341,9 +344,9 @@ function NavButton({ item, active, count, onClick }: { item:(typeof navItems)[nu
   return <button onClick={onClick} className={active ? 'nav-button active' : 'nav-button'}><Icon size={18}/><span>{item.label}</span>{count !== undefined && <b>{count}</b>}</button>
 }
 
-function Topbar({ view }: { view:View }) {
+function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {
   const labels:Record<View,string>={ home:'Dnes', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', ideas:'VERA · Idea Vault', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
-  return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · 22. 10. 2026</div></div>
+  return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · {snapshotDate}</div></div>
 }
 
 function HomeView({ pending, openTasks, go, openProject, live, briefingState, refreshBriefing }: { pending:Decision[]; openTasks:number; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {

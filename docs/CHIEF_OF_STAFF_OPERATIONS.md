@@ -28,9 +28,9 @@ The health endpoint returns HTTP 503 when no snapshot exists or its last source 
 7. Review n8n execution metadata after the next scheduled cycle.
 8. Only then remove the Macaly/Composio fallback from `convex/liveBriefing.ts`.
 
-## Known deliberate gap
+## Live Gmail and Calendar sources
 
-Google Calendar has no native OAuth credential in n8n yet. Calendar remains on the fallback path until the owner completes one Google OAuth authorization. Gmail OAuth already exists and can be added to the snapshot workflow without a new secret after its payload mapping is verified.
+Since 17 November 2026 the snapshot workflow reads the owner's unread Gmail messages from the previous seven days (excluding promotions, social and forum categories) and the next fourteen days from the primary Google Calendar. Gmail, Calendar and Control Center Sheets use separate NORA credentials under the owner's account. The controlled live run wrote 50 bounded email items, 4 calendar events, 17 agents and 3 tasks to Convex with no source errors.
 
 ## Recovery
 
