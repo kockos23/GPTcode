@@ -985,6 +985,53 @@ body {
   .finance-form { grid-template-columns:repeat(4,minmax(0,1fr)); }
 }
 
+/* Gold-master sizing from the supplied Stitch HTML/screenshots. Keep this block last. */
+@media (min-width:1024px) {
+  .sidebar-desktop { width:228px; padding:20px 14px 16px; }
+  .main { margin-left:228px; }
+  .topbar { height:62px; padding:0 24px; }
+  .page { max-width:1180px; padding:28px 24px 54px; }
+  .today-page, .calendar-workspace, .inbox-workspace { max-width:1180px; }
+  .today-hero { grid-template-columns:minmax(0,1fr) 300px; }
+  .today-page .hero h2 { font-size:42px; line-height:1; white-space:nowrap; }
+  .today-page .brief-status { max-width:280px; padding:10px 12px; }
+  .today-page .command-center { margin:20px 0 18px; border-radius:12px; padding:16px 18px; }
+  .today-page .assistant-routing { margin-top:10px; }
+  .today-page .assistant-routing button { border-radius:8px; padding:6px 8px; }
+  .today-page .command-entry { margin-top:10px; }
+  .today-page .command-chips { margin-top:7px; }
+  .today-page .daily-focus { padding:11px 13px; }
+  .today-page .daily-focus-items button { min-height:45px; padding:8px 9px; }
+  .today-page .metric-grid { margin-top:18px; }
+  .today-page .compact-metrics .metric-card { min-height:128px; padding:15px; }
+  .today-page .metric-content { margin-top:10px; }
+  .today-page .metric-content > strong { font-size:31px; }
+  .today-page .command-grid, .today-page .insight-grid, .today-page .focus-section { margin-top:22px; }
+  .today-page .panel { padding:16px; }
+  .today-page .section-title h2 { font-size:17px; }
+  .today-page .card-grid { gap:10px; }
+  .calendar-workspace .workspace-heading { border:1px solid hsl(var(--line)); border-radius:14px; padding:18px 20px; background:white; box-shadow:0 5px 18px rgb(43 8 39 / .04); }
+  .calendar-workspace .workspace-heading h2 { font-size:31px; }
+  .calendar-workspace .calendar-toolbar { margin-top:16px; padding:10px 14px; }
+  .calendar-workspace .week-strip button { min-width:50px; height:48px; }
+  .calendar-workspace .calendar-summary { gap:8px; margin-top:14px; }
+  .calendar-workspace .calendar-summary > div { border-radius:11px; padding:11px 13px; }
+  .calendar-workspace .calendar-summary strong { font-size:18px; }
+  .calendar-workspace .calendar-layout { grid-template-columns:minmax(0,1.18fr) minmax(330px,.82fr); gap:14px; margin-top:14px; }
+  .calendar-workspace .schedule-list { gap:8px; }
+  .calendar-workspace .schedule-list > button { min-height:82px; border-radius:11px; padding:11px 12px; }
+  .calendar-workspace .meeting-detail { border-radius:14px; padding:16px; }
+  .calendar-workspace .meeting-detail > h2 { margin:9px 0 11px; font-size:27px; }
+  .calendar-workspace .meeting-open { margin-top:13px; padding:11px; }
+  .calendar-workspace .meeting-brief { margin-top:13px; padding:13px; }
+  .calendar-workspace .meeting-points span { padding:7px; }
+  .inbox-workspace .workspace-heading h2 { font-size:34px; }
+  .inbox-workspace .inbox-layout { grid-template-columns:360px minmax(0,1fr); gap:14px; }
+  .inbox-workspace .priority-stream > button { border-radius:11px; padding:12px; }
+  .inbox-workspace .mail-reader { border-radius:14px; padding:18px; }
+  .inbox-workspace .mail-reader > h2 { font-size:30px; }
+}
+
 /* Idea Vault – trezor nápadov */
 .idea-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
 @media (min-width: 760px) { .idea-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); } }
