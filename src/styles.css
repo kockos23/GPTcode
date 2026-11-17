@@ -749,6 +749,9 @@ a.event-row:hover { border-color: hsl(var(--magenta)); transform: translateY(-2p
 .today-page .command-heading h3 { font-size:19px; }
 .today-page .assistant-routing button { padding:7px 9px; }
 .today-page .command-entry textarea { min-height:54px; }
+.today-page .command-entry .button-primary { min-width:128px; border-radius:9px; background:#c00075; color:white; box-shadow:none; }
+.today-page .command-entry .button-primary:hover { background:#a60066; transform:none; }
+.today-page .command-entry .button-primary:disabled { background:#c00075; color:white; opacity:.58; }
 .today-page .compact-metrics .metric-card { min-height:150px; }
 .today-page .metric-content > strong { font-size:36px; }
 .calendar-workspace { max-width:1320px; }

@@ -386,7 +386,7 @@ function HomeView({ pending, openTasks, go, openProject, live, briefingState, re
   }
   return <div className="page today-page">
     <section className="hero today-hero">
-      <div><p className="eyebrow">{todayLabel}</p><h2>Dobré dopoludnie,<br/><span>Tomáš.</span></h2></div>
+      <div><p className="eyebrow">{todayLabel}</p><h2>Dobré dopoludnie, <span>Tomáš.</span></h2></div>
       <div className={'brief-status '+briefingState}><Sparkles size={16}/><div><strong>Denný briefing</strong><small>{briefingState==='ready'&&live?'Živé zdroje · obnovené '+new Date(live.generatedAt).toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'}):briefingState==='loading'?'Načítavam Gmail, Kalendár a Control Center…':briefingState==='error'?'Obnovenie zlyhalo · skús znova':'Gmail, Kalendár a Drive sú pripojené'}</small></div><button onClick={()=>void refreshBriefing()} disabled={briefingState==='loading'} aria-label="Obnoviť briefing"><RefreshCw className={briefingState==='loading'?'spin':''} size={16}/></button></div>
     </section>
 
