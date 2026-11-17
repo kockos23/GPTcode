@@ -21,7 +21,7 @@ function ProtectedChiefOfStaffHQ() {
   return <AuthGate><ChiefOfStaffHQ/></AuthGate>
 }
 
-type View = 'home' | 'decisions' | 'projects' | 'tasks' | 'ideas' | 'agents' | 'finance' | 'more'
+type View = 'home' | 'inbox' | 'calendar' | 'decisions' | 'projects' | 'tasks' | 'ideas' | 'agents' | 'finance' | 'more'
 type Priority = 'P0' | 'P1' | 'P2'
 type ProjectStatus = 'Aktívny' | 'Plánovaný' | 'Čaká' | 'Pozastavený'
 type DecisionStatus = 'Čaká na Tomáša' | 'Schválené' | 'Odložené' | 'Podklady vyžiadané' | 'Vlastná odpoveď'
@@ -316,6 +316,8 @@ function ChiefOfStaffHQ() {
     <main className="main">
       <Topbar view={view} snapshotDate={snapshotDate}/>
       {view === 'home' && <HomeView pending={pending} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
+      {view === 'inbox' && <InboxRadarView live={liveBriefing} go={go}/>}
+      {view === 'calendar' && <CalendarView live={liveBriefing} go={go}/>}
       {view === 'decisions' && <DecisionsView decisions={decisions} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
       {view === 'projects' && <ProjectsView openProject={setSelectedProject}/>}
       {view === 'tasks' && <TasksView live={liveBriefing} refreshBriefing={handleRefreshBriefing}/>}
@@ -345,7 +347,7 @@ function NavButton({ item, active, count, onClick }: { item:(typeof navItems)[nu
 }
 
 function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {
-  const labels:Record<View,string>={ home:'Dnes', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', ideas:'VERA · Idea Vault', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
+  const labels:Record<View,string>={ home:'Dnes', inbox:'Inbox Radar', calendar:'Kalendár', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', ideas:'VERA · Idea Vault', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
   return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · {snapshotDate}</div></div>
 }
 
@@ -417,14 +419,14 @@ function HomeView({ pending, openTasks, go, openProject, live, briefingState, re
 
     <div className="command-grid">
       <section className="panel mail-panel command-mail">
-        <SectionTitle eyebrow="Inbox radar" title="Neprečítané maily na kontrolu" action={<span className="subtle-count">{live?Math.min(live.emails.length,12)+' z '+live.emails.length:'—'}</span>}/>
+        <SectionTitle eyebrow="Inbox radar" title="Neprečítané maily na kontrolu" action={<button className="text-link" onClick={()=>go('inbox')}>{live?Math.min(live.emails.length,12)+' z '+live.emails.length:'—'} <ChevronRight size={14}/></button>}/>
         <div className={'source-notice '+(live?'connected':'')}><Mail size={15}/><span><strong>Gmail: tomas.kocner@gmail.com.</strong> Neprečítané za posledných 7 dní, bez promo, sociálnych sietí a fór.</span></div>
         {live?<div className="mail-list">{live.emails.slice(0,12).map(email=><article className="mail-command-row" key={email.id}><a href={email.url} target="_blank" rel="noreferrer"><span className={email.important?'mail-mark important':'mail-mark'}><Mail size={14}/></span><div><strong>{email.subject}</strong><small>{email.sender}</small><p>{email.preview}</p></div><ArrowUpRight size={14}/></a><div className="mail-actions"><button onClick={()=>prepareEmailCommand(email,'draft')}>Draft odpovede</button><button onClick={()=>prepareEmailCommand(email,'event')}>Do kalendára</button><button onClick={()=>prepareEmailCommand(email,'attachment')}>Príloha → Drive</button></div></article>)}{live.emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Žiadne neprečítané maily</strong><p>Zdroj funguje; filter kontroluje posledných 7 dní.</p></div></div>}</div>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Načítavam pripojený Gmail</strong><p>Inbox sa po prihlásení obnoví automaticky.</p></div></div>}
       </section>
 
       <div className="command-side">
         <section className="panel calendar-panel">
-          <SectionTitle eyebrow="Kalendár" title="Najbližšie udalosti" action={<span className="subtle-count">{displayedEvents.length}</span>}/>
+          <SectionTitle eyebrow="Kalendár" title="Najbližšie udalosti" action={<button className="text-link" onClick={()=>go('calendar')}>{displayedEvents.length} <ChevronRight size={14}/></button>}/>
           <div className="events-grid compact-events">{displayedEvents.slice(0,10).map((event,index)=><a className="event-row" href={event.url||undefined} target={event.url?'_blank':undefined} rel={event.url?'noreferrer':undefined} key={event.title+index}><span className="event-date"><strong>{event.date.split(' ')[0]}</strong><small>{event.date.split(' ').slice(1).join(' ')}</small></span><span className="event-copy"><strong>{event.title}</strong><small>{event.time}</small></span></a>)}</div>
         </section>
         <section className="panel decisions-preview">
@@ -456,6 +458,70 @@ function HomeView({ pending, openTasks, go, openProject, live, briefingState, re
 
 function MetricLink({ icon:Icon, value, label, note, tone, onClick }: { icon:LucideIcon; value:number; label:string; note:string; tone:string; onClick:()=>void }) {
   return <button className={'metric-card '+tone} onClick={onClick}><span className="metric-icon"><Icon size={19}/></span><span className="metric-content"><strong>{value}</strong><b>{label}</b><small>{note}</small></span><ArrowUpRight className="metric-arrow" size={20}/></button>
+}
+
+function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
+  const emails=live?.emails??[]
+  const [selectedId,setSelectedId]=useState<string|null>(emails[0]?.id??null)
+  const selected=emails.find(email=>email.id===selectedId)??emails[0]
+  return <div className="page workspace-page inbox-workspace">
+    <section className="workspace-heading">
+      <div><p className="eyebrow">Inbox Radar · NORA AI engine · live triage</p><h2>Inbox Radar <span>/ Inteligentná pošta</span></h2><p>Prehľad dôležitých správ a okamžité previazanie na projekty a rozhodnutia.</p></div>
+      <div className="workspace-heading-actions"><span><RefreshCw size={14}/> Synchronizované</span><button onClick={()=>go('home')}><Sparkles size={15}/> Otvoriť Command Center</button></div>
+    </section>
+    <div className="workspace-tabs"><button className="active">Všetky kľúčové <b>{emails.length}</b></button><button>Na schválenie</button><button>Partneri & investori</button><button>Vybavené / Archív</button></div>
+    <div className="inbox-layout">
+      <aside className="priority-stream">
+        <div className="stream-title"><span>Prioritný prúd správ ({emails.length})</span><b>Automatický triage aktívny</b></div>
+        {emails.map((email,index)=><button key={email.id} className={selected?.id===email.id?'selected':''} onClick={()=>setSelectedId(email.id)}>
+          <span className={email.important?'mail-mark important':'mail-mark'}><Mail size={15}/></span>
+          <div><div className="stream-meta"><strong>{email.sender}</strong><small>{index===0?'Najnovšie':'Neprečítané'}</small></div><h3>{email.subject}</h3><p>{email.preview}</p><span className="stream-tag">{email.important?'Vysoká priorita':'NORA triage'}</span></div>
+        </button>)}
+        {emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Inbox je čistý</strong><p>Momentálne nie sú žiadne neprečítané správy vo filtrovanom období.</p></div></div>}
+      </aside>
+      <section className="mail-reader panel">
+        {selected?<>
+          <div className="reader-labels"><span>Prioritná správa</span><small>ID: {selected.id.slice(0,18)}</small></div>
+          <h2>{selected.subject}</h2>
+          <div className="reader-sender"><span>{selected.sender.slice(0,2).toUpperCase()}</span><div><strong>{selected.sender}</strong><small>Neprečítaná správa</small></div><a href={selected.url} target="_blank" rel="noreferrer">Otvoriť v Gmaili <ArrowUpRight size={14}/></a></div>
+          <div className="nora-summary"><p><Sparkles size={14}/> NORA AI Executive Summary</p><strong>{selected.preview||'Správa čaká na otvorenie a spracovanie.'}</strong></div>
+          <div className="reader-body"><p>{selected.preview}</p><p>Celý bezpečný obsah správy a prílohy otvoríš v pripojenej poštovej schránke. Z dashboardu môžeš pripraviť ďalšiu akciu cez Command Center.</p></div>
+          <div className="reader-actions"><a className="button-primary" href={selected.url} target="_blank" rel="noreferrer"><Mail size={15}/> Otvoriť správu</a><button className="button-secondary" onClick={()=>go('home')}><Command size={15}/> Zadať Nore úlohu</button></div>
+        </>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Vyber správu</strong><p>Detail správy sa zobrazí na tomto mieste.</p></div></div>}
+      </section>
+    </div>
+  </div>
+}
+
+function CalendarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
+  const events=(live?.calendar??[]).map(item=>({ ...item,startDate:new Date(item.start),endDate:new Date(item.end) })).sort((a,b)=>a.startDate.getTime()-b.startDate.getTime())
+  const [selectedId,setSelectedId]=useState<string|null>(events[0]?.id??null)
+  const selected=events.find(event=>event.id===selectedId)??events[0]
+  const dayLabel=new Intl.DateTimeFormat('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Bratislava'}).format(selected?.startDate??new Date())
+  return <div className="page workspace-page calendar-workspace">
+    <section className="workspace-heading calendar-heading">
+      <div><p className="eyebrow">Chief of Staff HQ / Kalendár & časový harmonogram</p><h2>Kalendár · {dayLabel}</h2><p>Prehľad dňa, prepojené meetingy a AI príprava na schôdzky od Nory.</p></div>
+      <div className="workspace-heading-actions"><button onClick={()=>go('home')}><Sparkles size={15}/> Briefing ku všetkým schôdzkam</button></div>
+    </section>
+    <div className="calendar-summary"><div><small>Plánované meetingy</small><strong>{events.length} schôdzok</strong></div><div><small>Hlboká práca</small><strong>2 bloky</strong></div><div><small>AI triage status</small><strong>100 %</strong></div></div>
+    <div className="calendar-layout">
+      <section className="schedule-list">
+        {events.map((event,index)=><button key={event.id} className={(selected?.id===event.id?'selected ':'')+(index===0?'featured':'')} onClick={()=>setSelectedId(event.id)}>
+          <span className="schedule-time"><strong>{event.allDay?'Celý deň':event.startDate.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Bratislava'})}</strong><small>{event.allDay?'Kalendár':event.endDate.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Bratislava'})}</small></span>
+          <span className="schedule-copy"><small>{index===0?'Najbližší meeting':'Kalendár'}</small><strong>{event.title}</strong><span>{event.allDay?'Celodenná udalosť':'NORA pripraví podklady a upozornenia pred začiatkom.'}</span></span>
+          <ChevronRight size={18}/>
+        </button>)}
+        {events.length===0&&<div className="connection-empty"><span><CalendarDays size={18}/></span><div><strong>Žiadne najbližšie udalosti</strong><p>Kalendár je pripojený, vo zvolenom období nič nie je.</p></div></div>}
+      </section>
+      <aside className="meeting-detail panel">
+        {selected?<><p className="meeting-status">Najbližší meeting</p><h2>{selected.title}</h2><div className="meeting-time"><Clock3 size={15}/>{selected.allDay?'Celý deň':selected.startDate.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Bratislava'})+' – '+selected.endDate.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Bratislava'})}</div>
+          <a className="meeting-open" href={selected.url} target="_blank" rel="noreferrer"><CalendarDays size={17}/> Otvoriť v Google Calendar</a>
+          <div className="meeting-brief"><div><Sparkles size={16}/><span><strong>Nora AI · Executive briefing</strong><small>Príprava k schôdzke</small></span></div><p>Nora spojí kontext z kalendára, e-mailov a projektov. Detailné rozhodovacie body sa vytvoria až na explicitný príkaz.</p></div>
+          <div className="meeting-actions"><button className="button-secondary" onClick={()=>go('home')}><Bot size={15}/> Zadať AI zápis</button><button className="button-secondary" onClick={()=>go('tasks')}><Plus size={15}/> Pridať úlohu</button></div>
+        </>:<div className="connection-empty"><span><CalendarDays size={18}/></span><div><strong>Vyber udalosť</strong><p>Detail udalosti sa zobrazí na tomto mieste.</p></div></div>}
+      </aside>
+    </div>
+  </div>
 }
 
 function DecisionsView({ decisions, editingDecision, setEditingDecision, drafts, setDrafts, update, goProject }: {
