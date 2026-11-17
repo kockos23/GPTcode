@@ -48,6 +48,10 @@ const liveAuditScript = fs.readFileSync(
   new URL('../../scripts/finance-live-audit.sh', import.meta.url),
   'utf8',
 )
+const billduProvisionScript = fs.readFileSync(
+  new URL('../../scripts/provision-billdu-workflow.mjs', import.meta.url),
+  'utf8',
+)
 
 test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(workflow.nodes.some((node) => Object.hasOwn(node, 'credentials')), false)
@@ -288,6 +292,12 @@ test('Billdu pilot is read-only, bounded and manual until the response schema is
   assert.match(billduProbeNodes.get('Skontroluj schému bez účtovného zápisu')?.parameters.jsCode, /documentKeys/)
   assert.match(billduProbeNodes.get('Skontroluj schému bez účtovného zápisu')?.parameters.jsCode, /_embedded\?\.items/)
   assert.match(billduProbeSerialized, /httpHeaderAuth/)
+})
+
+test('Billdu production provisioning filters every claim result independently', () => {
+  assert.match(billduProvisionScript, /items\.find\(item=>item\.json\.ok!==true\)/)
+  assert.match(billduProvisionScript, /items\.filter\(item=>item\.json\.status==='CLAIMED'\)/)
+  assert.doesNotMatch(billduProvisionScript, /if\(\$json\.status!=='CLAIMED'\)return \[\]/)
 })
 
 test('finance health monitor is direct, credential-safe and runs after all cutover jobs', () => {
