@@ -20,6 +20,7 @@
 - Kontrolovaný Billdu zápisový pilot 10. 11. 2026 spracoval iba faktúru `2026293`: uložil jeden PDF do `2026-11/Vystavene_FA`, pridal jeden register riadok a následný claim vrátil `ALREADY_IMPORTED`. Päť dočasných pilotných workflowov bolo po diagnostike a úspechu odstránených; žiadny `TEMP` workflow nezostal aktívny.
 - Finance Health Monitor `2YGEEBjYBn8aNBsY` je aktívny o 07:35 a 17:35; chyby smerujú do samostatného SARA Telegram monitoringu.
 - Poradie plánovaných behov je Drive `:15`, commands `:18`, review `:22`, register sync `:27`, banka `:30`, health `:35` v `Europe/Bratislava`. Register sync preto zachytí všetky zmeny v Sheets pred zdravotnou kontrolou.
+- **Dočasný testovací režim od 17. 11. 2026:** live finančný reťazec beží každú hodinu `13:00–23:59` v `Europe/Bratislava`, s poradím Billdu `:12`, Drive `:15`, commands `:18`, review `:22`, register sync `:27`, bank import `:30`, health `:35`. Po ukončení kontrolovaného testovania vrátiť pôvodné cron výrazy `12/15/18/22/27/30/35 7,17 * * *`; Gmail intake zostáva event-driven.
 
 ## Verziovaný export
 
