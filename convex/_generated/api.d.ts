@@ -19,6 +19,8 @@ import type * as crons from "../crons.js";
 import type * as financeIntake from "../financeIntake.js";
 import type * as googleAuth from "../googleAuth.js";
 import type * as http from "../http.js";
+import type * as ideaVault from "../ideaVault.js";
+import type * as ideaVaultLogic from "../ideaVaultLogic.js";
 import type * as liveBriefing from "../liveBriefing.js";
 import type * as macaly from "../macaly.js";
 import type * as wofFinance from "../wofFinance.js";
@@ -41,6 +43,8 @@ declare const fullApi: ApiFromModules<{
   financeIntake: typeof financeIntake;
   googleAuth: typeof googleAuth;
   http: typeof http;
+  ideaVault: typeof ideaVault;
+  ideaVaultLogic: typeof ideaVaultLogic;
   liveBriefing: typeof liveBriefing;
   macaly: typeof macaly;
   wofFinance: typeof wofFinance;
