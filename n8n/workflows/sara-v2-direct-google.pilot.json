@@ -6,13 +6,12 @@
         "pollTimes": {
           "item": [
             {
-              "mode": "custom",
-              "cronExpression": "0 15 6 * * 1-5"
+              "mode": "everyMinute"
             }
           ]
         },
         "filters": {
-          "q": "{label:WOF_FINANCE_INTAKE to:finance@wofevents.com} has:attachment -in:spam -in:trash",
+          "q": "{from:tomas.kocner@wofexpo.com label:WOF_FINANCE_INTAKE to:finance@wofevents.com} has:attachment newer_than:7d -in:spam -in:trash",
           "readStatus": "both"
         }
       },
@@ -1165,6 +1164,63 @@
         960,
         0
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $('Validuj a zaraď podľa dodania').item.json.sourceMessageId + '/modify' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({addLabelIds:['REPLACE_WITH_WOF_FINANCE_LABEL_ID'],removeLabelIds:['INBOX']}) }}",
+        "options": {}
+      },
+      "name": "Gmail — archivuj zaradenú správu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4080,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $('Validuj a zaraď podľa dodania').item.json.sourceMessageId + '/modify' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({addLabelIds:['REPLACE_WITH_WOF_FINANCE_LABEL_ID'],removeLabelIds:['INBOX']}) }}",
+        "options": {}
+      },
+      "name": "Gmail — archivuj správu v review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4080,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $json.sourceMessageId + '/modify' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({addLabelIds:['REPLACE_WITH_WOF_FINANCE_LABEL_ID'],removeLabelIds:['INBOX']}) }}",
+        "options": {}
+      },
+      "name": "Gmail — archivuj už evidovanú správu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2640,
+        240
+      ]
     }
   ],
   "connections": {
@@ -1264,7 +1320,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Gmail — archivuj už evidovanú správu",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Priprav extrakciu dokladu v2": {
@@ -1339,6 +1401,28 @@
         [
           {
             "node": "Zapíš zaradený doklad do registra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zapíš zaradený doklad do registra": {
+      "main": [
+        [
+          {
+            "node": "Gmail — archivuj zaradenú správu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zapíš doklad do review registra": {
+      "main": [
+        [
+          {
+            "node": "Gmail — archivuj správu v review",
             "type": "main",
             "index": 0
           }

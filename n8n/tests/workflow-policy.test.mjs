@@ -55,13 +55,15 @@ test('export contains no tenant credential bindings or Composio calls', () => {
   assert.equal(/spreadsheets\/1[A-Za-z0-9_-]{20,}\//.test(serialized), false)
 })
 
-test('Gmail intake is restricted and scheduled for 06:15 on workdays', () => {
+test('Gmail intake polls every minute and accepts only bounded finance attachments', () => {
   const trigger = nodes.get('Gmail — WOF finance intake')
   assert.ok(trigger)
+  assert.match(trigger.parameters.filters.q, /from:tomas\.kocner@wofexpo\.com/)
   assert.match(trigger.parameters.filters.q, /label:WOF_FINANCE_INTAKE/)
   assert.match(trigger.parameters.filters.q, /to:finance@wofevents\.com/)
   assert.match(trigger.parameters.filters.q, /has:attachment/)
-  assert.equal(trigger.parameters.pollTimes.item[0].cronExpression, '0 15 6 * * 1-5')
+  assert.match(trigger.parameters.filters.q, /newer_than:7d/)
+  assert.equal(trigger.parameters.pollTimes.item[0].mode, 'everyMinute')
   assert.equal(workflow.settings.errorWorkflow, 'cmGxWnoZh613XRWTF7o09')
   assert.equal(workflow.settings.saveDataSuccessExecution, 'none')
   assert.equal(workflow.settings.saveDataErrorExecution, 'all')
@@ -176,6 +178,31 @@ test('persistent register dedupe runs before OpenAI extraction', () => {
   assert.equal(
     workflow.connections['Doklad ešte nie je v registri?'].main[0][0].node,
     'Priprav extrakciu dokladu v2',
+  )
+})
+
+test('Gmail is archived only after registration, review, or confirmed persistent duplicate', () => {
+  const routedArchive = nodes.get('Gmail — archivuj zaradenú správu')
+  const reviewArchive = nodes.get('Gmail — archivuj správu v review')
+  const duplicateArchive = nodes.get('Gmail — archivuj už evidovanú správu')
+  for (const archive of [routedArchive, reviewArchive, duplicateArchive]) {
+    assert.ok(archive)
+    assert.equal(archive.parameters.method, 'POST')
+    assert.match(archive.parameters.url, /gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\//)
+    assert.match(archive.parameters.jsonBody, /REPLACE_WITH_WOF_FINANCE_LABEL_ID/)
+    assert.match(archive.parameters.jsonBody, /removeLabelIds:\['INBOX'\]/)
+  }
+  assert.equal(
+    workflow.connections['Zapíš zaradený doklad do registra'].main[0][0].node,
+    routedArchive.name,
+  )
+  assert.equal(
+    workflow.connections['Zapíš doklad do review registra'].main[0][0].node,
+    reviewArchive.name,
+  )
+  assert.equal(
+    workflow.connections['Doklad ešte nie je v registri?'].main[1][0].node,
+    duplicateArchive.name,
   )
 })
 
