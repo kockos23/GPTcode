@@ -320,6 +320,148 @@ export default defineSchema({
     .index("by_thread_id", ["threadId"])
     .index("by_status_created_at", ["status", "createdAt"])
     .index("by_created_at", ["createdAt"]),
+  personalGoals: defineTable({
+    goalId: v.string(),
+    domain: v.string(),
+    title: v.string(),
+    desiredOutcome: v.string(),
+    successMetric: v.string(),
+    ownerAgent: v.string(),
+    priority: v.string(),
+    horizon: v.string(),
+    status: v.string(),
+    targetDate: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_goal_id", ["goalId"])
+    .index("by_status_priority", ["status", "priority"])
+    .index("by_domain", ["domain"]),
+  personalPlans: defineTable({
+    planId: v.string(),
+    goalId: v.string(),
+    title: v.string(),
+    ownerAgent: v.string(),
+    status: v.string(),
+    reviewCadence: v.string(),
+    nextReviewAt: v.number(),
+    version: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_plan_id", ["planId"])
+    .index("by_goal_id", ["goalId"])
+    .index("by_next_review", ["status", "nextReviewAt"]),
+  personalPlanSteps: defineTable({
+    stepId: v.string(),
+    planId: v.string(),
+    title: v.string(),
+    assignedAgent: v.string(),
+    priority: v.string(),
+    status: v.string(),
+    approval: v.string(),
+    deadline: v.optional(v.number()),
+    dependencies: v.array(v.string()),
+    sourceSignalIds: v.array(v.string()),
+    expectedOutput: v.string(),
+    result: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_step_id", ["stepId"])
+    .index("by_plan_id", ["planId"])
+    .index("by_agent_status", ["assignedAgent", "status"])
+    .index("by_status_deadline", ["status", "deadline"]),
+  personalSignals: defineTable({
+    signalId: v.string(),
+    dedupeKey: v.string(),
+    domain: v.string(),
+    source: v.string(),
+    kind: v.string(),
+    title: v.string(),
+    summary: v.string(),
+    severity: v.string(),
+    status: v.string(),
+    occurredAt: v.number(),
+    dueAt: v.optional(v.number()),
+    relatedAssetId: v.optional(v.string()),
+    payload: v.any(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_signal_id", ["signalId"])
+    .index("by_dedupe_key", ["dedupeKey"])
+    .index("by_status_occurred_at", ["status", "occurredAt"])
+    .index("by_domain_occurred_at", ["domain", "occurredAt"]),
+  personalRoutines: defineTable({
+    routineId: v.string(),
+    agentId: v.string(),
+    name: v.string(),
+    schedule: v.string(),
+    timeZone: v.string(),
+    enabled: v.boolean(),
+    lastRunAt: v.optional(v.number()),
+    nextRunAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_routine_id", ["routineId"])
+    .index("by_due", ["enabled", "nextRunAt"]),
+  personalAssets: defineTable({
+    assetId: v.string(),
+    domain: v.string(),
+    kind: v.string(),
+    name: v.string(),
+    status: v.string(),
+    metadata: v.any(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_asset_id", ["assetId"])
+    .index("by_domain_kind", ["domain", "kind"]),
+  personalMaintenance: defineTable({
+    maintenanceId: v.string(),
+    assetId: v.string(),
+    category: v.string(),
+    title: v.string(),
+    recurrence: v.string(),
+    nextDueAt: v.number(),
+    leadDays: v.array(v.number()),
+    status: v.string(),
+    lastCompletedAt: v.optional(v.number()),
+    notes: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_maintenance_id", ["maintenanceId"])
+    .index("by_asset_id", ["assetId"])
+    .index("by_status_due", ["status", "nextDueAt"]),
+  personalHealthDaily: defineTable({
+    snapshotId: v.string(),
+    date: v.string(),
+    source: v.string(),
+    quality: v.string(),
+    metrics: v.any(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_snapshot_id", ["snapshotId"])
+    .index("by_date", ["date"]),
+  personalPlannerRuns: defineTable({
+    runId: v.string(),
+    kind: v.string(),
+    status: v.string(),
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    signalIds: v.array(v.string()),
+    proposedStepIds: v.array(v.string()),
+    summary: v.string(),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_run_id", ["runId"])
+    .index("by_created_at", ["createdAt"]),
   ideaCaptures: defineTable({
     sourceKey: v.string(),
     source: v.string(),
