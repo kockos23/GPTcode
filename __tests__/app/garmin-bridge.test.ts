@@ -15,6 +15,7 @@ describe("Garmin bridge normalizer", () => {
   })
 
   it("ships an interactive MFA bootstrap and a non-root read-only container", () => {
+    const bridge = fs.readFileSync("integrations/garmin/bridge.py", "utf8")
     const bootstrap = fs.readFileSync("integrations/garmin/bootstrap.py", "utf8")
     const dockerfile = fs.readFileSync("integrations/garmin/Dockerfile", "utf8")
     const compose = fs.readFileSync("integrations/garmin/compose.example.yml", "utf8")
@@ -23,5 +24,7 @@ describe("Garmin bridge normalizer", () => {
     expect(dockerfile).toContain("USER garmin")
     expect(compose).toContain("no-new-privileges:true")
     expect(compose).toContain("read_only: true")
+    expect(compose).toContain("cap_drop:")
+    expect(bridge.indexOf('if token_store.exists()')).toBeLessThan(bridge.indexOf('username = required("GARMIN_CONNECT_USERNAME")'))
   })
 })

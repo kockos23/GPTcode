@@ -32,17 +32,20 @@ def safe(call, fallback):
 
 
 def main() -> None:
-    username = required("GARMIN_CONNECT_USERNAME")
-    password = required("GARMIN_CONNECT_PASSWORD")
     webhook_url = required("GARMIN_DAILY_WEBHOOK_URL")
     webhook_secret = required("GARMIN_DAILY_WEBHOOK_SECRET")
     target = os.environ.get("GARMIN_TARGET_DATE") or (date.today() - timedelta(days=1)).isoformat()
     token_store = Path(os.environ.get("GARMIN_TOKEN_STORE", "/run/secrets/garmin_tokens"))
 
-    client = Garmin(username, password, return_on_mfa=True)
     if token_store.exists():
+        # Unattended runs use only the persisted OAuth token store. Keeping the
+        # account password out of the long-running container reduces exposure.
+        client = Garmin("", "", return_on_mfa=True)
         client.login(str(token_store))
     else:
+        username = required("GARMIN_CONNECT_USERNAME")
+        password = required("GARMIN_CONNECT_PASSWORD")
+        client = Garmin(username, password, return_on_mfa=True)
         result = client.login()
         if isinstance(result, tuple) and result and result[0] == "needs_mfa":
             raise RuntimeError("GARMIN_MFA_REQUIRED")
