@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { allowedDriveUrl, constantTimeTextEqual, validRegisterRows } from "../../convex/http"
+import { allowedDriveUrl, constantTimeTextEqual, validPersonalSignalPayload, validRegisterRows } from "../../convex/http"
 
 describe("n8n HTTP boundaries", () => {
   it("accepts only exactly equal authorization text", () => {
@@ -28,5 +28,23 @@ describe("n8n HTTP boundaries", () => {
     expect(allowedDriveUrl("https://drive.google.com.evil.test/file/d/file-1/view")).toBe(false)
     expect(allowedDriveUrl("javascript:alert(1)")).toBe(false)
     expect(allowedDriveUrl("not-a-url")).toBe(false)
+  })
+
+  it("accepts bounded personal operation signals", () => {
+    expect(validPersonalSignalPayload({
+      signalId: "sig-1", dedupeKey: "garmin:2026-11-18", domain: "HEALTH", source: "GARMIN_CONNECT",
+      kind: "DAILY_SUMMARY", title: "Denný zdravotný súhrn", summary: "Bez odchýlky", severity: "INFO",
+      occurredAt: Date.now(), payload: { steps: 8500 },
+    })).toBe(true)
+  })
+
+  it("rejects unknown domains, unbounded payloads and invalid timestamps", () => {
+    const base = {
+      signalId: "sig-1", dedupeKey: "x", domain: "HOME", source: "MANUAL", kind: "READING",
+      title: "Odpočet", summary: "", severity: "INFO", occurredAt: Date.now(), payload: {},
+    }
+    expect(validPersonalSignalPayload({ ...base, domain: "UNKNOWN" })).toBe(false)
+    expect(validPersonalSignalPayload({ ...base, occurredAt: Number.NaN })).toBe(false)
+    expect(validPersonalSignalPayload({ ...base, payload: { text: "x".repeat(20_001) } })).toBe(false)
   })
 })

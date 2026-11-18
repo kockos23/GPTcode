@@ -30,6 +30,27 @@ function authorizedAgent(request: Request): boolean {
   return Boolean(configuredSecret) && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)
 }
 
+function authorizedPersonalOps(request: Request): boolean {
+  const configuredSecret = process.env.PERSONAL_OPS_INTEGRATION_SECRET
+  const authorization = request.headers.get("authorization") ?? ""
+  return Boolean(configuredSecret) && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)
+}
+
+const PERSONAL_OPS_DOMAINS = new Set(["EXECUTIVE", "HEALTH", "HOME", "VEHICLE", "FINANCE"])
+const PERSONAL_OPS_SEVERITIES = new Set(["INFO", "ATTENTION", "HIGH", "CRITICAL"])
+
+export function validPersonalSignalPayload(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const row = value as Record<string, unknown>
+  const text = (key: string, max: number) => typeof row[key] === "string" && String(row[key]).trim().length > 0 && String(row[key]).length <= max
+  if (!text("signalId", 120) || !text("dedupeKey", 300) || !text("source", 100) || !text("kind", 100) || !text("title", 300)) return false
+  if (typeof row.summary !== "string" || row.summary.length > 2000) return false
+  if (!PERSONAL_OPS_DOMAINS.has(String(row.domain)) || !PERSONAL_OPS_SEVERITIES.has(String(row.severity))) return false
+  if (typeof row.occurredAt !== "number" || !Number.isFinite(row.occurredAt)) return false
+  if (row.dueAt !== undefined && (typeof row.dueAt !== "number" || !Number.isFinite(row.dueAt))) return false
+  try { return JSON.stringify(row.payload ?? {}).length <= 20_000 } catch { return false }
+}
+
 function safeAgentText(value: unknown, limit: number): string {
   return typeof value === "string" ? value.trim().slice(0, limit) : ""
 }
@@ -335,6 +356,45 @@ http.route({
       status: result.ok ? 200 : 503,
       headers: { "cache-control": "no-store" },
     })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/signals",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null)
+    if (!validPersonalSignalPayload(body)) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const row = body as Record<string, unknown>
+    const result = await ctx.runMutation(internal.personalOps.ingestSignal, {
+      signalId: String(row.signalId).trim(), dedupeKey: String(row.dedupeKey).trim(),
+      domain: row.domain as "EXECUTIVE" | "HEALTH" | "HOME" | "VEHICLE" | "FINANCE",
+      source: String(row.source).trim(), kind: String(row.kind).trim(), title: String(row.title).trim(),
+      summary: String(row.summary).trim(), severity: row.severity as "INFO" | "ATTENTION" | "HIGH" | "CRITICAL",
+      occurredAt: Number(row.occurredAt), dueAt: typeof row.dueAt === "number" ? row.dueAt : undefined,
+      relatedAssetId: typeof row.relatedAssetId === "string" ? row.relatedAssetId.trim().slice(0, 120) || undefined : undefined,
+      payload: row.payload ?? {},
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/planner",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const runId = safeAgentText(body?.runId, 120)
+    const kind = body?.kind === "DAILY" || body?.kind === "WEEKLY" ? body.kind : ""
+    const periodStart = typeof body?.periodStart === "number" ? body.periodStart : NaN
+    const periodEnd = typeof body?.periodEnd === "number" ? body.periodEnd : NaN
+    if (!runId || !kind || !Number.isFinite(periodStart) || !Number.isFinite(periodEnd) || periodEnd <= periodStart || periodEnd - periodStart > 32 * 86_400_000) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.personalOps.runPlanner, { runId, kind, periodStart, periodEnd })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
   }),
 })
 

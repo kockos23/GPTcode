@@ -58,3 +58,11 @@ Apple Health nie je v MVP povinný zdroj.
 - Signály majú stabilný `dedupeKey`; retry nevytvorí duplicitný plánovací vstup.
 - Planner je deterministický a nevykonáva externú akciu.
 - Produkčné nasadenie Convex a aktivácia n8n rutín sú samostatné kontrolované kroky.
+- Osobné integrácie používajú samostatný `PERSONAL_OPS_INTEGRATION_SECRET`; nerecyklujú finančný ani agent handoff secret.
+
+Pripravené autentizované kontrakty pre n8n:
+
+- `POST /integrations/n8n/personal-ops/signals` — idempotentný, ohraničený signál;
+- `POST /integrations/n8n/personal-ops/planner` — denný alebo týždenný návrhový beh.
+
+Endpointy zlyhajú s `401`, ak samostatný secret nie je nastavený. Planner vytvára iba návrhy a nevykonáva externé akcie.
