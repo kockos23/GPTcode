@@ -29,9 +29,10 @@
 ### Backend, Convex, n8n and documentation work
 
 1. Change `work`, run the relevant focused tests and then `npm run verify`.
-2. Push only reviewed code. GitHub CI validates but never deploys.
-3. Follow the relevant runbook before any live Convex deploy or n8n mutation.
-4. If a backend contract affects the UI, complete the frontend path above before publishing Macaly.
+2. Push only reviewed code. The normal GitHub quality workflow validates but never deploys.
+3. Convex production deploys use the separately manual `Deploy Convex` workflow and its protected `CONVEX_DEPLOY_KEY` secret. Its initial checked-in version has a one-time path-scoped bootstrap trigger; later application pushes do not deploy automatically.
+4. Follow the relevant runbook before any live Convex deploy or n8n mutation.
+5. If a backend contract affects the UI, complete the frontend path above before publishing Macaly.
 
 ## Rules that prevent drift
 

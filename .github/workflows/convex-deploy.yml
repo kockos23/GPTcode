@@ -1,0 +1,31 @@
+name: Deploy Convex
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work]
+    paths:
+      - .github/workflows/convex-deploy.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: convex-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Deploy Convex schema and functions
+        run: npx convex deploy -y
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
