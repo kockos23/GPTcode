@@ -51,6 +51,16 @@ export function validPersonalSignalPayload(value: unknown): value is Record<stri
   try { return JSON.stringify(row.payload ?? {}).length <= 20_000 } catch { return false }
 }
 
+export function validHealthDailyPayload(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const row = value as Record<string, unknown>
+  if (typeof row.snapshotId !== "string" || !row.snapshotId.trim() || row.snapshotId.length > 120) return false
+  if (typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.date) || Number.isNaN(Date.parse(`${row.date}T00:00:00Z`))) return false
+  if (row.source !== "GARMIN_CONNECT" || typeof row.occurredAt !== "number" || !Number.isFinite(row.occurredAt)) return false
+  if (!row.metrics || typeof row.metrics !== "object" || Array.isArray(row.metrics)) return false
+  try { return JSON.stringify(row.metrics).length <= 5_000 } catch { return false }
+}
+
 function safeAgentText(value: unknown, limit: number): string {
   return typeof value === "string" ? value.trim().slice(0, limit) : ""
 }
@@ -394,6 +404,33 @@ http.route({
       return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
     }
     const result = await ctx.runMutation(internal.personalOps.runPlanner, { runId, kind, periodStart, periodEnd })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/health/daily",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null)
+    if (!validHealthDailyPayload(body)) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const row = body as Record<string, unknown>
+    const metrics = row.metrics as Record<string, unknown>
+    const number = (key: string) => typeof metrics[key] === "number" ? metrics[key] as number : undefined
+    const result = await ctx.runMutation(internal.personalOps.upsertHealthDaily, {
+      snapshotId: String(row.snapshotId).trim(), date: String(row.date), source: "GARMIN_CONNECT",
+      quality: typeof row.quality === "string" ? row.quality.trim().slice(0, 40) : "UNKNOWN",
+      metrics: {
+        steps: number("steps"), sleepMinutes: number("sleepMinutes"), restingHeartRate: number("restingHeartRate"),
+        averageStress: number("averageStress"), intensityMinutes: number("intensityMinutes"),
+        activeCalories: number("activeCalories"), bodyBatteryLow: number("bodyBatteryLow"),
+        bodyBatteryHigh: number("bodyBatteryHigh"), activities: number("activities"),
+      },
+      baselineRestingHeartRate: typeof row.baselineRestingHeartRate === "number" ? row.baselineRestingHeartRate : undefined,
+      baselineSleepMinutes: typeof row.baselineSleepMinutes === "number" ? row.baselineSleepMinutes : undefined,
+      occurredAt: Number(row.occurredAt),
+    })
     return Response.json(result, { headers: { "cache-control": "no-store" } })
   }),
 })

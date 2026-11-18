@@ -447,6 +447,36 @@ export default defineSchema({
   })
     .index("by_snapshot_id", ["snapshotId"])
     .index("by_date", ["date"]),
+  personalUtilityReadings: defineTable({
+    readingId: v.string(),
+    assetId: v.string(),
+    utility: v.string(),
+    recordedAt: v.number(),
+    value: v.number(),
+    unit: v.string(),
+    source: v.string(),
+    note: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_reading_id", ["readingId"])
+    .index("by_asset_recorded_at", ["assetId", "recordedAt"]),
+  personalSubscriptions: defineTable({
+    subscriptionId: v.string(),
+    name: v.string(),
+    provider: v.string(),
+    category: v.string(),
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    billingCycle: v.string(),
+    nextRenewalAt: v.optional(v.number()),
+    cancellationUrl: v.optional(v.string()),
+    status: v.string(),
+    source: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_subscription_id", ["subscriptionId"])
+    .index("by_status_renewal", ["status", "nextRenewalAt"]),
   personalPlannerRuns: defineTable({
     runId: v.string(),
     kind: v.string(),

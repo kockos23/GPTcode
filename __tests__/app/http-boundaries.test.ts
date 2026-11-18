@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { allowedDriveUrl, constantTimeTextEqual, validPersonalSignalPayload, validRegisterRows } from "../../convex/http"
+import { allowedDriveUrl, constantTimeTextEqual, validHealthDailyPayload, validPersonalSignalPayload, validRegisterRows } from "../../convex/http"
 
 describe("n8n HTTP boundaries", () => {
   it("accepts only exactly equal authorization text", () => {
@@ -46,5 +46,16 @@ describe("n8n HTTP boundaries", () => {
     expect(validPersonalSignalPayload({ ...base, domain: "UNKNOWN" })).toBe(false)
     expect(validPersonalSignalPayload({ ...base, occurredAt: Number.NaN })).toBe(false)
     expect(validPersonalSignalPayload({ ...base, payload: { text: "x".repeat(20_001) } })).toBe(false)
+  })
+
+  it("accepts only bounded Garmin daily payloads", () => {
+    const valid = {
+      snapshotId: "garmin:2026-11-18", date: "2026-11-18", source: "GARMIN_CONNECT",
+      occurredAt: Date.now(), metrics: { steps: 10_000, sleepMinutes: 420 },
+    }
+    expect(validHealthDailyPayload(valid)).toBe(true)
+    expect(validHealthDailyPayload({ ...valid, source: "APPLE_HEALTH" })).toBe(false)
+    expect(validHealthDailyPayload({ ...valid, date: "18.11.2026" })).toBe(false)
+    expect(validHealthDailyPayload({ ...valid, metrics: "not-an-object" })).toBe(false)
   })
 })

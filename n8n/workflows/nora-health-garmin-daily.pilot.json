@@ -1,0 +1,74 @@
+{
+  "name": "NORA Health — Garmin Daily Intake (PILOT)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nora-health-garmin-daily-pilot",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "garmin-daily-webhook",
+      "name": "Garmin bridge — denný súhrn",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source=$input.first().json;const body=source.body&&typeof source.body==='object'?source.body:source;const date=String(body.date||'');if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))throw new Error('INVALID_DATE');const finite=(value,min,max)=>typeof value==='number'&&Number.isFinite(value)&&value>=min&&value<=max?value:undefined;const metrics={steps:finite(body.steps,0,200000),sleepMinutes:finite(body.sleepMinutes,0,1440),restingHeartRate:finite(body.restingHeartRate,20,250),averageStress:finite(body.averageStress,0,100),intensityMinutes:finite(body.intensityMinutes,0,1440),activeCalories:finite(body.activeCalories,0,20000),bodyBatteryLow:finite(body.bodyBatteryLow,0,100),bodyBatteryHigh:finite(body.bodyBatteryHigh,0,100),activities:finite(body.activities,0,100)};return [{json:{snapshotId:'garmin:'+date,date,source:'GARMIN_CONNECT',quality:String(body.quality||'PARTIAL').slice(0,40),occurredAt:typeof body.occurredAt==='number'?body.occurredAt:Date.now(),baselineRestingHeartRate:finite(body.baselineRestingHeartRate,20,250),baselineSleepMinutes:finite(body.baselineSleepMinutes,0,1440),metrics}}];"
+      },
+      "id": "normalize-garmin-daily",
+      "name": "Normalizuj Garmin a CIRQA dáta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/integrations/n8n/personal-ops/health/daily",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "save-garmin-daily",
+      "name": "Convex — ulož Garmin deň",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 0],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Garmin bridge — denný súhrn": {
+      "main": [[{ "node": "Normalizuj Garmin a CIRQA dáta", "type": "main", "index": 0 }]]
+    },
+    "Normalizuj Garmin a CIRQA dáta": {
+      "main": [[{ "node": "Convex — ulož Garmin deň", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": false,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 120,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

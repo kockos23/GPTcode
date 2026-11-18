@@ -68,6 +68,10 @@ Sanitizovaný workflow `nora-personal-ops-planner.pilot.json` pripravuje návrho
 
 Workflow sa nesmie aktivovať pred týmto pilotom.
 
+Sanitizovaný `nora-health-garmin-daily.pilot.json` je neaktívny vstupný adaptér pre denný súhrn Garmin Connect. Počíta s Fenix 3 a CIRQA agregovanými v jednom Garmin Connect účte; nezdvojuje dáta podľa zariadenia. Verejný webhook musí mať samostatný n8n header-auth credential a Convex zápis používa `PERSONAL_OPS_INTEGRATION_SECRET`. HTTP zápisový uzol zostáva v exporte vypnutý až do kontrolovaného pilotu.
+
+Workflow neobsahuje Garmin heslo ani implementáciu neoficiálneho Garmin prihlásenia. Zdrojový Garmin bridge sa vyberie až po overení dostupnej oficiálnej/partnerskej cesty alebo samostatného read-only konektora; tajomstvá nesmú prechádzať cez webhook payload.
+
 Adresa `finance@wofevents.com` môže zostať na klasickom hostingu a preposielať poštu do pripojeného Gmailu. SARA trigger filtruje priamo podľa pôvodného príjemcu; label ostáva ako manuálna záložná cesta. Gmail OAuth nemá scope na správu filtrov, preto nie je potrebný Gmail filter ani rozšírenie OAuth. Po nastavení forwardingu treba jediným testom potvrdiť, že hosting zachová `To` alebo ekvivalentnú hlavičku príjemcu.
 
 ## Overený n8n fixture test

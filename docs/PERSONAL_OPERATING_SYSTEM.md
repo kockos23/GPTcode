@@ -64,5 +64,6 @@ Pripravené autentizované kontrakty pre n8n:
 
 - `POST /integrations/n8n/personal-ops/signals` — idempotentný, ohraničený signál;
 - `POST /integrations/n8n/personal-ops/planner` — denný alebo týždenný návrhový beh.
+- `POST /integrations/n8n/personal-ops/health/daily` — ohraničený denný súhrn z Garmin Connect/CIRQA.
 
 Endpointy zlyhajú s `401`, ak samostatný secret nie je nastavený. Planner vytvára iba návrhy a nevykonáva externé akcie.

@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { internalMutation, internalQuery } from "./_generated/server"
 import { PERSONAL_DOMAINS, SIGNAL_SEVERITIES, planSignals, requiresOwnerApproval, type PersonalDomain, type SignalSeverity } from "./personalOpsLogic"
+import { analyzeHealthDay, normalizeGarminDaily } from "./healthAgentLogic"
 
 const MAX_SIGNALS = 100
 const domain = v.union(...PERSONAL_DOMAINS.map(value => v.literal(value)))
@@ -97,6 +98,84 @@ export const upsertMaintenance = internalMutation({
     if (existing) await ctx.db.patch(existing._id, values)
     else await ctx.db.insert("personalMaintenance", { ...values, createdAt: now })
     return { ok: true, created: !existing, maintenanceId }
+  },
+})
+
+export const upsertHealthDaily = internalMutation({
+  args: {
+    snapshotId: v.string(), date: v.string(), source: v.literal("GARMIN_CONNECT"), quality: v.string(),
+    metrics: v.object({
+      steps: v.optional(v.number()), sleepMinutes: v.optional(v.number()), restingHeartRate: v.optional(v.number()),
+      averageStress: v.optional(v.number()), intensityMinutes: v.optional(v.number()), activeCalories: v.optional(v.number()),
+      bodyBatteryLow: v.optional(v.number()), bodyBatteryHigh: v.optional(v.number()), activities: v.optional(v.number()),
+    }),
+    baselineRestingHeartRate: v.optional(v.number()), baselineSleepMinutes: v.optional(v.number()), occurredAt: v.number(),
+  },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), snapshotId: v.string(), signals: v.number() }),
+  handler: async (ctx, args) => {
+    const snapshotId = bounded(args.snapshotId, 120)
+    const existing = await ctx.db.query("personalHealthDaily").withIndex("by_snapshot_id", query => query.eq("snapshotId", snapshotId)).unique()
+    const metrics = normalizeGarminDaily(args.metrics)
+    const now = Date.now()
+    const values = { snapshotId, date: bounded(args.date, 10), source: args.source, quality: bounded(args.quality, 40), metrics, updatedAt: now }
+    if (existing) await ctx.db.patch(existing._id, values)
+    else await ctx.db.insert("personalHealthDaily", { ...values, createdAt: now })
+    const signals = analyzeHealthDay({
+      date: args.date, metrics, occurredAt: args.occurredAt,
+      baseline: { restingHeartRate: args.baselineRestingHeartRate, sleepMinutes: args.baselineSleepMinutes },
+    })
+    for (const signal of signals) {
+      const dedupeKey = signal.signalId
+      const duplicate = await ctx.db.query("personalSignals").withIndex("by_dedupe_key", query => query.eq("dedupeKey", dedupeKey)).unique()
+      if (!duplicate) await ctx.db.insert("personalSignals", {
+        signalId: signal.signalId, dedupeKey, domain: signal.domain, source: "GARMIN_CONNECT", kind: "HEALTH_DAILY_ALERT",
+        title: signal.title, summary: signal.summary, severity: signal.severity, status: "NEW", occurredAt: signal.occurredAt,
+        payload: { date: args.date }, createdAt: now, updatedAt: now,
+      })
+    }
+    return { ok: true, created: !existing, snapshotId, signals: signals.length }
+  },
+})
+
+export const recordUtilityReading = internalMutation({
+  args: {
+    readingId: v.string(), assetId: v.string(), utility: v.union(v.literal("ELECTRICITY"), v.literal("WATER")),
+    recordedAt: v.number(), value: v.number(), unit: v.string(), source: v.string(), note: v.string(),
+  },
+  returns: v.object({ ok: v.boolean(), duplicate: v.boolean(), readingId: v.string() }),
+  handler: async (ctx, args) => {
+    const readingId = bounded(args.readingId, 120)
+    const existing = await ctx.db.query("personalUtilityReadings").withIndex("by_reading_id", query => query.eq("readingId", readingId)).unique()
+    if (existing) return { ok: true, duplicate: true, readingId }
+    if (!Number.isFinite(args.value) || args.value < 0) throw new Error("INVALID_READING")
+    await ctx.db.insert("personalUtilityReadings", {
+      ...args, readingId, assetId: bounded(args.assetId, 120), unit: bounded(args.unit, 20),
+      source: bounded(args.source, 100), note: bounded(args.note, 1000), createdAt: Date.now(),
+    })
+    return { ok: true, duplicate: false, readingId }
+  },
+})
+
+export const upsertSubscription = internalMutation({
+  args: {
+    subscriptionId: v.string(), name: v.string(), provider: v.string(), category: v.string(), amount: v.optional(v.number()),
+    currency: v.optional(v.string()), billingCycle: v.string(), nextRenewalAt: v.optional(v.number()),
+    cancellationUrl: v.optional(v.string()), status: v.string(), source: v.string(),
+  },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), subscriptionId: v.string() }),
+  handler: async (ctx, args) => {
+    const subscriptionId = bounded(args.subscriptionId, 120)
+    const existing = await ctx.db.query("personalSubscriptions").withIndex("by_subscription_id", query => query.eq("subscriptionId", subscriptionId)).unique()
+    const now = Date.now()
+    const values = {
+      ...args, subscriptionId, name: bounded(args.name, 300), provider: bounded(args.provider, 200), category: bounded(args.category, 80),
+      currency: args.currency ? bounded(args.currency.toUpperCase(), 3) : undefined, billingCycle: bounded(args.billingCycle, 40),
+      cancellationUrl: args.cancellationUrl ? bounded(args.cancellationUrl, 1000) : undefined,
+      status: bounded(args.status, 40), source: bounded(args.source, 100), updatedAt: now,
+    }
+    if (existing) await ctx.db.patch(existing._id, values)
+    else await ctx.db.insert("personalSubscriptions", { ...values, createdAt: now })
+    return { ok: true, created: !existing, subscriptionId }
   },
 })
 
