@@ -581,6 +581,19 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/personal-ops/health/history",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const requested = Number(new URL(request.url).searchParams.get("days") ?? 30)
+    const days = Number.isFinite(requested) ? Math.max(7, Math.min(90, Math.floor(requested))) : 30
+    const since = new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10)
+    const result = await ctx.runQuery(internal.personalOps.healthHistory, { sinceDate: since, limit: days })
+    return Response.json({ ok: true, ...result }, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/personal-ops/assets",
   method: "POST",
   handler: httpAction(async (ctx, request) => {

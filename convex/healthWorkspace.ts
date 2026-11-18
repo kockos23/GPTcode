@@ -30,7 +30,7 @@ export const saveCheckin = mutation({
   args: { date: v.string(), mood: score, energy: score, soreness: score, perceivedStress: score, sleepQuality: score, note: v.string() },
   handler: async (ctx, args) => {
     await requireOwner(ctx)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date)) throw new Error("INVALID_DATE")
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date) || Number.isNaN(Date.parse(`${args.date}T00:00:00Z`))) throw new Error("INVALID_DATE")
     const values = [args.mood, args.energy, args.soreness, args.perceivedStress, args.sleepQuality]
     if (values.some(value => value !== undefined && (!Number.isFinite(value) || value < 1 || value > 10))) throw new Error("INVALID_SCORE")
     const checkinId = `manual:${args.date}`
@@ -63,7 +63,10 @@ export const logHabit = mutation({
   args: { habitId: v.string(), date: v.string(), value: v.number(), completed: v.boolean(), note: v.string() },
   handler: async (ctx, args) => {
     await requireOwner(ctx)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date) || Number.isNaN(Date.parse(`${args.date}T00:00:00Z`))) throw new Error("INVALID_DATE")
     if (!Number.isFinite(args.value) || args.value < 0) throw new Error("INVALID_VALUE")
+    const habit = await ctx.db.query("personalHealthHabits").withIndex("by_habit_id", q => q.eq("habitId", args.habitId)).unique()
+    if (!habit || !habit.active) throw new Error("HABIT_NOT_FOUND")
     const logId = `${args.habitId}:${args.date}`.slice(0, 120)
     const existing = await ctx.db.query("personalHealthHabitLogs").withIndex("by_log_id", q => q.eq("logId", logId)).unique()
     const now = Date.now()
@@ -71,5 +74,22 @@ export const logHabit = mutation({
     if (existing) await ctx.db.patch(existing._id, row)
     else await ctx.db.insert("personalHealthHabitLogs", { ...row, createdAt: now })
     return { ok: true }
+  },
+})
+
+export const saveSupplement = mutation({
+  args: { date: v.string(), name: v.string(), dose: v.number(), unit: v.string(), takenAt: v.optional(v.number()), note: v.string() },
+  handler: async (ctx, args) => {
+    await requireOwner(ctx)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date) || Number.isNaN(Date.parse(`${args.date}T00:00:00Z`))) throw new Error("INVALID_DATE")
+    const name = args.name.trim().slice(0, 160)
+    if (!name || !Number.isFinite(args.dose) || args.dose <= 0) throw new Error("INVALID_SUPPLEMENT")
+    const now = Date.now()
+    const logId = `manual:${args.date}:${name.toLowerCase()}:${args.takenAt ?? now}`.slice(0, 120)
+    await ctx.db.insert("personalHealthSupplements", {
+      logId, date: args.date, name, dose: args.dose, unit: args.unit.trim().slice(0, 30) || "unit",
+      takenAt: args.takenAt, source: "HEALTH_WORKSPACE", note: args.note.trim().slice(0, 1000), createdAt: now, updatedAt: now,
+    })
+    return { ok: true, logId }
   },
 })

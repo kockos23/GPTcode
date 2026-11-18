@@ -257,7 +257,7 @@ Pridaj názov, denný cieľ a jednotku. Tlačidlo **Dnes splnené** zapíše hod
 
 ### Suplementy a vyhodnocovanie
 
-Backend je pripravený evidovať názov, dávku, jednotku, čas a poznámku. UI pre plný suplementový denník a Telegram capture je ďalší krok.
+Suplementový denník eviduje názov, dávku, jednotku, dátum a voliteľnú poznámku. Posledné záznamy sa zobrazia priamo v sekcii. Telegram capture suplementov je ďalší krok.
 
 Systém smie hovoriť iba o „možnej pozorovanej súvislosti“. Vyžaduje aspoň sedem párových dní a minimálne tri dni v oboch porovnávaných skupinách. Výsledok musí uviesť vzorku a obdobie a nesmie tvrdiť príčinu. Zmenu liekov alebo zdravotnej liečby systém nesmie odporúčať.
 

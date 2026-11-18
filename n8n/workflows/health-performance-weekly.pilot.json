@@ -1,0 +1,62 @@
+{
+  "name": "Health & Performance — Weekly Review (PILOT)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "weeks", "weeksInterval": 1, "triggerAtDay": [7], "triggerAtHour": 19 }] } },
+      "id": "health-weekly-trigger",
+      "name": "Nedeľa 19:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/integrations/n8n/personal-ops/health/history?days=30",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 30000 }
+      },
+      "id": "health-history-request",
+      "name": "Convex — 30 dní zdravia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const d=$input.first().json;const avg=a=>a.length?Math.round(a.reduce((s,v)=>s+v,0)/a.length*10)/10:null;const values=(key)=>(d.daily||[]).map(x=>x.metrics?.[key]).filter(Number.isFinite);const checks=(key)=>(d.checkins||[]).map(x=>x[key]).filter(Number.isFinite);const completed=(d.habitLogs||[]).filter(x=>x.completed).length;const tracked=new Set((d.habitLogs||[]).map(x=>x.date)).size;const lines=['📊 Týždenný Health & Performance review',`Obdobie: ${d.period?.sinceDate||'—'} – ${d.period?.throughDate||'—'}`,`Dátové dni Garmin: ${(d.daily||[]).length}`,`Spánok: ${avg(values('sleepMinutes'))===null?'málo dát':(avg(values('sleepMinutes'))/60).toFixed(1)+' h priemer'}`,`Pokojový tep: ${avg(values('restingHeartRate'))??'málo dát'} bpm`,`Energia: ${avg(checks('energy'))??'málo dát'} / 10`,`Vnímaný stres: ${avg(checks('perceivedStress'))??'málo dát'} / 10`,`Návyky: ${completed} splnení počas ${tracked} zaznamenaných dní`,'','Ide o opis trendu, nie diagnózu ani dôkaz príčiny.'];return [{json:{text:lines.join('\\n'),sampleSize:(d.daily||[]).length}}];"
+      },
+      "id": "health-weekly-summary",
+      "name": "Zostav opisný review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": { "chatId": "REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID", "text": "={{ $json.text }}", "additionalFields": { "appendAttribution": false } },
+      "id": "health-weekly-telegram",
+      "name": "Health asistent — týždenný review",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [780, 0],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Nedeľa 19:00": { "main": [[{ "node": "Convex — 30 dní zdravia", "type": "main", "index": 0 }]] },
+    "Convex — 30 dní zdravia": { "main": [[{ "node": "Zostav opisný review", "type": "main", "index": 0 }]] },
+    "Zostav opisný review": { "main": [[{ "node": "Health asistent — týždenný review", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 120,
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "tags": []
+}

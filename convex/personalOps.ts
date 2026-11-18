@@ -249,6 +249,29 @@ export const upsertHealthSupplement = internalMutation({
   },
 })
 
+export const healthHistory = internalQuery({
+  args: { sinceDate: v.string(), limit: v.number() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(90, Math.floor(args.limit)))
+    const [daily, checkins, habitLogs, supplements, habits] = await Promise.all([
+      ctx.db.query("personalHealthDaily").withIndex("by_date", q => q.gte("date", args.sinceDate)).order("desc").take(limit),
+      ctx.db.query("personalHealthCheckins").withIndex("by_date", q => q.gte("date", args.sinceDate)).order("desc").take(limit),
+      ctx.db.query("personalHealthHabitLogs").withIndex("by_date", q => q.gte("date", args.sinceDate)).order("desc").take(limit * 10),
+      ctx.db.query("personalHealthSupplements").withIndex("by_date", q => q.gte("date", args.sinceDate)).order("desc").take(limit * 10),
+      ctx.db.query("personalHealthHabits").withIndex("by_active", q => q.eq("active", true)).take(50),
+    ])
+    return {
+      period: { sinceDate: args.sinceDate, throughDate: new Date().toISOString().slice(0, 10) },
+      daily: daily.map(row => ({ date: row.date, quality: row.quality, metrics: row.metrics })),
+      checkins: checkins.map(row => ({ date: row.date, mood: row.mood, energy: row.energy, soreness: row.soreness, perceivedStress: row.perceivedStress, sleepQuality: row.sleepQuality, note: row.note })),
+      habits: habits.map(row => ({ habitId: row.habitId, name: row.name, target: row.target, unit: row.unit })),
+      habitLogs: habitLogs.map(row => ({ habitId: row.habitId, date: row.date, value: row.value, completed: row.completed })),
+      supplements: supplements.map(row => ({ date: row.date, name: row.name, dose: row.dose, unit: row.unit })),
+    }
+  },
+})
+
 export const recordUtilityReading = internalMutation({
   args: {
     readingId: v.string(), assetId: v.string(), utility: v.union(v.literal("ELECTRICITY"), v.literal("WATER")),
