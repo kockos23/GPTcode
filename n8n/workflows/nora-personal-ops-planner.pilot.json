@@ -1,0 +1,110 @@
+{
+  "name": "NORA — Personal Operations Planner (PILOT)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "personal-ops-daily-trigger",
+      "name": "Ranný plán — 06:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "personal-ops-weekly-trigger",
+      "name": "Týždenný plán — nedeľa 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date(); const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Bratislava' }).format(now); return [{ json: { runId: 'daily:' + day, kind: 'DAILY', periodStart: now.getTime(), periodEnd: now.getTime() + 86400000 } }];"
+      },
+      "id": "personal-ops-daily-request",
+      "name": "Priprav denný plán",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date(); const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Bratislava' }).format(now); return [{ json: { runId: 'weekly:' + day, kind: 'WEEKLY', periodStart: now.getTime(), periodEnd: now.getTime() + 7 * 86400000 } }];"
+      },
+      "id": "personal-ops-weekly-request",
+      "name": "Priprav týždenný plán",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/integrations/n8n/personal-ops/planner",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "personal-ops-planner-request",
+      "name": "Convex — navrhni plán",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 120],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Ranný plán — 06:30": {
+      "main": [[{ "node": "Priprav denný plán", "type": "main", "index": 0 }]]
+    },
+    "Týždenný plán — nedeľa 18:00": {
+      "main": [[{ "node": "Priprav týždenný plán", "type": "main", "index": 0 }]]
+    },
+    "Priprav denný plán": {
+      "main": [[{ "node": "Convex — navrhni plán", "type": "main", "index": 0 }]]
+    },
+    "Priprav týždenný plán": {
+      "main": [[{ "node": "Convex — navrhni plán", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": false,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "executionTimeout": 120,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -56,6 +56,18 @@ IMAP správy sa normalizujú na pevne určený `sourceAccount` a idempotentne za
 
 Label `WOF_FINANCE_INTAKE` bol 28. 10. 2026 vytvorený priamo v pripojenom SARA Gmail účte. Jeho vytvorenie nepoužilo Composio a nezmenilo žiadnu správu.
 
+## NORA Personal Operations Planner
+
+Sanitizovaný workflow `nora-personal-ops-planner.pilot.json` pripravuje návrhový denný beh o 06:30 a týždenný beh v nedeľu o 18:00 `Europe/Bratislava`. Export je neaktívny a HTTP uzol je navyše vypnutý. Pred pilotom treba:
+
+1. nasadiť aktuálnu Convex schému a `personalOps` funkcie cez existujúci Macaly Live deployment;
+2. vytvoriť samostatný `PERSONAL_OPS_INTEGRATION_SECRET` v Convexe;
+3. v n8n vytvoriť header-auth credential s rovnakým bearer secretom;
+4. nahradiť `REPLACE_WITH_CONVEX_SITE_URL`, pripojiť credential a spustiť jeden manuálny pilot;
+5. potvrdiť, že vznikli iba `PROPOSED` kroky a žiadna externá akcia.
+
+Workflow sa nesmie aktivovať pred týmto pilotom.
+
 Adresa `finance@wofevents.com` môže zostať na klasickom hostingu a preposielať poštu do pripojeného Gmailu. SARA trigger filtruje priamo podľa pôvodného príjemcu; label ostáva ako manuálna záložná cesta. Gmail OAuth nemá scope na správu filtrov, preto nie je potrebný Gmail filter ani rozšírenie OAuth. Po nastavení forwardingu treba jediným testom potvrdiť, že hosting zachová `To` alebo ekvivalentnú hlavičku príjemcu.
 
 ## Overený n8n fixture test
