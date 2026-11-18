@@ -1,0 +1,20 @@
+{
+  "name": "NORA — WOF Events SMTP sender (APPROVAL PILOT)",
+  "nodes": [
+    { "parameters": {}, "id": "events-manual", "name": "Ručný schválený test", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    {
+      "parameters": { "assignments": { "assignments": [
+        { "id": "to", "name": "to", "value": "REPLACE_WITH_APPROVED_TEST_RECIPIENT", "type": "string" },
+        { "id": "subject", "name": "subject", "value": "NORA WOF Events SMTP pilot", "type": "string" },
+        { "id": "text", "name": "text", "value": "Schválený test SMTP od NORY.", "type": "string" }
+      ]}, "options": {} },
+      "id": "events-payload", "name": "Priprav schválený test", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [240, 0]
+    },
+    {
+      "parameters": { "fromEmail": "tomas.kocner@wofevents.com", "toEmail": "={{ $json.to }}", "subject": "={{ $json.subject }}", "emailFormat": "text", "text": "={{ $json.text }}", "options": { "appendAttribution": false } },
+      "id": "events-send", "name": "Odošli cez WOF Events", "type": "n8n-nodes-base.emailSend", "typeVersion": 2.1, "position": [500, 0], "disabled": true
+    }
+  ],
+  "connections": { "Ručný schválený test": { "main": [[{ "node": "Priprav schválený test", "type": "main", "index": 0 }]] }, "Priprav schválený test": { "main": [[{ "node": "Odošli cez WOF Events", "type": "main", "index": 0 }]] } },
+  "settings": { "executionOrder": "v1", "timezone": "Europe/Bratislava", "saveDataErrorExecution": "all", "saveDataSuccessExecution": "all", "saveExecutionProgress": false, "executionTimeout": 120 }
+}

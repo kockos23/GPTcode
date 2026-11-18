@@ -199,6 +199,23 @@ export default defineSchema({
     syncedAt: v.number(),
     updatedAt: v.number(),
   }).index("by_cache_key", ["cacheKey"]),
+  chiefOfStaffExternalEmails: defineTable({
+    emailKey: v.string(),
+    sourceAccount: v.string(),
+    messageId: v.string(),
+    threadId: v.string(),
+    subject: v.string(),
+    sender: v.string(),
+    timestamp: v.string(),
+    preview: v.string(),
+    url: v.string(),
+    important: v.boolean(),
+    receivedAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_email_key", ["emailKey"])
+    .index("by_received_at", ["receivedAt"]),
   chiefOfStaffProjects: defineTable({
     projectId: v.string(),
     area: v.string(),

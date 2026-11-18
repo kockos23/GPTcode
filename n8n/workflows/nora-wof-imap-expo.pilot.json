@@ -1,0 +1,46 @@
+{
+  "name": "NORA — WOF Expo IMAP intake (PILOT)",
+  "nodes": [
+    {
+      "parameters": { "format": "resolved", "options": {} },
+      "id": "wof-expo-imap",
+      "name": "WOF Expo — nový e-mail",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const account='tomas.kocner@wofexpo.com';\nconst clean=(v,n)=>String(v??'').replace(/\\s+/g,' ').trim().slice(0,n);\nconst address=(from)=>{if(typeof from==='string')return clean(from,500);const first=from?.value?.[0];return clean(first?.name?first.name+' <'+first.address+'>':first?.address||from?.text,500)};\nreturn items.map(({json})=>{const messageId=clean(json.messageId||json.headers?.['message-id']||json.headers?.messageId,500);const rawDate=json.date||json.receivedDate||json.headers?.date;const date=new Date(rawDate);if(!messageId||Number.isNaN(date.getTime()))return null;return {json:{sourceAccount:account,messageId,threadId:clean(json.threadId||messageId,500),subject:clean(json.subject||'(bez predmetu)',500),sender:address(json.from),timestamp:date.toISOString(),preview:clean(json.text||json.textPlain||json.html||'',2000),url:'',important:false}}}).filter(Boolean);"
+      },
+      "id": "wof-expo-normalize",
+      "name": "Normalizuj WOF Expo správu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/integrations/n8n/chief-of-staff/email",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "wof-expo-convex",
+      "name": "Convex — ulož WOF Expo správu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0]
+    }
+  ],
+  "connections": {
+    "WOF Expo — nový e-mail": { "main": [[{ "node": "Normalizuj WOF Expo správu", "type": "main", "index": 0 }]] },
+    "Normalizuj WOF Expo správu": { "main": [[{ "node": "Convex — ulož WOF Expo správu", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Europe/Bratislava", "saveDataErrorExecution": "all", "saveDataSuccessExecution": "none", "saveExecutionProgress": false, "executionTimeout": 300 }
+}

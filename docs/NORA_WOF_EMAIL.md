@@ -19,11 +19,11 @@ Vytvoriť štyri credentials s týmito názvami:
 Websupport nastavenie treba pred uložením porovnať s aktuálnymi údajmi v administrácii hostingu. Bežné nastavenie je:
 
 - IMAP host `imap.websupport.sk`, port `993`, SSL/TLS zapnuté;
-- SMTP host `smtp.websupport.sk`, port `465`, SSL/TLS zapnuté;
+- SMTP host `smtp.websupport.sk`, port `587`, SSL/TLS vypnuté a STARTTLS zapnuté;
 - používateľské meno je celá e-mailová adresa;
 - heslo je heslo konkrétnej schránky.
 
-Ak Websupport pre danú schránku uvádza SMTP port `587`, použiť STARTTLS namiesto implicitného TLS na porte `465`.
+Port `587` s STARTTLS bol úspešne otestovaný pre obe schránky 18. 11. 2026.
 
 ## Bezpečné zapojenie workflowov
 
@@ -46,3 +46,11 @@ Pre každý účet samostatne:
 6. potvrdiť From, Reply-To, text, diakritiku a prílohu.
 
 Aktivácia oboch príjmov naraz je dovolená až po úspešnom pilote oboch schránok.
+
+## Stav 18. 11. 2026
+
+- Všetky štyri credentials boli používateľom otestované ako funkčné.
+- V n8n boli vytvorené dva neaktívne IMAP intake piloty a dva neaktívne SMTP approval piloty.
+- IMAP workflowy majú pripojenú existujúcu autentizáciu n8n → Convex, ale každý IMAP trigger ešte potrebuje ručne vybrať príslušný credential.
+- SMTP odosielacie uzly sú zámerne vypnuté a každý ešte potrebuje ručne vybrať príslušný credential. Povolenie uzla a testovací príjemca patria až do kontrolovaného pilotu.
+- Convex kód obsahuje idempotentný endpoint `/integrations/n8n/chief-of-staff/email` a zlúčenie oboch WOF schránok do Inbox Radaru. Nasadenie endpointu čaká na platný `CONVEX_DEPLOY_KEY`; kľúč dostupný v pracovnom prostredí bol pri deploy pokuse odmietnutý.

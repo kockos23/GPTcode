@@ -2,6 +2,10 @@ import { v } from "convex/values"
 import { internalMutation, internalQuery } from "./_generated/server"
 
 const MAX_COLLECTION = 500
+const ALLOWED_EXTERNAL_ACCOUNTS = new Set([
+  "tomas.kocner@wofevents.com",
+  "tomas.kocner@wofexpo.com",
+])
 
 function bounded(value: unknown): unknown[] {
   if (!Array.isArray(value)) return []
@@ -44,9 +48,10 @@ export const getSnapshot = internalQuery({
       .withIndex("by_cache_key", query => query.eq("cacheKey", "primary"))
       .unique()
     if (!row) return null
-    const [nativeTasks, nativeCommands] = await Promise.all([
+    const [nativeTasks, nativeCommands, externalEmails] = await Promise.all([
       ctx.db.query("chiefOfStaffTasks").withIndex("by_status").collect(),
       ctx.db.query("chiefOfStaffCommands").withIndex("by_created_at").order("desc").take(MAX_COLLECTION),
+      ctx.db.query("chiefOfStaffExternalEmails").withIndex("by_received_at").order("desc").take(100),
     ])
     const taskIds = new Set(nativeTasks.map(item => item.taskId))
     const commandIds = new Set(nativeCommands.map(item => item.commandId))
@@ -68,11 +73,57 @@ export const getSnapshot = internalQuery({
       agent: item.agent, result: item.result, error: item.error, runId: item.commandId,
       updated: new Date(item.updatedAt).toISOString(),
     })), ...sheetCommands].slice(0, MAX_COLLECTION)
+    const snapshotEmails = Array.isArray(row.emails) ? row.emails as Array<Record<string, unknown>> : []
+    const externalIds = new Set(externalEmails.map(item => item.emailKey))
+    const emails = [
+      ...externalEmails.map(item => ({
+        id: item.emailKey, threadId: item.threadId, subject: item.subject, sender: item.sender,
+        timestamp: item.timestamp, preview: item.preview, url: item.url, important: item.important,
+      })),
+      ...snapshotEmails.filter(item => !externalIds.has(String(item.id ?? ""))),
+    ].sort((left, right) => Date.parse(String(right.timestamp ?? "")) - Date.parse(String(left.timestamp ?? "")))
+      .slice(0, 100)
     return {
-      calendar: row.calendar, emails: row.emails, agents: row.agents, workQueue: row.workQueue,
+      calendar: row.calendar, emails, agents: row.agents, workQueue: row.workQueue,
       tasks, commands, sourceErrors: row.sourceErrors,
       syncedAt: row.syncedAt, updatedAt: row.updatedAt,
     }
+  },
+})
+
+export const upsertExternalEmail = internalMutation({
+  args: {
+    sourceAccount: v.string(), messageId: v.string(), threadId: v.string(), subject: v.string(),
+    sender: v.string(), timestamp: v.string(), preview: v.string(), url: v.string(), important: v.boolean(),
+  },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), emailKey: v.string() }),
+  handler: async (ctx, args) => {
+    const sourceAccount = args.sourceAccount.trim().toLowerCase()
+    if (!ALLOWED_EXTERNAL_ACCOUNTS.has(sourceAccount)) throw new Error("Unsupported source account")
+    const messageId = args.messageId.trim().slice(0, 500)
+    if (!messageId) throw new Error("Missing message ID")
+    const timestampMs = Date.parse(args.timestamp)
+    if (!Number.isFinite(timestampMs)) throw new Error("Invalid timestamp")
+    const emailKey = `imap:${sourceAccount}:${messageId}`
+    const now = Date.now()
+    const record = {
+      emailKey, sourceAccount, messageId, threadId: args.threadId.trim().slice(0, 500),
+      subject: args.subject.trim().slice(0, 500), sender: args.sender.trim().slice(0, 500),
+      timestamp: new Date(timestampMs).toISOString(), preview: args.preview.trim().slice(0, 2000),
+      url: args.url.trim().slice(0, 1000), important: args.important,
+      receivedAt: timestampMs, updatedAt: now,
+    }
+    const existing = await ctx.db.query("chiefOfStaffExternalEmails")
+      .withIndex("by_email_key", query => query.eq("emailKey", emailKey)).unique()
+    if (existing) {
+      await ctx.db.patch(existing._id, record)
+      return { ok: true, created: false, emailKey }
+    }
+    await ctx.db.insert("chiefOfStaffExternalEmails", { ...record, createdAt: now })
+    const retained = await ctx.db.query("chiefOfStaffExternalEmails")
+      .withIndex("by_received_at").order("desc").take(201)
+    for (const stale of retained.slice(200)) await ctx.db.delete(stale._id)
+    return { ok: true, created: true, emailKey }
   },
 })
 

@@ -299,6 +299,33 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/chief-of-staff/email",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
+    const sourceAccount = text("sourceAccount", 254).toLowerCase()
+    const messageId = text("messageId", 500)
+    const timestamp = text("timestamp", 80)
+    if (!sourceAccount || !messageId || !timestamp || !Number.isFinite(Date.parse(timestamp))) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    try {
+      const result = await ctx.runMutation(internal.chiefOfStaff.upsertExternalEmail, {
+        sourceAccount, messageId, timestamp,
+        threadId: text("threadId", 500), subject: text("subject", 500), sender: text("sender", 500),
+        preview: text("preview", 2000), url: text("url", 1000), important: body?.important === true,
+      })
+      return Response.json(result)
+    } catch (error) {
+      console.error("[n8n chief of staff email] Ingest failed", error)
+      return Response.json({ ok: false, code: "EMAIL_INGEST_FAILED" }, { status: 422 })
+    }
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/chief-of-staff/health",
   method: "GET",
   handler: httpAction(async (ctx, request) => {

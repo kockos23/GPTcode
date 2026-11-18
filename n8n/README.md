@@ -48,6 +48,12 @@ Credential hodnoty ani API kľúče nesmú byť uložené v Gite.
 - Každý doklad zostáva v stave `Na kontrolu`; automatizácia nepotvrdzuje úhradu.
 - Workflow sa neaktivuje, kým neprejde fixture testom a kontrolovaným Gmail pilotom.
 
+## NORA WOF IMAP/SMTP pilot
+
+V živej n8n inštancii sú od 18. 11. 2026 vytvorené a neaktívne štyri workflowy: samostatný IMAP intake a samostatný schvaľovaný SMTP sender pre `tomas.kocner@wofevents.com` a `tomas.kocner@wofexpo.com`. Sanitizované exporty sú v `n8n/workflows/nora-wof-*.pilot.json`.
+
+IMAP správy sa normalizujú na pevne určený `sourceAccount` a idempotentne zapisujú cez autentizovaný Convex endpoint podľa `sourceAccount + Message-ID`. SMTP uzly sú v exporte aj live workflowoch vypnuté; automatické odosielanie nie je povolené. Pred pilotom treba v každom trigger/sender uzle ručne vybrať presne pomenovaný n8n credential a nasadiť aktuálny Convex backend platným deploy kľúčom.
+
 Label `WOF_FINANCE_INTAKE` bol 28. 10. 2026 vytvorený priamo v pripojenom SARA Gmail účte. Jeho vytvorenie nepoužilo Composio a nezmenilo žiadnu správu.
 
 Adresa `finance@wofevents.com` môže zostať na klasickom hostingu a preposielať poštu do pripojeného Gmailu. SARA trigger filtruje priamo podľa pôvodného príjemcu; label ostáva ako manuálna záložná cesta. Gmail OAuth nemá scope na správu filtrov, preto nie je potrebný Gmail filter ani rozšírenie OAuth. Po nastavení forwardingu treba jediným testom potvrdiť, že hosting zachová `To` alebo ekvivalentnú hlavičku príjemcu.
