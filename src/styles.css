@@ -1095,6 +1095,8 @@ body {
 
 .nora-intro { align-items: center; }
 .nora-section-avatar { display: grid; width: 58px; height: 58px; flex: 0 0 auto; place-items: center; border-radius: 18px; background: hsl(var(--plum)); color: hsl(var(--lime)); box-shadow: 6px 7px 0 hsl(var(--lime)); }
+.nora-section-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.nav-portrait { flex: 0 0 auto; border-radius: 50%; object-fit: cover; }
 .nora-capture-card { margin-bottom: 18px; border-top: 5px solid hsl(var(--lime)); }
 .nora-task-form { display: grid; gap: 10px; }
 .nora-task-form input, .nora-task-form textarea, .nora-task-form select { width: 100%; min-width: 0; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 11px 12px; outline: none; background: white; color: hsl(var(--black)); font: inherit; font-size: 11px; }

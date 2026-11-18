@@ -203,12 +203,12 @@ const events = [
   { date:'1.–5. nov', time:'20:00', title:'Online Summit', type:'Summit' },
 ]
 
-const navItems: { id: View; label: string; icon: LucideIcon }[] = [
+const navItems: { id: View; label: string; icon: LucideIcon; portrait?:string }[] = [
   { id:'home', label:'Dnes', icon:LayoutDashboard },
   { id:'decisions', label:'Rozhodnutia', icon:ListChecks },
   { id:'projects', label:'Projekty', icon:FolderKanban },
   { id:'tasks', label:'Úlohy', icon:BellRing },
-  { id:'nora', label:'NORA', icon:Bot },
+  { id:'nora', label:'NORA', icon:Bot, portrait:noraPortrait },
   { id:'ideas', label:'VERA', icon:Lightbulb },
   { id:'agents', label:'Agent Control', icon:PlugZap },
   { id:'finance', label:'WOF Finance', icon:Banknote },
@@ -331,7 +331,7 @@ function ChiefOfStaffHQ() {
     </main>
 
     <nav className="bottom-nav" aria-label="Mobilná navigácia">
-      {navItems.map(item => { const Icon=item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => go(item.id)}><Icon size={20}/><span>{item.id === 'home' ? 'Home' : item.id === 'decisions' ? 'Voľby' : item.label}</span>{item.id === 'decisions' && pending.length > 0 && <i>{pending.length}</i>}</button> })}
+      {navItems.map(item => { const Icon=item.icon; return <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => go(item.id)}>{item.portrait?<img className="nav-portrait" src={item.portrait} alt="" width={20} height={20}/>:<Icon size={20}/>}<span>{item.id === 'home' ? 'Home' : item.id === 'decisions' ? 'Voľby' : item.label}</span>{item.id === 'decisions' && pending.length > 0 && <i>{pending.length}</i>}</button> })}
       <button className={view === 'more' ? 'active' : ''} onClick={() => go('more')}><MoreHorizontal size={20}/><span>Viac</span></button>
     </nav>
 
@@ -346,7 +346,7 @@ function Brand({ compact=false }: { compact?: boolean }) {
 
 function NavButton({ item, active, count, onClick }: { item:(typeof navItems)[number]; active:boolean; count?:number; onClick:()=>void }) {
   const Icon=item.icon
-  return <button onClick={onClick} className={active ? 'nav-button active' : 'nav-button'}><Icon size={18}/><span>{item.label}</span>{count !== undefined && <b>{count}</b>}</button>
+  return <button onClick={onClick} className={active ? 'nav-button active' : 'nav-button'}>{item.portrait?<img className="nav-portrait" src={item.portrait} alt="" width={20} height={20}/>:<Icon size={18}/>}<span>{item.label}</span>{count !== undefined && <b>{count}</b>}</button>
 }
 
 function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {

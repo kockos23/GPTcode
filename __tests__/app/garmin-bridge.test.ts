@@ -13,4 +13,15 @@ describe("Garmin bridge normalizer", () => {
     expect(normalizer).toContain('"bodyBatteryHigh"')
     expect(normalizer).toContain('metrics["sleepMinutes"] = round')
   })
+
+  it("ships an interactive MFA bootstrap and a non-root read-only container", () => {
+    const bootstrap = fs.readFileSync("integrations/garmin/bootstrap.py", "utf8")
+    const dockerfile = fs.readFileSync("integrations/garmin/Dockerfile", "utf8")
+    const compose = fs.readFileSync("integrations/garmin/compose.example.yml", "utf8")
+    expect(bootstrap).toContain("resume_login(result[1]")
+    expect(bootstrap).toContain("getpass.getpass")
+    expect(dockerfile).toContain("USER garmin")
+    expect(compose).toContain("no-new-privileges:true")
+    expect(compose).toContain("read_only: true")
+  })
 })
