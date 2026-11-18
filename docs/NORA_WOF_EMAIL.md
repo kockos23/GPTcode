@@ -50,7 +50,8 @@ Aktivácia oboch príjmov naraz je dovolená až po úspešnom pilote oboch schr
 ## Stav 18. 11. 2026
 
 - Všetky štyri credentials boli používateľom otestované ako funkčné.
-- V n8n boli vytvorené dva IMAP intake piloty a dva neaktívne SMTP approval piloty. WOF Events IMAP je od 18. 11. 2026 aktívny ako prvý kontrolovaný pilot; WOF Expo zostáva neaktívny.
+- V n8n boli vytvorené dva IMAP intake workflowy a dva neaktívne SMTP approval piloty. Oba IMAP príjmy sú od 18. 11. 2026 aktívne a prešli kontrolovaným pilotom do Inbox Radaru.
 - IMAP workflowy majú pripojenú existujúcu autentizáciu n8n → Convex, ale každý IMAP trigger ešte potrebuje ručne vybrať príslušný credential.
 - SMTP odosielacie uzly sú zámerne vypnuté a každý ešte potrebuje ručne vybrať príslušný credential. Povolenie uzla a testovací príjemca patria až do kontrolovaného pilotu.
 - Convex endpoint `/integrations/n8n/chief-of-staff/email` a zlúčenie oboch WOF schránok do Inbox Radaru boli nasadené cez Macaly na existujúci Live deployment. Autentizovaný prázdny payload vrátil `400 INVALID_PAYLOAD` a Chief of Staff health `200 OK`.
+- Pilot odhalil duplicitné položky z IMAP servera. Oba workflowy preto deduplikujú dávku podľa `Message-ID`; Convex pri upserte ponechá jediný `emailKey` a odstráni staršie duplicity. Trigger používa `postProcessAction: nothing` a nemení stav ani umiestnenie správy.
