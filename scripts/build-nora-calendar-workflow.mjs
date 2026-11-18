@@ -13,6 +13,11 @@ const agent = node('NORA Agent')
 const parser = node('ParseAgentOutput')
 if (!agent || !parser) throw new Error('NORA nodes are missing')
 
+for (const sttName of ['STT Voice', 'STT Audio']) {
+  const stt = node(sttName)
+  if (stt) stt.parameters.options = { ...(stt.parameters.options || {}), language: 'sk' }
+}
+
 // Put the live clock directly into the agent input. Some n8n AI Agent versions
 // do not interpolate {{$now}} inside systemMessage, which can make relative
 // requests such as "zajtra" resolve against the model's stale training date.
@@ -79,8 +84,12 @@ const now=Date.now();
 for(const [key,value] of Object.entries(state.calendarPending)){if(!value||Number(value.expiresAt||0)<now)delete state.calendarPending[key]}
 const chatKey=String(source.chatId||'');
 const text=String(source.rawText||'').trim().toLocaleLowerCase('sk-SK');
+const compact=text.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const pending=state.calendarPending[chatKey];
-const confirm=/^(áno|ano|potvrdzujem|potvrď|potvrd|ok)$/i.test(text);
+const extract=$('ExtractPayload').first().json||{};
+const isShortVoice=String(extract.hasVoice)==='true'&&Number(source.usage?.seconds||extract.message?.voice?.duration||0)<=3;
+const voiceConfirm=isShortVoice&&/^(ano|a nao|ah nao|a no|ah no)$/i.test(compact);
+const confirm=/^(áno|ano|potvrdzujem|potvrď|potvrd|ok)$/i.test(text)||voiceConfirm;
 const cancel=/^(zruš|zrus|zrušiť|zrusit|cancel)$/i.test(text);
 if(pending&&confirm){return [{json:{...source,...pending,calendarRoute:'CONFIRM'}}]}
 if(pending&&cancel){delete state.calendarPending[chatKey];return [{json:{...source,calendarRoute:'CANCEL',text:'Kalendárový návrh som zrušila.'}}]}

@@ -37,3 +37,10 @@ test('one approval can create multiple rich events', () => {
   assert.match(source, /Extract EVERY distinct event/)
   assert.match(source, /expectedDates/)
 })
+
+test('short Slovak voice confirmations tolerate STT variants', () => {
+  assert.match(source, /language: 'sk'/)
+  assert.match(source, /isShortVoice/)
+  assert.match(source, /ah nao/)
+  assert.match(source, /voiceConfirm/)
+})

@@ -14,6 +14,8 @@ Viacudalostné zadanie spracúva samostatný kalendárový extraktor bez konverz
 4. Zápis vykoná až po samostatnej odpovedi `ÁNO`, `ANO`, `potvrdzujem`, `potvrď` alebo `OK`.
 5. `ZRUŠ` návrh zahodí.
 
+Hlasový prepis používa slovenčinu. Počas čakajúceho návrhu krátka hlasovka rozpozná aj chybné STT varianty slovenského „áno“, napríklad `Ah, não`; zrušenie sa vykoná iba po explicitnom slovenskom príkaze `zruš`.
+
 Pri vytvorení bez trvania sa použije 60 minút. Pri presune bez nového konca sa zachová pôvodné trvanie. Presun sa nevykoná, ak vyhľadávanie nenájde práve jednu zodpovedajúcu udalosť.
 
 ## Prevádzka
