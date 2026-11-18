@@ -9,6 +9,8 @@ test('NORA preserves multiple dictated tasks and bounds fan-out', () => {
   assert.match(source, /slice\(0,25\)/)
   assert.match(source, /taskId:/)
   assert.match(source, /taskDeadline/)
+  assert.match(source, /nora-actionable-task/)
+  assert.doesNotMatch(source, /includes\(\$json\.intent\) \}\} \}\}/)
 })
 
 test('NORA writes idempotent tasks to Convex through authenticated n8n boundary', () => {

@@ -24,8 +24,9 @@ const node = name => workflow.nodes.find(item => item.name === name)
 const agent = node("NORA Agent")
 const parser = node("ParseAgentOutput")
 const sheetTask = node("Create Agent Task")
+const actionable = node("Is Actionable Task")
 const verifiedCredential = probe.nodes.find(item => item.credentials?.httpHeaderAuth)?.credentials
-if (!agent || !parser || !sheetTask || !verifiedCredential?.httpHeaderAuth) throw new Error("Required NORA nodes or Convex credential are missing")
+if (!agent || !parser || !sheetTask || !actionable || !verifiedCredential?.httpHeaderAuth) throw new Error("Required NORA nodes or Convex credential are missing")
 
 const taskRule = `
 
@@ -74,6 +75,12 @@ mapping["Deadline"] = "={{ $json.taskDeadline }}"
 mapping["Vstupy"] = "={{ $json.taskDetails || $json.rawText }}"
 mapping["Očakávaný výstup"] = "={{ $json.taskDetails }}"
 mapping["Approval gate"] = "={{ $json.taskApproval === 'OWNER' ? 'Tomáš schváli' : 'Nie' }}"
+
+actionable.parameters.conditions = {
+  options: { caseSensitive: true, leftValue: "", typeValidation: "strict", version: 2 },
+  conditions: [{ id: "nora-actionable-task", leftValue: "={{ ['CAPTURE','ROUTE'].includes($json.intent) ? 'YES' : 'NO' }}", rightValue: "YES", operator: { type: "string", operation: "equals" } }],
+  combinator: "and",
+}
 
 workflow.connections["Is Actionable Task"] = { main: [[{ node: splitName, type: "main", index: 0 }], []] }
 workflow.connections[splitName] = { main: [[
