@@ -497,6 +497,89 @@ http.route({
   }),
 })
 
+function validIsoDate(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+}
+
+function optionalHealthScore(value: unknown): number | undefined | null {
+  if (value === undefined) return undefined
+  return typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 10 ? value : null
+}
+
+http.route({
+  path: "/integrations/n8n/personal-ops/health/habits",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const habitId = safeAgentText(body?.habitId, 120)
+    const name = safeAgentText(body?.name, 200)
+    const target = typeof body?.target === "number" ? body.target : NaN
+    if (!habitId || !name || !Number.isFinite(target) || target < 0) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const result = await ctx.runMutation(internal.personalOps.upsertHealthHabit, {
+      habitId, name, target, category: safeAgentText(body?.category, 60) || "WELLBEING",
+      unit: safeAgentText(body?.unit, 30) || "count", cadence: safeAgentText(body?.cadence, 40) || "DAILY",
+      active: body?.active !== false,
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/health/checkins",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const scores = ["mood", "energy", "soreness", "perceivedStress", "sleepQuality"].map(key => optionalHealthScore(body?.[key]))
+    const checkinId = safeAgentText(body?.checkinId, 120)
+    if (!checkinId || !validIsoDate(body?.date) || scores.some(value => value === null)) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const [mood, energy, soreness, perceivedStress, sleepQuality] = scores as (number | undefined)[]
+    const result = await ctx.runMutation(internal.personalOps.upsertHealthCheckin, {
+      checkinId, date: body.date, mood, energy, soreness, perceivedStress, sleepQuality,
+      source: safeAgentText(body?.source, 80) || "NORA", note: safeAgentText(body?.note, 2000),
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/health/habit-logs",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const logId = safeAgentText(body?.logId, 120)
+    const habitId = safeAgentText(body?.habitId, 120)
+    const value = typeof body?.value === "number" ? body.value : NaN
+    if (!logId || !habitId || !validIsoDate(body?.date) || !Number.isFinite(value) || value < 0) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const result = await ctx.runMutation(internal.personalOps.upsertHealthHabitLog, {
+      logId, habitId, date: body.date, value, completed: body?.completed === true,
+      source: safeAgentText(body?.source, 80) || "NORA", note: safeAgentText(body?.note, 1000),
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/health/supplements",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const logId = safeAgentText(body?.logId, 120)
+    const name = safeAgentText(body?.name, 160)
+    const dose = typeof body?.dose === "number" ? body.dose : NaN
+    if (!logId || !name || !validIsoDate(body?.date) || !Number.isFinite(dose) || dose <= 0) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const result = await ctx.runMutation(internal.personalOps.upsertHealthSupplement, {
+      logId, date: body.date, name, dose, unit: safeAgentText(body?.unit, 30) || "unit",
+      takenAt: typeof body?.takenAt === "number" && Number.isFinite(body.takenAt) ? body.takenAt : undefined,
+      source: safeAgentText(body?.source, 80) || "NORA", note: safeAgentText(body?.note, 1000),
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
 http.route({
   path: "/integrations/n8n/personal-ops/assets",
   method: "POST",

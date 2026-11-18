@@ -447,6 +447,62 @@ export default defineSchema({
   })
     .index("by_snapshot_id", ["snapshotId"])
     .index("by_date", ["date"]),
+  personalHealthHabits: defineTable({
+    habitId: v.string(),
+    name: v.string(),
+    category: v.string(),
+    target: v.number(),
+    unit: v.string(),
+    cadence: v.string(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_habit_id", ["habitId"])
+    .index("by_active", ["active"]),
+  personalHealthCheckins: defineTable({
+    checkinId: v.string(),
+    date: v.string(),
+    source: v.string(),
+    mood: v.optional(v.number()),
+    energy: v.optional(v.number()),
+    soreness: v.optional(v.number()),
+    perceivedStress: v.optional(v.number()),
+    sleepQuality: v.optional(v.number()),
+    note: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_checkin_id", ["checkinId"])
+    .index("by_date", ["date"]),
+  personalHealthHabitLogs: defineTable({
+    logId: v.string(),
+    habitId: v.string(),
+    date: v.string(),
+    value: v.number(),
+    completed: v.boolean(),
+    source: v.string(),
+    note: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_log_id", ["logId"])
+    .index("by_habit_date", ["habitId", "date"])
+    .index("by_date", ["date"]),
+  personalHealthSupplements: defineTable({
+    logId: v.string(),
+    date: v.string(),
+    name: v.string(),
+    dose: v.number(),
+    unit: v.string(),
+    takenAt: v.optional(v.number()),
+    source: v.string(),
+    note: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_log_id", ["logId"])
+    .index("by_date", ["date"]),
   personalUtilityReadings: defineTable({
     readingId: v.string(),
     assetId: v.string(),

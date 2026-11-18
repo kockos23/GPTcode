@@ -177,6 +177,78 @@ export const upsertHealthDaily = internalMutation({
   },
 })
 
+const healthScore = v.optional(v.number())
+
+export const upsertHealthHabit = internalMutation({
+  args: {
+    habitId: v.string(), name: v.string(), category: v.string(), target: v.number(),
+    unit: v.string(), cadence: v.string(), active: v.boolean(),
+  },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), habitId: v.string() }),
+  handler: async (ctx, args) => {
+    const habitId = bounded(args.habitId, 120)
+    if (!habitId || !Number.isFinite(args.target) || args.target < 0) throw new Error("INVALID_HABIT")
+    const existing = await ctx.db.query("personalHealthHabits").withIndex("by_habit_id", query => query.eq("habitId", habitId)).unique()
+    const now = Date.now()
+    const values = {
+      habitId, name: bounded(args.name, 200), category: bounded(args.category, 60), target: args.target,
+      unit: bounded(args.unit, 30), cadence: bounded(args.cadence, 40), active: args.active, updatedAt: now,
+    }
+    if (existing) await ctx.db.patch(existing._id, values)
+    else await ctx.db.insert("personalHealthHabits", { ...values, createdAt: now })
+    return { ok: true, created: !existing, habitId }
+  },
+})
+
+export const upsertHealthCheckin = internalMutation({
+  args: {
+    checkinId: v.string(), date: v.string(), source: v.string(), mood: healthScore, energy: healthScore,
+    soreness: healthScore, perceivedStress: healthScore, sleepQuality: healthScore, note: v.string(),
+  },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), checkinId: v.string() }),
+  handler: async (ctx, args) => {
+    const checkinId = bounded(args.checkinId, 120)
+    const scores = [args.mood, args.energy, args.soreness, args.perceivedStress, args.sleepQuality]
+    if (!checkinId || scores.some(value => value !== undefined && (!Number.isFinite(value) || value < 1 || value > 10))) throw new Error("INVALID_CHECKIN")
+    const existing = await ctx.db.query("personalHealthCheckins").withIndex("by_checkin_id", query => query.eq("checkinId", checkinId)).unique()
+    const now = Date.now()
+    const values = { ...args, checkinId, date: bounded(args.date, 10), source: bounded(args.source, 80), note: bounded(args.note, 2000), updatedAt: now }
+    if (existing) await ctx.db.patch(existing._id, values)
+    else await ctx.db.insert("personalHealthCheckins", { ...values, createdAt: now })
+    return { ok: true, created: !existing, checkinId }
+  },
+})
+
+export const upsertHealthHabitLog = internalMutation({
+  args: { logId: v.string(), habitId: v.string(), date: v.string(), value: v.number(), completed: v.boolean(), source: v.string(), note: v.string() },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), logId: v.string() }),
+  handler: async (ctx, args) => {
+    const logId = bounded(args.logId, 120)
+    if (!logId || !Number.isFinite(args.value) || args.value < 0) throw new Error("INVALID_HABIT_LOG")
+    const existing = await ctx.db.query("personalHealthHabitLogs").withIndex("by_log_id", query => query.eq("logId", logId)).unique()
+    const now = Date.now()
+    const values = { ...args, logId, habitId: bounded(args.habitId, 120), date: bounded(args.date, 10), source: bounded(args.source, 80), note: bounded(args.note, 1000), updatedAt: now }
+    if (existing) await ctx.db.patch(existing._id, values)
+    else await ctx.db.insert("personalHealthHabitLogs", { ...values, createdAt: now })
+    return { ok: true, created: !existing, logId }
+  },
+})
+
+export const upsertHealthSupplement = internalMutation({
+  args: { logId: v.string(), date: v.string(), name: v.string(), dose: v.number(), unit: v.string(), takenAt: v.optional(v.number()), source: v.string(), note: v.string() },
+  returns: v.object({ ok: v.boolean(), created: v.boolean(), logId: v.string() }),
+  handler: async (ctx, args) => {
+    const logId = bounded(args.logId, 120)
+    if (!logId || !Number.isFinite(args.dose) || args.dose <= 0) throw new Error("INVALID_SUPPLEMENT_LOG")
+    const existing = await ctx.db.query("personalHealthSupplements").withIndex("by_log_id", query => query.eq("logId", logId)).unique()
+    const now = Date.now()
+    const values = { ...args, logId, date: bounded(args.date, 10), name: bounded(args.name, 160), unit: bounded(args.unit, 30), source: bounded(args.source, 80), note: bounded(args.note, 1000), updatedAt: now }
+    if (existing) await ctx.db.patch(existing._id, values)
+    else await ctx.db.insert("personalHealthSupplements", { ...values, createdAt: now })
+    return { ok: true, created: !existing, logId }
+  },
+})
+
 export const recordUtilityReading = internalMutation({
   args: {
     readingId: v.string(), assetId: v.string(), utility: v.union(v.literal("ELECTRICITY"), v.literal("WATER")),

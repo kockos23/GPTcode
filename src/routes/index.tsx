@@ -6,13 +6,14 @@ import type { LucideIcon } from 'lucide-react'
 import { AuthGate, SignOutButton } from '@/components/auth-gate'
 import { IdeaVaultView } from '@/components/idea-vault'
 import { NoraWorkspace } from '@/components/nora-workspace'
+import { HealthWorkspace } from '@/components/health-workspace'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
 import {
   AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Banknote, BellRing, Bot, CalendarDays,
   Check, ChevronRight, CircleCheckBig, Clock3, Command, FileQuestion, FileText, FolderKanban,
   Inbox, LayoutDashboard, LayoutGrid, List, ListChecks, Mail, Menu, MessageSquareText, MoreHorizontal,
-  Pause, PlugZap, Plus, RefreshCw, Search, Send, SlidersHorizontal, Sparkles, Target, X,
+  Pause, PlugZap, Plus, RefreshCw, Search, Send, SlidersHorizontal, Sparkles, Target, X, HeartPulse,
   Link2,
 } from 'lucide-react'
 
@@ -22,7 +23,7 @@ function ProtectedChiefOfStaffHQ() {
   return <AuthGate><ChiefOfStaffHQ/></AuthGate>
 }
 
-type View = 'home' | 'inbox' | 'calendar' | 'decisions' | 'projects' | 'tasks' | 'nora' | 'ideas' | 'agents' | 'finance' | 'more'
+type View = 'home' | 'inbox' | 'calendar' | 'decisions' | 'projects' | 'tasks' | 'nora' | 'health' | 'ideas' | 'agents' | 'finance' | 'more'
 type Priority = 'P0' | 'P1' | 'P2'
 type ProjectStatus = 'Aktívny' | 'Plánovaný' | 'Čaká' | 'Pozastavený'
 type DecisionStatus = 'Čaká na Tomáša' | 'Schválené' | 'Odložené' | 'Podklady vyžiadané' | 'Vlastná odpoveď'
@@ -209,6 +210,7 @@ const navItems: { id: View; label: string; icon: LucideIcon; portrait?:string }[
   { id:'projects', label:'Projekty', icon:FolderKanban },
   { id:'tasks', label:'Úlohy', icon:BellRing },
   { id:'nora', label:'NORA', icon:Bot, portrait:noraPortrait },
+  { id:'health', label:'Zdravie & výkon', icon:HeartPulse },
   { id:'ideas', label:'VERA', icon:Lightbulb },
   { id:'agents', label:'Agent Control', icon:PlugZap },
   { id:'finance', label:'WOF Finance', icon:Banknote },
@@ -324,6 +326,7 @@ function ChiefOfStaffHQ() {
       {view === 'projects' && <ProjectsView openProject={setSelectedProject}/>}
       {view === 'tasks' && <TasksView live={liveBriefing} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'nora' && <NoraWorkspace notify={notify}/>}
+      {view === 'health' && <HealthWorkspace notify={notify}/>}
       {view === 'agents' && <AgentsView live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'ideas' && <IdeaVaultView notify={notify}/>}
       {view === 'finance' && <FinanceView/>}
@@ -350,7 +353,7 @@ function NavButton({ item, active, count, onClick }: { item:(typeof navItems)[nu
 }
 
 function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {
-  const labels:Record<View,string>={ home:'Dnes', inbox:'Inbox Radar', calendar:'Kalendár', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', nora:'NORA · Osobný inbox', ideas:'VERA · Idea Vault', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
+  const labels:Record<View,string>={ home:'Dnes', inbox:'Inbox Radar', calendar:'Kalendár', decisions:'Rozhodnutia', projects:'Portfólio projektov', tasks:'Úlohy a pripomienky', nora:'NORA · Osobný inbox', health:'Zdravie & výkon', ideas:'VERA · Idea Vault', agents:'Agent Control', finance:'WOF Finance', more:'Viac' }
   return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · {snapshotDate}</div></div>
 }
 
