@@ -3,7 +3,7 @@ import { makeFunctionReference } from 'convex/server'
 import { useMutation, useQuery } from 'convex/react'
 import {
   Archive, ArrowUpRight, BookOpen, Check, ChevronDown, FileText, Image as ImageIcon, Lightbulb,
-  Link2, MessageSquareQuote, Mic, Rocket, Search, Sparkles, Star, Target, UserRound, X,
+  Link2, ListTodo, MessageSquareQuote, Mic, Rocket, Search, Sparkles, Star, Target, UserRound, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -33,6 +33,7 @@ const ideaApi = {
   updateCapture: makeFunctionReference<'mutation', { id:string; stage?:Stage; starred?:boolean; userNote?:string; category?:string }, null>('ideaVault:updateCapture'),
   saveProfile: makeFunctionReference<'mutation', ProfileArgs, null>('ideaVault:saveProfile'),
   resolveProfileSignal: makeFunctionReference<'mutation', { captureId:string; signal:string; accept:boolean }, null>('ideaVault:resolveProfileSignal'),
+  createNoraTask: makeFunctionReference<'mutation', { captureId:string }, { id:string; status:string }>('ideaVault:createNoraTask'),
 }
 
 // Persona of the Idea Vault agent. Set `portrait` to an image URL once the photo is ready.
@@ -138,6 +139,7 @@ function CaptureCard({ capture, notify }: { capture:IdeaCapture; notify:(message
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState(capture.userNote ?? '')
   const update = useMutation(ideaApi.updateCapture)
+  const createNoraTask = useMutation(ideaApi.createNoraTask)
   const Icon = kindIcons[capture.kind] ?? Lightbulb
   const move = (stage:Stage, message:string) => void update({ id:capture.id, stage }).then(() => notify(message))
   const received = new Date(capture.receivedAt).toLocaleString('sk-SK', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' })
@@ -173,6 +175,7 @@ function CaptureCard({ capture, notify }: { capture:IdeaCapture; notify:(message
       </div>
       <label className="idea-note"><span>Moja poznámka</span><textarea rows={2} value={note} onChange={event => setNote(event.target.value)} onBlur={() => { if (note !== (capture.userNote ?? '')) void update({ id:capture.id, userNote:note }).then(() => notify('Poznámka uložená.')) }} placeholder="Prečo ma to zaujalo, kde to použijem…"/></label>
       <div className="idea-row-actions">
+        <button className="button-primary" onClick={() => void createNoraTask({ captureId:capture.id }).then(() => notify('VERA vytvorila úlohu a odovzdala ju Nore.'))}><ListTodo size={13}/>Úloha pre NORU</button>
         {capture.stage !== 'action' && <button className="button-primary" onClick={() => move('action', 'Presunuté na akciu.')}><Rocket size={13}/>Na akciu</button>}
         {capture.stage !== 'library' && <button className="button-secondary" onClick={() => move('library', 'Uložené do knižnice.')}><BookOpen size={13}/>Do knižnice</button>}
         <button className="button-secondary" onClick={() => void update({ id:capture.id, starred:!capture.starred })}><Star size={13}/>{capture.starred ? 'Odobrať' : 'Obľúbené'}</button>

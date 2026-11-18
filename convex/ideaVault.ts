@@ -431,6 +431,30 @@ export const resolveProfileSignal = mutation({
   },
 })
 
+export const createNoraTask = mutation({
+  args: { captureId: v.id("ideaCaptures") },
+  returns: v.object({ id: v.string(), status: v.string() }),
+  handler: async (ctx, { captureId }) => {
+    await requireOwner(ctx)
+    const capture = await ctx.db.get(captureId)
+    if (!capture) throw new Error("Záznam neexistuje")
+    const existing = await ctx.db.query("chiefOfStaffTasks").withIndex("by_task_id", query => query.eq("taskId", `VERA-${captureId}`)).unique()
+    if (existing) return { id: existing.taskId, status: existing.status }
+    const now = Date.now()
+    const taskId = `VERA-${captureId}`
+    const nextActions = capture.nextActions.slice(0, 5).map(item => `• ${item}`).join("\n")
+    await ctx.db.insert("chiefOfStaffTasks", {
+      taskId, projectId: "", title: capture.title.slice(0, 300),
+      details: [capture.summary, nextActions, capture.userNote].filter(Boolean).join("\n\n").slice(0, 5000),
+      owner: "Tomáš", assignee: "NORA", priority: capture.relevanceScore >= 80 ? "P1" : "P2", status: "NOVÉ",
+      expectedOutput: "NORA navrhne konkrétny ďalší krok", result: "", approval: "NIE", source: "VERA",
+      createdAt: now, updatedAt: now,
+    })
+    await ctx.db.patch(captureId, { stage: "action", updatedAt: now })
+    return { id: taskId, status: "NOVÉ" }
+  },
+})
+
 // ---------------------------------------------------------------------------
 // HTTP endpoints for n8n (Authorization: Bearer IDEA_VAULT_INGEST_TOKEN)
 // ---------------------------------------------------------------------------

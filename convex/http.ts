@@ -370,6 +370,28 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/chief-of-staff/tasks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const taskId = safeAgentText(body?.taskId, 120)
+    const title = safeAgentText(body?.title, 300)
+    const deadline = safeAgentText(body?.deadline, 10)
+    if (!taskId || !title || (deadline && !/^\d{4}-\d{2}-\d{2}$/.test(deadline))) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.chiefOfStaff.createTaskFromN8n, {
+      taskId, title, details: safeAgentText(body?.details, 5000), projectId: safeAgentText(body?.projectId, 120),
+      priority: safeAgentText(body?.priority, 20) || "P2", deadline: deadline || undefined,
+      source: safeAgentText(body?.source, 80) || "Telegram", assignee: safeAgentText(body?.assignee, 80) || "NORA",
+      approval: body?.approval === "OWNER" ? "OWNER" : "NONE",
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/personal-ops/signals",
   method: "POST",
   handler: httpAction(async (ctx, request) => {

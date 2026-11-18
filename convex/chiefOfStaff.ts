@@ -167,6 +167,30 @@ export const createTask = internalMutation({
   },
 })
 
+export const createTaskFromN8n = internalMutation({
+  args: {
+    taskId: v.string(), title: v.string(), details: v.string(), projectId: v.string(), priority: v.string(),
+    deadline: v.optional(v.string()), source: v.string(), assignee: v.string(), approval: v.string(),
+  },
+  returns: v.object({ ok: v.boolean(), duplicate: v.boolean(), id: v.string(), status: v.string() }),
+  handler: async (ctx, args) => {
+    const taskId = args.taskId.trim().slice(0, 120)
+    if (!taskId) throw new Error("INVALID_TASK_ID")
+    const existing = await ctx.db.query("chiefOfStaffTasks").withIndex("by_task_id", query => query.eq("taskId", taskId)).unique()
+    if (existing) return { ok: true, duplicate: true, id: taskId, status: existing.status }
+    const now = Date.now()
+    const status = args.approval === "OWNER" ? "ČAKÁ NA SCHVÁLENIE" : "NOVÉ"
+    await ctx.db.insert("chiefOfStaffTasks", {
+      taskId, projectId: args.projectId.trim().slice(0, 120), title: args.title.trim().slice(0, 300),
+      details: args.details.trim().slice(0, 5000), owner: "Tomáš", assignee: args.assignee.trim().slice(0, 80) || "NORA",
+      priority: args.priority.trim().slice(0, 20) || "P2", status, deadline: args.deadline?.trim().slice(0, 10) || undefined,
+      expectedOutput: "Dokončená úloha alebo explicitný blokér", result: "", approval: args.approval,
+      source: args.source.trim().slice(0, 80) || "Telegram", createdAt: now, updatedAt: now,
+    })
+    return { ok: true, duplicate: false, id: taskId, status }
+  },
+})
+
 export const createCommand = internalMutation({
   args: {
     command: v.string(), contextType: v.string(), contextId: v.string(), channel: v.string(),

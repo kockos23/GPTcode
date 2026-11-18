@@ -1092,6 +1092,31 @@ body {
 .idea-note { display: grid; gap: 5px; margin-top: 14px; }
 .idea-note span, .idea-profile-grid span { font-size: 10px; font-weight: 850; }
 .idea-note textarea, .idea-profile-grid textarea { width: 100%; border: 1px solid hsl(327 17% 85%); border-radius: 8px; padding: 9px 10px; background: white; font: inherit; font-size: 11px; line-height: 1.5; resize: vertical; }
+
+.nora-intro { align-items: center; }
+.nora-section-avatar { display: grid; width: 58px; height: 58px; flex: 0 0 auto; place-items: center; border-radius: 18px; background: hsl(var(--plum)); color: hsl(var(--lime)); box-shadow: 6px 7px 0 hsl(var(--lime)); }
+.nora-capture-card { margin-bottom: 18px; border-top: 5px solid hsl(var(--lime)); }
+.nora-task-form { display: grid; gap: 10px; }
+.nora-task-form input, .nora-task-form textarea, .nora-task-form select { width: 100%; min-width: 0; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 11px 12px; outline: none; background: white; color: hsl(var(--black)); font: inherit; font-size: 11px; }
+.nora-task-form textarea { resize: vertical; }
+.nora-task-form > div { display: grid; grid-template-columns: 140px minmax(150px,220px) auto; gap: 10px; align-items: center; }
+.nora-voice-hint { display: flex; align-items: center; gap: 8px; margin-top: 12px; border-radius: 8px; padding: 10px 12px; background: hsl(var(--lavender)); color: hsl(var(--plum)); font-size: 9px; line-height: 1.5; }
+.nora-columns { display: grid; gap: 16px; }
+.nora-task-list, .nora-proposal-list { display: grid; gap: 10px; }
+.nora-task-list article, .nora-proposal-list article { border: 1px solid hsl(var(--line)); border-radius: 10px; padding: 13px; background: white; }
+.nora-task-list article > div:first-child, .nora-proposal-list article > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nora-task-list h4, .nora-proposal-list h4 { margin: 9px 0 5px; font-family: var(--font-display); font-size: 15px; }
+.nora-task-list p, .nora-proposal-list p { margin: 0; color: hsl(var(--muted)); font-size: 9px; line-height: 1.55; white-space: pre-line; }
+.nora-task-list small, .nora-proposal-list small { color: hsl(var(--muted)); font-size: 8px; }
+.nora-proposal-list article > div:first-child > span { border-radius: 99px; padding: 4px 7px; background: hsl(var(--lime)); color: hsl(var(--plum)); font-size: 8px; font-weight: 900; }
+
+@media (min-width: 900px) {
+  .nora-columns { grid-template-columns: minmax(0,1.2fr) minmax(320px,.8fr); }
+}
+
+@media (max-width: 640px) {
+  .nora-task-form > div { grid-template-columns: 1fr; }
+}
 .idea-profile-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 760px) { .idea-profile-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 .idea-profile-grid label { display: grid; gap: 3px; }
