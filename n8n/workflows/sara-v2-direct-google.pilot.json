@@ -1168,7 +1168,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $('Validuj a zaraď podľa dodania').item.json.sourceMessageId + '/modify' }}",
+        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $json.sourceMessageId + '/modify' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "gmailOAuth2",
         "sendBody": true,
@@ -1187,7 +1187,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $('Validuj a zaraď podľa dodania').item.json.sourceMessageId + '/modify' }}",
+        "url": "={{ 'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + $json.sourceMessageId + '/modify' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "gmailOAuth2",
         "sendBody": true,
@@ -1221,6 +1221,48 @@
         2640,
         240
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const attachments = $('Skontroluj trvalú deduplikáciu').all();\nconst written = new Set();\nfor (const nodeName of ['Zapíš zaradený doklad do registra', 'Zapíš doklad do review registra']) {\n  let rows = [];\n  try { rows = $(nodeName).all(); } catch { rows = []; }\n  for (const row of rows) {\n    const docId = String(row.json?.['Doklad ID'] || '');\n    if (docId) written.add(docId);\n  }\n}\nconst pending = new Set();\nfor (const item of attachments) {\n  const messageId = String(item.json?.sourceMessageId || '');\n  const docId = String(item.json?.documentId || '');\n  if (!messageId) continue;\n  if (!item.json?.alreadyRegistered && !written.has(docId)) pending.add(messageId);\n}\nconst seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const messageId = String(item.json?.sourceMessageId || item.json?.['Zdrojová správa ID'] || '');\n  if (!messageId || pending.has(messageId) || seen.has(messageId)) continue;\n  seen.add(messageId);\n  out.push({ json: { sourceMessageId: messageId } });\n}\nreturn out;"
+      },
+      "name": "Over kompletnosť zaradenej správy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        -120
+      ],
+      "id": "b7e1c0a2-4f3d-4a61-9c2e-11a0f6d8e4a1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const attachments = $('Skontroluj trvalú deduplikáciu').all();\nconst written = new Set();\nfor (const nodeName of ['Zapíš zaradený doklad do registra', 'Zapíš doklad do review registra']) {\n  let rows = [];\n  try { rows = $(nodeName).all(); } catch { rows = []; }\n  for (const row of rows) {\n    const docId = String(row.json?.['Doklad ID'] || '');\n    if (docId) written.add(docId);\n  }\n}\nconst pending = new Set();\nfor (const item of attachments) {\n  const messageId = String(item.json?.sourceMessageId || '');\n  const docId = String(item.json?.documentId || '');\n  if (!messageId) continue;\n  if (!item.json?.alreadyRegistered && !written.has(docId)) pending.add(messageId);\n}\nconst seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const messageId = String(item.json?.sourceMessageId || item.json?.['Zdrojová správa ID'] || '');\n  if (!messageId || pending.has(messageId) || seen.has(messageId)) continue;\n  seen.add(messageId);\n  out.push({ json: { sourceMessageId: messageId } });\n}\nreturn out;"
+      },
+      "name": "Over kompletnosť správy v review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        160
+      ],
+      "id": "c8f2d1b3-5a4e-4b72-8d3f-22b1a7e9f5b2"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const attachments = $('Skontroluj trvalú deduplikáciu').all();\nconst written = new Set();\nfor (const nodeName of ['Zapíš zaradený doklad do registra', 'Zapíš doklad do review registra']) {\n  let rows = [];\n  try { rows = $(nodeName).all(); } catch { rows = []; }\n  for (const row of rows) {\n    const docId = String(row.json?.['Doklad ID'] || '');\n    if (docId) written.add(docId);\n  }\n}\nconst pending = new Set();\nfor (const item of attachments) {\n  const messageId = String(item.json?.sourceMessageId || '');\n  const docId = String(item.json?.documentId || '');\n  if (!messageId) continue;\n  if (!item.json?.alreadyRegistered && !written.has(docId)) pending.add(messageId);\n}\nconst seen = new Set();\nconst out = [];\nfor (const item of $input.all()) {\n  const messageId = String(item.json?.sourceMessageId || item.json?.['Zdrojová správa ID'] || '');\n  if (!messageId || pending.has(messageId) || seen.has(messageId)) continue;\n  seen.add(messageId);\n  out.push({ json: { sourceMessageId: messageId } });\n}\nreturn out;"
+      },
+      "name": "Over kompletnosť už evidovanej správy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        240
+      ],
+      "id": "d9a3e2c4-6b5f-4c83-9e40-33c2b8f0a6c3"
     }
   ],
   "connections": {
@@ -1322,7 +1364,7 @@
         ],
         [
           {
-            "node": "Gmail — archivuj už evidovanú správu",
+            "node": "Over kompletnosť už evidovanej správy",
             "type": "main",
             "index": 0
           }
@@ -1411,7 +1453,7 @@
       "main": [
         [
           {
-            "node": "Gmail — archivuj zaradenú správu",
+            "node": "Over kompletnosť zaradenej správy",
             "type": "main",
             "index": 0
           }
@@ -1422,7 +1464,7 @@
       "main": [
         [
           {
-            "node": "Gmail — archivuj správu v review",
+            "node": "Over kompletnosť správy v review",
             "type": "main",
             "index": 0
           }
@@ -1456,6 +1498,39 @@
         [
           {
             "node": "Nastav identitu podľa SHA-256",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Over kompletnosť zaradenej správy": {
+      "main": [
+        [
+          {
+            "node": "Gmail — archivuj zaradenú správu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Over kompletnosť správy v review": {
+      "main": [
+        [
+          {
+            "node": "Gmail — archivuj správu v review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Over kompletnosť už evidovanej správy": {
+      "main": [
+        [
+          {
+            "node": "Gmail — archivuj už evidovanú správu",
             "type": "main",
             "index": 0
           }

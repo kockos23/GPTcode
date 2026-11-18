@@ -40,7 +40,7 @@ Credential hodnoty ani API kľúče nesmú byť uložené v Gite.
 ## Bezpečnostné pravidlá pilotu
 
 - Gmail trigger počas kontrolovaného testovania kontroluje každú minútu iba nové správy s prílohou za posledných sedem dní, ktoré prišli z autorizovanej adresy vlastníka, sú adresované na `finance@wofevents.com` alebo majú label `WOF_FINANCE_INTAKE`; predmet správy nie je súčasťou filtra.
-- Až po úspešnom zápise do registra, zaradení do review alebo potvrdení trvalého duplikátu pridá workflow label `WOF_FINANCE_INTAKE` a odstráni správu z Inboxu. Chybná alebo nespracovaná správa zostáva v Inboxe.
+- Label `WOF_FINANCE_INTAKE` a odobratie z Inboxu sa udejú až keď je v tom istom behu vybavená každá podporovaná príloha správy: zapísaná do registra, odoslaná do review, alebo potvrdená ako trvalý duplikát. Správa, ktorej príloha ešte nie je vybavená, zostáva v Inboxe.
 - Doklady sa smerujú podľa dátumu dodania/DUZP; Stripe a bankové výpisy podľa konca explicitného obdobia.
 - Dátum emailu, predmet a názov súboru neurčujú účtovný mesiac.
 - Automatické uloženie vyžaduje kompletné údaje, confidence aspoň 80 a existujúci overený cieľový priečinok.
