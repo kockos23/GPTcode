@@ -185,28 +185,79 @@ test('persistent register dedupe runs before OpenAI extraction', () => {
   )
 })
 
-test('Gmail is archived only after registration, review, or confirmed persistent duplicate', () => {
+function runArchiveGate(code, { attachments, routed, review, input }) {
+  const available = {
+    'Skontroluj trvalú deduplikáciu': attachments,
+    'Zapíš zaradený doklad do registra': routed,
+    'Zapíš doklad do review registra': review,
+  }
+  const $ = (name) => ({
+    all() {
+      if (!Object.hasOwn(available, name) || available[name] === undefined) {
+        throw new Error(`Node '${name}' hasn't been executed`)
+      }
+      return available[name]
+    },
+  })
+  return new Function('$', '$input', code)($, { all: () => input })
+}
+
+test('Gmail is archived only after every attachment of the message is settled', () => {
   const routedArchive = nodes.get('Gmail — archivuj zaradenú správu')
   const reviewArchive = nodes.get('Gmail — archivuj správu v review')
   const duplicateArchive = nodes.get('Gmail — archivuj už evidovanú správu')
+  const gates = [
+    ['Zapíš zaradený doklad do registra', 'Over kompletnosť zaradenej správy', routedArchive],
+    ['Zapíš doklad do review registra', 'Over kompletnosť správy v review', reviewArchive],
+    ['Doklad ešte nie je v registri?', 'Over kompletnosť už evidovanej správy', duplicateArchive],
+  ]
+  const codes = gates.map(([, gateName]) => nodes.get(gateName)?.parameters.jsCode)
   for (const archive of [routedArchive, reviewArchive, duplicateArchive]) {
     assert.ok(archive)
     assert.equal(archive.parameters.method, 'POST')
-    assert.match(archive.parameters.url, /gmail\.googleapis\.com\/gmail\/v1\/users\/me\/messages\//)
+    assert.match(archive.parameters.url, /\$json\.sourceMessageId/)
+    assert.doesNotMatch(archive.parameters.url, /Validuj a zaraď podľa dodania/)
     assert.match(archive.parameters.jsonBody, /REPLACE_WITH_WOF_FINANCE_LABEL_ID/)
     assert.match(archive.parameters.jsonBody, /removeLabelIds:\['INBOX'\]/)
   }
-  assert.equal(
-    workflow.connections['Zapíš zaradený doklad do registra'].main[0][0].node,
-    routedArchive.name,
+  for (const [source, gateName, archive] of gates) {
+    const gate = nodes.get(gateName)
+    assert.equal(gate?.parameters.mode, 'runOnceForAllItems')
+    const outputIndex = source === 'Doklad ešte nie je v registri?' ? 1 : 0
+    assert.equal(workflow.connections[source].main[outputIndex][0].node, gateName)
+    assert.equal(workflow.connections[gateName].main[0][0].node, archive.name)
+  }
+  assert.equal(new Set(codes).size, 1)
+  const code = codes[0]
+  const oldFile = { json: { sourceMessageId: 'm1', documentId: 'WOF-old', alreadyRegistered: true } }
+  const newFile = { json: { sourceMessageId: 'm1', documentId: 'WOF-new', alreadyRegistered: false } }
+  const otherNew = { json: { sourceMessageId: 'm1', documentId: 'WOF-other', alreadyRegistered: false } }
+  const storedNew = { json: { 'Doklad ID': 'WOF-new', 'Zdrojová správa ID': 'm1' } }
+
+  assert.deepEqual(
+    runArchiveGate(code, { attachments: [oldFile, newFile], routed: undefined, review: undefined, input: [oldFile] }),
+    [],
   )
-  assert.equal(
-    workflow.connections['Zapíš doklad do review registra'].main[0][0].node,
-    reviewArchive.name,
+  assert.deepEqual(
+    runArchiveGate(code, { attachments: [oldFile, newFile], routed: [storedNew], review: undefined, input: [storedNew] }),
+    [{ json: { sourceMessageId: 'm1' } }],
   )
-  assert.equal(
-    workflow.connections['Doklad ešte nie je v registri?'].main[1][0].node,
-    duplicateArchive.name,
+  assert.deepEqual(
+    runArchiveGate(code, { attachments: [newFile, otherNew], routed: [storedNew], review: undefined, input: [storedNew] }),
+    [],
+  )
+  assert.deepEqual(
+    runArchiveGate(code, {
+      attachments: [newFile, otherNew],
+      routed: [storedNew],
+      review: [{ json: { 'Doklad ID': 'WOF-other', 'Zdrojová správa ID': 'm1' } }],
+      input: [{ json: { 'Doklad ID': 'WOF-other', 'Zdrojová správa ID': 'm1' } }],
+    }),
+    [{ json: { sourceMessageId: 'm1' } }],
+  )
+  assert.deepEqual(
+    runArchiveGate(code, { attachments: [oldFile, { ...oldFile, json: { ...oldFile.json, documentId: 'WOF-old-2' } }], routed: undefined, review: undefined, input: [oldFile, oldFile] }),
+    [{ json: { sourceMessageId: 'm1' } }],
   )
 })
 
