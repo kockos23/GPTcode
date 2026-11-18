@@ -27,6 +27,7 @@ NORA koordinuje spoločný plán naprieč prácou, zdravím, domácnosťou, auta
 
 1. Zdrojový workflow normalizuje udalosť a idempotentne ju zapíše ako signál.
 2. Denný alebo týždenný planner zoradí otvorené signály podľa závažnosti a termínu.
+   Pred zoradením sám vygeneruje deduplikované signály z aktívnej údržby, STK/servisu a obnovy predplatného.
 3. Planner vytvorí iba `PROPOSED` kroky a priradí doménového agenta.
 4. Agent krok spracuje alebo vráti explicitný blokér.
 5. NORA spojí výsledky s kalendárom a kapacitou a predloží vlastníkovi zmeny vyžadujúce súhlas.

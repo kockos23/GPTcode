@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { internalMutation, internalQuery } from "./_generated/server"
 import { PERSONAL_DOMAINS, SIGNAL_SEVERITIES, planSignals, requiresOwnerApproval, type PersonalDomain, type SignalSeverity } from "./personalOpsLogic"
 import { analyzeHealthDay, normalizeGarminDaily } from "./healthAgentLogic"
+import { dueMaintenanceSignals, subscriptionRenewalSignal } from "./homeVehicleLogic"
 
 const MAX_SIGNALS = 100
 const domain = v.union(...PERSONAL_DOMAINS.map(value => v.literal(value)))
@@ -186,6 +187,36 @@ export const runPlanner = internalMutation({
     const runId = bounded(args.runId, 120)
     const existingRun = await ctx.db.query("personalPlannerRuns").withIndex("by_run_id", query => query.eq("runId", runId)).unique()
     if (existingRun) return { ok: true, duplicate: true, runId, proposed: existingRun.proposedStepIds.length }
+    const now = Date.now()
+    const maintenance = await ctx.db.query("personalMaintenance")
+      .withIndex("by_status_due", query => query.eq("status", "ACTIVE"))
+      .take(MAX_SIGNALS)
+    const assets = await ctx.db.query("personalAssets").collect()
+    const assetDomain = new Map(assets.map(asset => [asset.assetId, asset.domain]))
+    const proactive = dueMaintenanceSignals(maintenance.flatMap(item => {
+      const itemDomain = assetDomain.get(item.assetId)
+      if (itemDomain !== "HOME" && itemDomain !== "VEHICLE") return []
+      return [{ maintenanceId: item.maintenanceId, domain: itemDomain, title: item.title, nextDueAt: item.nextDueAt, leadDays: item.leadDays }]
+    }), now)
+    const subscriptions = await ctx.db.query("personalSubscriptions")
+      .withIndex("by_status_renewal", query => query.eq("status", "ACTIVE"))
+      .take(MAX_SIGNALS)
+    for (const subscription of subscriptions) {
+      const signal = subscriptionRenewalSignal({
+        subscriptionId: subscription.subscriptionId, name: subscription.name, nextRenewalAt: subscription.nextRenewalAt,
+        amount: subscription.amount, currency: subscription.currency, now,
+      })
+      if (signal) proactive.push(signal)
+    }
+    for (const signal of proactive) {
+      const duplicate = await ctx.db.query("personalSignals").withIndex("by_dedupe_key", query => query.eq("dedupeKey", signal.signalId)).unique()
+      if (!duplicate) await ctx.db.insert("personalSignals", {
+        signalId: signal.signalId, dedupeKey: signal.signalId, domain: signal.domain, source: "PERSONAL_OPS_PLANNER",
+        kind: signal.signalId.startsWith("subscription:") ? "SUBSCRIPTION_RENEWAL" : "MAINTENANCE_DUE",
+        title: signal.title, summary: signal.summary, severity: signal.severity, status: "NEW", occurredAt: signal.occurredAt,
+        dueAt: signal.dueAt, payload: {}, createdAt: now, updatedAt: now,
+      })
+    }
     const rows = await ctx.db.query("personalSignals")
       .withIndex("by_status_occurred_at", query => query.eq("status", "NEW"))
       .order("desc").take(MAX_SIGNALS)
@@ -193,7 +224,6 @@ export const runPlanner = internalMutation({
       signalId: row.signalId, domain: row.domain as PersonalDomain, title: row.title, summary: row.summary,
       severity: row.severity as SignalSeverity, occurredAt: row.occurredAt, dueAt: row.dueAt,
     })), Date.now(), args.kind === "DAILY" ? 12 : 30)
-    const now = Date.now()
     const proposedStepIds: string[] = []
     for (const action of actions) {
       const stepId = `${runId}:${action.signalId}`.slice(0, 240)
