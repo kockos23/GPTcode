@@ -74,9 +74,10 @@ export const getSnapshot = internalQuery({
       updated: new Date(item.updatedAt).toISOString(),
     })), ...sheetCommands].slice(0, MAX_COLLECTION)
     const snapshotEmails = Array.isArray(row.emails) ? row.emails as Array<Record<string, unknown>> : []
-    const externalIds = new Set(externalEmails.map(item => item.emailKey))
+    const uniqueExternalEmails = [...new Map(externalEmails.map(item => [item.emailKey, item])).values()]
+    const externalIds = new Set(uniqueExternalEmails.map(item => item.emailKey))
     const emails = [
-      ...externalEmails.map(item => ({
+      ...uniqueExternalEmails.map(item => ({
         id: item.emailKey, threadId: item.threadId, subject: item.subject, sender: item.sender,
         timestamp: item.timestamp, preview: item.preview, url: item.url, important: item.important,
       })),
@@ -114,9 +115,10 @@ export const upsertExternalEmail = internalMutation({
       receivedAt: timestampMs, updatedAt: now,
     }
     const existing = await ctx.db.query("chiefOfStaffExternalEmails")
-      .withIndex("by_email_key", query => query.eq("emailKey", emailKey)).unique()
-    if (existing) {
-      await ctx.db.patch(existing._id, record)
+      .withIndex("by_email_key", query => query.eq("emailKey", emailKey)).collect()
+    if (existing.length > 0) {
+      await ctx.db.patch(existing[0]._id, record)
+      for (const duplicate of existing.slice(1)) await ctx.db.delete(duplicate._id)
       return { ok: true, created: false, emailKey }
     }
     await ctx.db.insert("chiefOfStaffExternalEmails", { ...record, createdAt: now })
