@@ -6,6 +6,8 @@ Jeden príkaz môže obsahovať až 20 udalostí. NORA pri každej zachová náz
 
 Viacudalostné zadanie spracúva samostatný kalendárový extraktor bez konverzačnej pamäte. Pred vytvorením workflow porovná počet extrahovaných udalostí s počtom explicitných dátumov v zadaní. Ak niektorá položka chýba, nevytvorí nič a požiada o nové zadanie; nesmie potichu vytvoriť iba prvú udalosť.
 
+Explicitný rozsah ako `16:00–17:30` má vždy prednosť pred modelovým predvoleným trvaním. Workflow ho po extrakcii ešte raz deterministicky aplikuje podľa začiatku udalosti. Ak `location` neobsahuje URL, prvý odkaz z popisu sa použije aj ako miesto/online pripojenie.
+
 ## Bezpečnostný tok
 
 1. NORA rozpozná `CREATE` alebo `MOVE` a pripraví absolútny termín v časovom pásme `Europe/Bratislava`.

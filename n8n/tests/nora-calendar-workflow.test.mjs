@@ -44,3 +44,9 @@ test('short Slovak voice confirmations tolerate STT variants', () => {
   assert.match(source, /ah nao/)
   assert.match(source, /voiceConfirm/)
 })
+
+test('explicit time ranges override model-default durations', () => {
+  assert.match(source, /const ranges=/)
+  assert.match(source, /endMinutes-startMinutes/)
+  assert.match(source, /events\[index\]\.end=/)
+})
