@@ -33,4 +33,7 @@ test('one approval can create multiple rich events', () => {
   assert.match(source, /description:event\.description/)
   assert.match(source, /location:event\.location/)
   assert.match(source, /slice\(0,8000\)/)
+  assert.match(source, /Calendar Event Extractor/)
+  assert.match(source, /Extract EVERY distinct event/)
+  assert.match(source, /expectedDates/)
 })

@@ -4,6 +4,8 @@ NORA vie z Telegram textu alebo hlasovej správy vytvoriť udalosť a presunúť
 
 Jeden príkaz môže obsahovať až 20 udalostí. NORA pri každej zachová názov, začiatok, koniec, relevantný popis, webové odkazy a online alebo fyzické miesto. Celá dávka sa vytvorí až po jednom spoločnom potvrdení. Ak koniec chýba, použije sa 60 minút.
 
+Viacudalostné zadanie spracúva samostatný kalendárový extraktor bez konverzačnej pamäte. Pred vytvorením workflow porovná počet extrahovaných udalostí s počtom explicitných dátumov v zadaní. Ak niektorá položka chýba, nevytvorí nič a požiada o nové zadanie; nesmie potichu vytvoriť iba prvú udalosť.
+
 ## Bezpečnostný tok
 
 1. NORA rozpozná `CREATE` alebo `MOVE` a pripraví absolútny termín v časovom pásme `Europe/Bratislava`.

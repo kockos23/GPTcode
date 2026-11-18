@@ -52,6 +52,21 @@ parser.parameters.jsCode = parser.parameters.jsCode.replace(
 const codeNode = (id, name, jsCode, position) => ({
   parameters: { jsCode }, id, name, type: 'n8n-nodes-base.code', typeVersion: 2, position,
 })
+const calendarExtractor = {
+  parameters: {
+    promptType: 'define',
+    text: '={{ "CURRENT_DATETIME_EUROPE_BRATISLAVA=" + $now.setZone("Europe/Bratislava").toISO() + "\\nEXTRACT_EVERY_CALENDAR_EVENT_FROM_THIS_REQUEST:\\n" + $("MergeInput").first().json.rawText }}',
+    options: {
+      systemMessage: `You are a deterministic calendar event extractor. Return one JSON object and nothing else: {"events":[{"title":"","start":"ISO 8601 with Europe/Bratislava offset","end":"ISO 8601 with Europe/Bratislava offset","description":"","location":""}]}. Extract EVERY distinct event in the request, in source order. Never omit a second or later event. Preserve every relevant URL and note in that event's description. Put the primary joining URL or physical venue in location, while also retaining the URL in description. If an end/duration is absent, set end exactly 60 minutes after start. Do not reuse durations from conversation history. The current request is the only source of event facts.`,
+    },
+  },
+  id: 'nora-calendar-extractor',
+  name: 'Calendar Event Extractor',
+  type: '@n8n/n8n-nodes-langchain.agent',
+  typeVersion: 1.6,
+  position: [5312, 1184],
+}
+const parseCalendarEvents = codeNode('nora-calendar-parse-events', 'Parse Calendar Events', `const input=$input.first().json;const source=$('ParseAgentOutput').first().json;const raw=String(input.output||input.text||'').trim().replace(/^\`\`\`(?:json)?\\s*/i,'').replace(/\`\`\`$/,'').trim();let parsed={};try{parsed=JSON.parse(raw)}catch(error){const start=raw.indexOf('{');const end=raw.lastIndexOf('}');if(start>=0&&end>start)parsed=JSON.parse(raw.slice(start,end+1))}const events=Array.isArray(parsed.events)?parsed.events:[];const expectedDates=(String(source.rawText||'').match(/\\b\\d{1,2}\\.\\s*\\d{1,2}\\.\\s*\\d{4}\\b/g)||[]).length;if(!events.length||(expectedDates>1&&events.length<expectedDates)){return [{json:{...source,calendarAction:'NONE',calendarReady:false,text:'Zadanie obsahuje viac udalostí, ale nepodarilo sa ich všetky spoľahlivo rozlíšiť. Nič som nezapísala; pošli ich prosím znova s názvom a termínom každej udalosti.'}}]}return [{json:{...source,calendarEvents:events,calendarReady:true}}];`, [5552, 1184])
 const ifNode = (id, name, leftValue, rightValue, position) => ({
   parameters: { conditions: { options: { caseSensitive: true, leftValue: '', typeValidation: 'strict', version: 2 }, conditions: [{ id: `${id}-condition`, leftValue, rightValue, operator: { type: 'string', operation: 'equals' } }], combinator: 'and' }, options: {} },
   id, name, type: 'n8n-nodes-base.if', typeVersion: 2.2, position,
@@ -130,6 +145,9 @@ const additions = [
   // node validates the required fields deterministically; the LLM's boolean
   // must not be able to suppress an otherwise complete proposal.
   ifNode('nora-calendar-is-draft', 'Is Calendar Draft', '={{ ["CREATE","MOVE"].includes($json.calendarAction) ? "YES" : "NO" }}', 'YES', [5104, 1216]),
+  ifNode('nora-calendar-needs-extraction', 'Needs Calendar Event Extraction', '={{ $json.calendarAction }}', 'CREATE', [5232, 1056]),
+  calendarExtractor,
+  parseCalendarEvents,
   storeDraft,
   prepareCreateBody,
   createEvent,
@@ -163,13 +181,19 @@ workflow.connections['Prepare Calendar Create Body'] = { main: [[{ node: 'Google
 workflow.connections['Prepare Calendar Find Request'] = { main: [[{ node: 'Google Calendar — Find Event To Move', type: 'main', index: 0 }]] }
 workflow.connections['ParseAgentOutput'] = { main: [[{ node: 'Is Calendar Draft', type: 'main', index: 0 }]] }
 workflow.connections['Is Calendar Draft'] = { main: [
-  [{ node: 'Store Calendar Draft', type: 'main', index: 0 }],
+  [{ node: 'Needs Calendar Event Extraction', type: 'main', index: 0 }],
   [
     { node: 'FormatAndSplit', type: 'main', index: 0 },
     { node: 'Log Command Inbox', type: 'main', index: 0 },
     { node: 'Is Actionable Task', type: 'main', index: 0 },
   ],
 ] }
+workflow.connections['Needs Calendar Event Extraction'] = { main: [
+  [{ node: 'Calendar Event Extractor', type: 'main', index: 0 }],
+  [{ node: 'Store Calendar Draft', type: 'main', index: 0 }],
+] }
+workflow.connections['Calendar Event Extractor'] = { main: [[{ node: 'Parse Calendar Events', type: 'main', index: 0 }]] }
+workflow.connections['Parse Calendar Events'] = { main: [[{ node: 'Store Calendar Draft', type: 'main', index: 0 }]] }
 workflow.connections['Store Calendar Draft'] = { main: [[
   { node: 'FormatAndSplit', type: 'main', index: 0 },
   { node: 'Log Command Inbox', type: 'main', index: 0 },
@@ -187,6 +211,8 @@ workflow.connections['Finalize Calendar Action'] = { main: [[
   { node: 'FormatAndSplit', type: 'main', index: 0 },
   { node: 'Log Command Inbox', type: 'main', index: 0 },
 ]] }
+
+workflow.connections['Agent Chat Model'].ai_languageModel[0].push({ node: 'Calendar Event Extractor', type: 'ai_languageModel', index: 0 })
 
 const payload = { name: workflow.name, nodes: workflow.nodes, connections: workflow.connections, settings: workflow.settings }
 fs.writeFileSync(outputPath, JSON.stringify(payload, null, 2) + '\n')
