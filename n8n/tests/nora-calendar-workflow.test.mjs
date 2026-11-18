@@ -26,3 +26,11 @@ test('relative dates receive a live Bratislava clock and moves preserve duration
   assert.match(source, /oldEnd-oldStart/)
   assert.match(source, /rows\.length!==1/)
 })
+
+test('one approval can create multiple rich events', () => {
+  assert.match(source, /calendarEvents/)
+  assert.match(source, /events\.map\(event/)
+  assert.match(source, /description:event\.description/)
+  assert.match(source, /location:event\.location/)
+  assert.match(source, /slice\(0,8000\)/)
+})

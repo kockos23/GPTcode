@@ -22,7 +22,7 @@ agent.parameters.options.systemMessage = agent.parameters.options.systemMessage
   .replace('NORA does not yet have general interactive access to Gmail, Calendar, Drive documents or business IMAP.', 'NORA has an approval-gated integration for creating and moving events in the primary Google Calendar. Gmail, Drive documents and business IMAP are not general interactive tools here.')
   .replace(
     '{"type":"RESPONSE","text":"short user-facing answer","intent":"CAPTURE|ROUTE|ANSWER|APPROVAL","specialist":"COS|NORA|WOF_FIN|FIRMA2_FIN|WOF_OPS|NIKE_LOCAL|RESEARCH|BUILD_TECH","priority":"URGENT|HIGH|NORMAL|LOW","approvalRequired":true,"title":"short task title","details":"concise structured details and proposed next step"}',
-    '{"type":"RESPONSE","text":"short user-facing answer","intent":"CAPTURE|ROUTE|ANSWER|APPROVAL","specialist":"COS|NORA|WOF_FIN|FIRMA2_FIN|WOF_OPS|NIKE_LOCAL|RESEARCH|BUILD_TECH","priority":"URGENT|HIGH|NORMAL|LOW","approvalRequired":true,"title":"short task title","details":"concise structured details and proposed next step","calendarAction":"NONE|CREATE|MOVE","calendarReady":false,"calendarTitle":"","calendarStart":"ISO 8601 with Europe/Bratislava offset or empty","calendarEnd":"ISO 8601 with Europe/Bratislava offset or empty","calendarEventQuery":"existing event title for MOVE or empty","calendarDescription":""}',
+    '{"type":"RESPONSE","text":"short user-facing answer","intent":"CAPTURE|ROUTE|ANSWER|APPROVAL","specialist":"COS|NORA|WOF_FIN|FIRMA2_FIN|WOF_OPS|NIKE_LOCAL|RESEARCH|BUILD_TECH","priority":"URGENT|HIGH|NORMAL|LOW","approvalRequired":true,"title":"short task title","details":"concise structured details and proposed next step","calendarAction":"NONE|CREATE|MOVE","calendarReady":false,"calendarTitle":"","calendarStart":"ISO 8601 with Europe/Bratislava offset or empty","calendarEnd":"ISO 8601 with Europe/Bratislava offset or empty","calendarEventQuery":"existing event title for MOVE or empty","calendarDescription":"","calendarLocation":"","calendarEvents":[{"title":"","start":"ISO 8601","end":"ISO 8601 or empty","description":"all relevant notes and URLs","location":"online URL or physical place"}]}',
   ) + `
 
 Calendar rules:
@@ -30,6 +30,7 @@ Calendar rules:
 - For a request to create an event, set calendarAction=CREATE. For a request to move/reschedule an existing event, set calendarAction=MOVE and calendarEventQuery to its identifying title.
 - Resolve relative dates against the current Europe/Bratislava time. Return absolute ISO 8601 timestamps with the correct offset.
 - CREATE requires a title and start. If duration/end is missing, use 60 minutes and state that in text.
+- If one request contains multiple events, put every event in calendarEvents and set calendarAction=CREATE. Preserve all relevant links, access restrictions and follow-up notes in each description. Put the primary online joining URL or physical venue in location as well as retaining it in description. For a single event, calendarEvents may contain that one event.
 - MOVE requires an existing-event query and a new start. If the new end is missing, the workflow preserves the existing duration.
 - Set calendarReady=true whenever CREATE has a title and start, or MOVE has an event query and new start. A supplied duration or end is optional because the workflow applies the documented default/preservation rule. Otherwise ask one concise clarification question and keep calendarReady=false.
 - Never claim that an event was created or moved. The workflow will first store a proposal and require a separate owner confirmation.`
@@ -43,7 +44,9 @@ parser.parameters.jsCode = parser.parameters.jsCode.replace(
     calendarStart: String(parsedData.calendarStart ?? ''),
     calendarEnd: String(parsedData.calendarEnd ?? ''),
     calendarEventQuery: String(parsedData.calendarEventQuery ?? ''),
-    calendarDescription: String(parsedData.calendarDescription ?? ''),`,
+    calendarDescription: String(parsedData.calendarDescription ?? ''),
+    calendarLocation: String(parsedData.calendarLocation ?? ''),
+    calendarEvents: Array.isArray(parsedData.calendarEvents) ? parsedData.calendarEvents : [],`,
 )
 
 const codeNode = (id, name, jsCode, position) => ({
@@ -79,25 +82,30 @@ let end=new Date(String(item.calendarEnd||''));
 if(action==='CREATE'&&!Number.isFinite(end.getTime())&&Number.isFinite(start.getTime()))end=new Date(start.getTime()+60*60*1000);
 const validStart=Number.isFinite(start.getTime());
 const validEnd=Number.isFinite(end.getTime())&&end>start;
-const valid=action==='CREATE'?Boolean(title&&validStart&&validEnd):Boolean(action==='MOVE'&&query&&validStart);
+const rawEvents=Array.isArray(item.calendarEvents)&&item.calendarEvents.length?item.calendarEvents:[{title,start:item.calendarStart,end:item.calendarEnd,description:item.calendarDescription,location:item.calendarLocation}];
+const calendarEvents=rawEvents.slice(0,20).map((row,index)=>{const eventStart=new Date(String(row?.start||''));let eventEnd=new Date(String(row?.end||''));if(!Number.isFinite(eventEnd.getTime())&&Number.isFinite(eventStart.getTime()))eventEnd=new Date(eventStart.getTime()+60*60*1000);return {title:String(row?.title||'').trim().slice(0,300),start:Number.isFinite(eventStart.getTime())?eventStart.toISOString():'',end:Number.isFinite(eventEnd.getTime())?eventEnd.toISOString():'',description:String(row?.description||'').slice(0,8000),location:String(row?.location||'').slice(0,1000),requestId:String(item.messageId||'')+'-'+index}});
+const validEvents=calendarEvents.length>0&&calendarEvents.every(row=>row.title&&Number.isFinite(new Date(row.start).getTime())&&Number.isFinite(new Date(row.end).getTime())&&new Date(row.end)>new Date(row.start));
+const valid=action==='CREATE'?validEvents:Boolean(action==='MOVE'&&query&&validStart);
 if(!valid){return [{json:{...item,text:item.text||'Potrebujem doplniť názov udalosti a nový dátum alebo čas.',calendarReady:false}}]}
 const state=$getWorkflowStaticData('global');state.calendarPending=state.calendarPending||{};
-const draft={calendarAction:action,calendarTitle:title,calendarEventQuery:query,calendarStart:start.toISOString(),calendarEnd:validEnd?end.toISOString():'',calendarDescription:String(item.calendarDescription||'').slice(0,2000),expiresAt:Date.now()+30*60*1000,requestMessageId:String(item.messageId||'')};
+const draft={calendarAction:action,calendarTitle:title,calendarEventQuery:query,calendarStart:validStart?start.toISOString():'',calendarEnd:validEnd?end.toISOString():'',calendarDescription:String(item.calendarDescription||'').slice(0,8000),calendarLocation:String(item.calendarLocation||'').slice(0,1000),calendarEvents,expiresAt:Date.now()+30*60*1000,requestMessageId:String(item.messageId||'')};
 state.calendarPending[String(item.chatId)]=draft;
 const when=new Intl.DateTimeFormat('sk-SK',{dateStyle:'full',timeStyle:'short',timeZone:'Europe/Bratislava'}).format(start);
 const verb=action==='CREATE'?'Vytvoriť':'Presunúť';
 const label=action==='CREATE'?title:query;
-return [{json:{...item,...draft,intent:'APPROVAL',approvalRequired:true,text:verb+' udalosť „'+label+'“ na '+when+' v hlavnom kalendári? Odpovedz ÁNO alebo ZRUŠ.'}}];`, [5312, 1056])
+const eventLines=action==='CREATE'?calendarEvents.map(row=>'• „'+row.title+'“ — '+new Intl.DateTimeFormat('sk-SK',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Bratislava'}).format(new Date(row.start))).join('\\n'):'„'+label+'“ na '+when;
+const proposal=action==='CREATE'?(calendarEvents.length>1?verb+' tieto udalosti:\\n'+eventLines:verb+' udalosť „'+calendarEvents[0].title+'“ na '+new Intl.DateTimeFormat('sk-SK',{dateStyle:'full',timeStyle:'short',timeZone:'Europe/Bratislava'}).format(new Date(calendarEvents[0].start))):verb+' udalosť '+eventLines;
+return [{json:{...item,...draft,intent:'APPROVAL',approvalRequired:true,text:proposal+' v hlavnom kalendári? Odpovedz ÁNO alebo ZRUŠ.'}}];`, [5312, 1056])
 
 const resolveMove = codeNode('nora-calendar-resolve', 'Resolve Calendar Move', `const response=$input.first().json||{};const source=$('Calendar Approval Router').first().json;const rows=Array.isArray(response.items)?response.items.filter(row=>row&&row.id&&row.status!=='cancelled'):[];
 if(rows.length!==1){return [{json:{...source,calendarResolved:'NO',text:rows.length===0?'Nenašla som jednoznačnú udalosť „'+source.calendarEventQuery+'“ v hlavnom kalendári. Upresni názov alebo pôvodný termín.':'Našla som viac udalostí „'+source.calendarEventQuery+'“. Upresni prosím pôvodný termín.'}}]}
 const event=rows[0];const oldStart=new Date(event.start?.dateTime||event.start?.date);const oldEnd=new Date(event.end?.dateTime||event.end?.date);const newStart=new Date(source.calendarStart);let newEnd=new Date(source.calendarEnd||'');if(!Number.isFinite(newEnd.getTime())){const duration=Number.isFinite(oldEnd-oldStart)&&oldEnd>oldStart?oldEnd-oldStart:60*60*1000;newEnd=new Date(newStart.getTime()+duration)}
 return [{json:{...source,calendarResolved:'YES',eventId:String(event.id),calendarTitle:String(event.summary||source.calendarEventQuery),calendarStart:newStart.toISOString(),calendarEnd:newEnd.toISOString()}}];`, [5008, 816])
 
-const finalize = codeNode('nora-calendar-finalize', 'Finalize Calendar Action', `const event=$input.first().json||{};const source=$('Calendar Approval Router').first().json;const state=$getWorkflowStaticData('global');if(state.calendarPending)delete state.calendarPending[String(source.chatId)];const verb=source.calendarAction==='CREATE'?'vytvorila':'presunula';return [{json:{...source,text:'Hotovo — udalosť „'+String(event.summary||source.calendarTitle||source.calendarEventQuery)+'“ som '+verb+' v hlavnom kalendári.',intent:'ANSWER',approvalRequired:false,details:String(event.htmlLink||'')}}];`, [5616, 720])
+const finalize = codeNode('nora-calendar-finalize', 'Finalize Calendar Action', `const events=$input.all().map(item=>item.json||{});const source=$('Calendar Approval Router').first().json;const state=$getWorkflowStaticData('global');if(state.calendarPending)delete state.calendarPending[String(source.chatId)];if(source.calendarAction==='CREATE'&&events.length>1){return [{json:{...source,text:'Hotovo — vytvorila som '+events.length+' udalosti v hlavnom kalendári: '+events.map(event=>'„'+String(event.summary||'Udalosť')+'“').join(', ')+'.',intent:'ANSWER',approvalRequired:false,details:events.map(event=>event.htmlLink||'').filter(Boolean).join('\\n')}}]}const event=events[0]||{};const verb=source.calendarAction==='CREATE'?'vytvorila':'presunula';return [{json:{...source,text:'Hotovo — udalosť „'+String(event.summary||source.calendarTitle||source.calendarEventQuery)+'“ som '+verb+' v hlavnom kalendári.',intent:'ANSWER',approvalRequired:false,details:String(event.htmlLink||'')}}];`, [5616, 720])
 
 const calendarAuth = { googleCalendarOAuth2Api: calendarCredentials.googleCalendarOAuth2Api }
-const prepareCreateBody = codeNode('nora-calendar-create-body', 'Prepare Calendar Create Body', `const item=$input.first().json;return [{json:{...item,requestBody:JSON.stringify({summary:item.calendarTitle,description:item.calendarDescription||'',start:{dateTime:item.calendarStart,timeZone:'Europe/Bratislava'},end:{dateTime:item.calendarEnd,timeZone:'Europe/Bratislava'},extendedProperties:{private:{noraRequestId:item.requestMessageId||''}}})}}];`, [4896, 672])
+const prepareCreateBody = codeNode('nora-calendar-create-body', 'Prepare Calendar Create Body', `const item=$input.first().json;const events=Array.isArray(item.calendarEvents)&&item.calendarEvents.length?item.calendarEvents:[{title:item.calendarTitle,start:item.calendarStart,end:item.calendarEnd,description:item.calendarDescription,location:item.calendarLocation,requestId:item.requestMessageId}];return events.map(event=>({json:{...item,requestBody:JSON.stringify({summary:event.title,description:event.description||'',location:event.location||'',start:{dateTime:event.start,timeZone:'Europe/Bratislava'},end:{dateTime:event.end,timeZone:'Europe/Bratislava'},extendedProperties:{private:{noraRequestId:event.requestId||item.requestMessageId||''}}})}}));`, [4896, 672])
 const createEvent = {
   parameters: { method: 'POST', url: 'https://www.googleapis.com/calendar/v3/calendars/primary/events', authentication: 'predefinedCredentialType', nodeCredentialType: 'googleCalendarOAuth2Api', sendBody: true, contentType: 'raw', rawContentType: 'application/json', body: '={{ $json.requestBody }}', options: { timeout: 30000 } },
   id: 'nora-calendar-create', name: 'Google Calendar — Create Approved Event', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [5136, 672], credentials: calendarAuth,

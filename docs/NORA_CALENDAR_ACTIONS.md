@@ -2,6 +2,8 @@
 
 NORA vie z Telegram textu alebo hlasovej správy vytvoriť udalosť a presunúť existujúcu udalosť. Všetky zápisy smerujú výhradne do Google Calendar `primary`.
 
+Jeden príkaz môže obsahovať až 20 udalostí. NORA pri každej zachová názov, začiatok, koniec, relevantný popis, webové odkazy a online alebo fyzické miesto. Celá dávka sa vytvorí až po jednom spoločnom potvrdení. Ak koniec chýba, použije sa 60 minút.
+
 ## Bezpečnostný tok
 
 1. NORA rozpozná `CREATE` alebo `MOVE` a pripraví absolútny termín v časovom pásme `Europe/Bratislava`.
