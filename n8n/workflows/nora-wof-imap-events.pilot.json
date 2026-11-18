@@ -2,7 +2,7 @@
   "name": "NORA — WOF Events IMAP intake (PILOT)",
   "nodes": [
     {
-      "parameters": { "format": "resolved", "options": {} },
+      "parameters": { "format": "resolved", "postProcessAction": "nothing", "options": {} },
       "id": "wof-events-imap",
       "name": "WOF Events — nový e-mail",
       "type": "n8n-nodes-base.emailReadImap",

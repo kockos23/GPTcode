@@ -30,7 +30,7 @@
 
 1. Change `work`, run the relevant focused tests and then `npm run verify`.
 2. Push only reviewed code. The normal GitHub quality workflow validates but never deploys.
-3. Convex production deploys use the separately manual `Deploy Convex` workflow and its protected `CONVEX_DEPLOY_KEY` secret. Its initial checked-in version has a one-time path-scoped bootstrap trigger; later application pushes do not deploy automatically.
+3. Convex production deploys are performed from Macaly against its existing Live deployment; GitHub does not hold a production deploy secret.
 4. Follow the relevant runbook before any live Convex deploy or n8n mutation.
 5. If a backend contract affects the UI, complete the frontend path above before publishing Macaly.
 
