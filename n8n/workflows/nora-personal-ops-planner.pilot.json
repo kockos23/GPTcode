@@ -101,6 +101,21 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1000, 120]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_OWNER_CHAT_ID",
+        "text": "={{ $json.briefingText }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "personal-ops-telegram-briefing",
+      "name": "Pošli Personal Ops briefing",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1240, 120],
+      "disabled": true
     }
   ],
   "connections": {
@@ -121,6 +136,9 @@
     },
     "Convex — načítaj návrhy": {
       "main": [[{ "node": "Priprav briefing návrhov", "type": "main", "index": 0 }]]
+    },
+    "Priprav briefing návrhov": {
+      "main": [[{ "node": "Pošli Personal Ops briefing", "type": "main", "index": 0 }]]
     }
   },
   "settings": {

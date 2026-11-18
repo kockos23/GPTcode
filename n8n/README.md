@@ -68,6 +68,8 @@ Sanitizovaný workflow `nora-personal-ops-planner.pilot.json` pripravuje návrho
 
 Workflow sa nesmie aktivovať pred týmto pilotom.
 
+Kontrolovaný Live pilot 18. 11. 2026 overil hranicu `401/200`, zapísal päť známych aktív, jedno predplatné a vytvoril tri kroky výhradne v stave `PROPOSED`. Planner `rWqn3KqU3jok4Gz7` je následne aktívny a briefing posiela cez existujúci credential `NORA Telegram Bot`; Garmin intake `VK6T1OiV738wVLTk` ostáva neaktívny. Dočasne používa rovnaký Live integračný secret ako existujúca n8n hranica, kým sa pri koordinovanej rotácii nevytvorí nezávislý Personal Ops secret.
+
 Sanitizovaný `nora-health-garmin-daily.pilot.json` je neaktívny vstupný adaptér pre denný súhrn Garmin Connect. Počíta s Fenix 3 a CIRQA agregovanými v jednom Garmin Connect účte; nezdvojuje dáta podľa zariadenia. Verejný webhook musí mať samostatný n8n header-auth credential a Convex zápis používa `PERSONAL_OPS_INTEGRATION_SECRET`. HTTP zápisový uzol zostáva v exporte vypnutý až do kontrolovaného pilotu.
 
 Workflow neobsahuje Garmin heslo ani implementáciu neoficiálneho Garmin prihlásenia. Zdrojový Garmin bridge sa vyberie až po overení dostupnej oficiálnej/partnerskej cesty alebo samostatného read-only konektora; tajomstvá nesmú prechádzať cez webhook payload.

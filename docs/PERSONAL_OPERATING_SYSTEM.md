@@ -42,6 +42,8 @@ Externé odoslanie, nákup, rezervácia, platba, mazanie a zmena kalendára vžd
 - týždenné preplánovanie: nedeľa 18:00;
 - mesačný prehľad spotrieb, nákladov a údržby: prvý deň mesiaca.
 
+Ranný a týždenný planner po načítaní návrhov pripraví stručný briefing pre existujúci NORA Telegram kanál. Sanitizovaný export má odosielací uzol vypnutý a bez credentialu; Live uzol sa pripája iba na už overený NORA bot a owner chat.
+
 ## Integračné poradie
 
 1. Garmin Connect iba na čítanie; Strava ako sekundárny zdroj aktivít.
