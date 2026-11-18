@@ -66,6 +66,45 @@ export const listOpenSignals = internalQuery({
   },
 })
 
+export const listProposedSteps = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)))
+    return await ctx.db.query("personalPlanSteps")
+      .withIndex("by_status_deadline", query => query.eq("status", "PROPOSED"))
+      .take(limit)
+  },
+})
+
+export const decidePlanStep = internalMutation({
+  args: {
+    stepId: v.string(),
+    decision: v.union(v.literal("APPROVE"), v.literal("POSTPONE"), v.literal("DISMISS")),
+    postponeUntil: v.optional(v.number()),
+    note: v.optional(v.string()),
+  },
+  returns: v.object({ ok: v.boolean(), stepId: v.string(), status: v.string() }),
+  handler: async (ctx, args) => {
+    const stepId = bounded(args.stepId, 240)
+    const step = await ctx.db.query("personalPlanSteps").withIndex("by_step_id", query => query.eq("stepId", stepId)).unique()
+    if (!step) throw new Error("STEP_NOT_FOUND")
+    if (step.status !== "PROPOSED") throw new Error("STEP_ALREADY_DECIDED")
+    if (args.decision === "POSTPONE" && (!args.postponeUntil || !Number.isFinite(args.postponeUntil) || args.postponeUntil <= Date.now())) {
+      throw new Error("INVALID_POSTPONE_UNTIL")
+    }
+    const status = args.decision === "APPROVE" ? "APPROVED" : args.decision === "POSTPONE" ? "POSTPONED" : "DISMISSED"
+    const note = args.note ? bounded(args.note, 1000) : undefined
+    await ctx.db.patch(step._id, {
+      status,
+      deadline: args.decision === "POSTPONE" ? args.postponeUntil : step.deadline,
+      result: note,
+      updatedAt: Date.now(),
+    })
+    return { ok: true, stepId, status }
+  },
+})
+
 export const upsertAsset = internalMutation({
   args: { assetId: v.string(), domain, kind: v.string(), name: v.string(), status: v.string(), metadata: v.any() },
   returns: v.object({ ok: v.boolean(), created: v.boolean(), assetId: v.string() }),

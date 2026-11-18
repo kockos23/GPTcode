@@ -409,6 +409,46 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/personal-ops/proposals",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const parsed = new URL(request.url)
+    const requestedLimit = Number(parsed.searchParams.get("limit") ?? "20")
+    if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 50) {
+      return Response.json({ ok: false, code: "INVALID_LIMIT" }, { status: 400 })
+    }
+    const proposals = await ctx.runQuery(internal.personalOps.listProposedSteps, { limit: requestedLimit })
+    return Response.json({ ok: true, proposals }, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/proposals/decision",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const stepId = safeAgentText(body?.stepId, 240)
+    const decision = body?.decision === "APPROVE" || body?.decision === "POSTPONE" || body?.decision === "DISMISS" ? body.decision : ""
+    const postponeUntil = typeof body?.postponeUntil === "number" && Number.isFinite(body.postponeUntil) ? body.postponeUntil : undefined
+    if (!stepId || !decision || (decision === "POSTPONE" && (!postponeUntil || postponeUntil <= Date.now()))) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    try {
+      const result = await ctx.runMutation(internal.personalOps.decidePlanStep, {
+        stepId, decision, postponeUntil, note: safeAgentText(body?.note, 1000) || undefined,
+      })
+      return Response.json(result, { headers: { "cache-control": "no-store" } })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "DECISION_FAILED"
+      const status = message.includes("STEP_NOT_FOUND") ? 404 : message.includes("ALREADY_DECIDED") ? 409 : 422
+      return Response.json({ ok: false, code: message }, { status })
+    }
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/personal-ops/health/daily",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
@@ -430,6 +470,100 @@ http.route({
       baselineRestingHeartRate: typeof row.baselineRestingHeartRate === "number" ? row.baselineRestingHeartRate : undefined,
       baselineSleepMinutes: typeof row.baselineSleepMinutes === "number" ? row.baselineSleepMinutes : undefined,
       occurredAt: Number(row.occurredAt),
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/assets",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const assetId = safeAgentText(body?.assetId, 120)
+    const assetDomain = safeAgentText(body?.domain, 20)
+    const kind = safeAgentText(body?.kind, 80)
+    const name = safeAgentText(body?.name, 300)
+    if (!assetId || !PERSONAL_OPS_DOMAINS.has(assetDomain) || !kind || !name || !body?.metadata || typeof body.metadata !== "object" || Array.isArray(body.metadata)) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.personalOps.upsertAsset, {
+      assetId, domain: assetDomain as "EXECUTIVE" | "HEALTH" | "HOME" | "VEHICLE" | "FINANCE", kind, name,
+      status: safeAgentText(body.status, 40) || "ACTIVE", metadata: body.metadata,
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/maintenance",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const leadDays = Array.isArray(body?.leadDays) ? body.leadDays.filter((value): value is number => typeof value === "number" && Number.isFinite(value)) : []
+    const nextDueAt = typeof body?.nextDueAt === "number" ? body.nextDueAt : NaN
+    const maintenanceId = safeAgentText(body?.maintenanceId, 120)
+    const assetId = safeAgentText(body?.assetId, 120)
+    const title = safeAgentText(body?.title, 300)
+    if (!maintenanceId || !assetId || !title || !Number.isFinite(nextDueAt) || leadDays.length > 12) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.personalOps.upsertMaintenance, {
+      maintenanceId, assetId, title, nextDueAt, leadDays,
+      category: safeAgentText(body?.category, 80) || "GENERAL", recurrence: safeAgentText(body?.recurrence, 100) || "NONE",
+      status: safeAgentText(body?.status, 40) || "ACTIVE",
+      lastCompletedAt: typeof body?.lastCompletedAt === "number" ? body.lastCompletedAt : undefined,
+      notes: safeAgentText(body?.notes, 2000),
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/utility-readings",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const utility = body?.utility === "ELECTRICITY" || body?.utility === "WATER" ? body.utility : ""
+    const value = typeof body?.value === "number" ? body.value : NaN
+    const recordedAt = typeof body?.recordedAt === "number" ? body.recordedAt : NaN
+    const readingId = safeAgentText(body?.readingId, 120)
+    const assetId = safeAgentText(body?.assetId, 120)
+    if (!readingId || !assetId || !utility || !Number.isFinite(value) || value < 0 || !Number.isFinite(recordedAt)) {
+      return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    }
+    const result = await ctx.runMutation(internal.personalOps.recordUtilityReading, {
+      readingId, assetId, utility, value, recordedAt, unit: safeAgentText(body?.unit, 20),
+      source: safeAgentText(body?.source, 100) || "MANUAL", note: safeAgentText(body?.note, 1000),
+    })
+    return Response.json(result, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/personal-ops/subscriptions",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedPersonalOps(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const subscriptionId = safeAgentText(body?.subscriptionId, 120)
+    const name = safeAgentText(body?.name, 300)
+    if (!subscriptionId || !name) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const cancellationUrl = safeAgentText(body?.cancellationUrl, 1000)
+    if (cancellationUrl) {
+      try { if (new URL(cancellationUrl).protocol !== "https:") throw new Error("INVALID") }
+      catch { return Response.json({ ok: false, code: "INVALID_URL" }, { status: 400 }) }
+    }
+    const result = await ctx.runMutation(internal.personalOps.upsertSubscription, {
+      subscriptionId, name, provider: safeAgentText(body?.provider, 200), category: safeAgentText(body?.category, 80) || "OTHER",
+      amount: typeof body?.amount === "number" && Number.isFinite(body.amount) ? body.amount : undefined,
+      currency: safeAgentText(body?.currency, 3) || undefined, billingCycle: safeAgentText(body?.billingCycle, 40) || "UNKNOWN",
+      nextRenewalAt: typeof body?.nextRenewalAt === "number" && Number.isFinite(body.nextRenewalAt) ? body.nextRenewalAt : undefined,
+      cancellationUrl: cancellationUrl || undefined, status: safeAgentText(body?.status, 40) || "ACTIVE",
+      source: safeAgentText(body?.source, 100) || "MANUAL",
     })
     return Response.json(result, { headers: { "cache-control": "no-store" } })
   }),

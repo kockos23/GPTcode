@@ -75,6 +75,32 @@
       "typeVersion": 4.2,
       "position": [520, 120],
       "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/integrations/n8n/personal-ops/proposals?limit=20",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "personal-ops-proposals-request",
+      "name": "Convex — načítaj návrhy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 120],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = Array.isArray($json.proposals) ? $json.proposals : []; const lines = rows.map((row, i) => `${i + 1}. [${row.priority}] ${row.title} — ${row.assignedAgent}${row.approval === 'OWNER' ? ' (čaká na schválenie)' : ''}`); return [{ json: { proposalCount: rows.length, briefingText: lines.length ? `NORA — návrhy agentov\\n${lines.join('\\n')}` : 'NORA — momentálne nie sú žiadne nové návrhy.', proposals: rows } }];"
+      },
+      "id": "personal-ops-format-briefing",
+      "name": "Priprav briefing návrhov",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 120]
     }
   ],
   "connections": {
@@ -89,6 +115,12 @@
     },
     "Priprav týždenný plán": {
       "main": [[{ "node": "Convex — navrhni plán", "type": "main", "index": 0 }]]
+    },
+    "Convex — navrhni plán": {
+      "main": [[{ "node": "Convex — načítaj návrhy", "type": "main", "index": 0 }]]
+    },
+    "Convex — načítaj návrhy": {
+      "main": [[{ "node": "Priprav briefing návrhov", "type": "main", "index": 0 }]]
     }
   },
   "settings": {

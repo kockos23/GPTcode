@@ -52,6 +52,8 @@ Externé odoslanie, nákup, rezervácia, platba, mazanie a zmena kalendára vžd
 
 Apple Health nie je v MVP povinný zdroj.
 
+Sanitizovaná štartovacia šablóna je v `config/personal-ops.seed.example.json`. Obsahuje Garmin Fenix 3, Garmin CIRQA, ZSE, IMAZ a Freeletics cez Revolut. Auto a presné termíny zostávajú ako placeholdery. `scripts/seed-personal-ops.mjs` je predvolene iba dry-run a zápis vykoná až s `--apply`, HTTPS URL a samostatným secretom.
+
 ## Bezpečnostné hranice
 
 - Tajomstvá zostávajú v n8n credential store alebo v správe prostredia.
@@ -66,5 +68,11 @@ Pripravené autentizované kontrakty pre n8n:
 - `POST /integrations/n8n/personal-ops/signals` — idempotentný, ohraničený signál;
 - `POST /integrations/n8n/personal-ops/planner` — denný alebo týždenný návrhový beh.
 - `POST /integrations/n8n/personal-ops/health/daily` — ohraničený denný súhrn z Garmin Connect/CIRQA.
+- `POST /integrations/n8n/personal-ops/assets` — domácnosť, merače, autá a zariadenia.
+- `POST /integrations/n8n/personal-ops/maintenance` — STK/EK, servis, komín a ďalšie termíny.
+- `POST /integrations/n8n/personal-ops/utility-readings` — idempotentné odpočty elektriny a vody.
+- `POST /integrations/n8n/personal-ops/subscriptions` — predplatné a termíny obnovy.
+- `GET /integrations/n8n/personal-ops/proposals?limit=20` — čakajúce návrhy agentov pre ranný/týždenný briefing.
+- `POST /integrations/n8n/personal-ops/proposals/decision` — explicitné `APPROVE`, `POSTPONE` alebo `DISMISS`; schválenie samo nevykoná externú akciu.
 
 Endpointy zlyhajú s `401`, ak samostatný secret nie je nastavený. Planner vytvára iba návrhy a nevykonáva externé akcie.

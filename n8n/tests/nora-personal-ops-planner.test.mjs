@@ -9,6 +9,7 @@ test('personal operations planner export is inert and sanitized', () => {
   assert.equal(workflow.active, false)
   assert.equal(workflow.nodes.some(node => Object.hasOwn(node, 'credentials')), false)
   assert.equal(nodes.get('Convex — navrhni plán').disabled, true)
+  assert.equal(nodes.get('Convex — načítaj návrhy').disabled, true)
   assert.match(nodes.get('Convex — navrhni plán').parameters.url, /^REPLACE_WITH_CONVEX_SITE_URL/)
   assert.equal(workflow.settings.timezone, 'Europe/Bratislava')
   assert.equal(workflow.settings.saveDataSuccessExecution, 'none')
@@ -27,4 +28,12 @@ test('planner calls only the authenticated proposal endpoint', () => {
   assert.equal(request.parameters.genericAuthType, 'httpHeaderAuth')
   assert.match(request.parameters.url, /\/integrations\/n8n\/personal-ops\/planner$/)
   assert.equal(request.parameters.jsonBody, '={{ JSON.stringify($json) }}')
+})
+
+test('planner prepares a bounded approval briefing without sending it', () => {
+  const request = nodes.get('Convex — načítaj návrhy')
+  assert.equal(request.parameters.authentication, 'genericCredentialType')
+  assert.match(request.parameters.url, /\/personal-ops\/proposals\?limit=20$/)
+  assert.match(nodes.get('Priprav briefing návrhov').parameters.jsCode, /čaká na schválenie/)
+  assert.equal(workflow.nodes.some(node => /telegram/i.test(node.type)), false)
 })

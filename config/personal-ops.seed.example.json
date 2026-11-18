@@ -1,0 +1,82 @@
+{
+  "assets": [
+    {
+      "assetId": "health-garmin-fenix-3",
+      "domain": "HEALTH",
+      "kind": "WEARABLE",
+      "name": "Garmin Fenix 3",
+      "status": "ACTIVE",
+      "metadata": { "provider": "GARMIN_CONNECT", "role": "SPORT_ACTIVITIES" }
+    },
+    {
+      "assetId": "health-garmin-cirqa",
+      "domain": "HEALTH",
+      "kind": "WEARABLE",
+      "name": "Garmin CIRQA",
+      "status": "ACTIVE",
+      "metadata": { "provider": "GARMIN_CONNECT", "role": "DAILY_WELLNESS" }
+    },
+    {
+      "assetId": "home-primary",
+      "domain": "HOME",
+      "kind": "PROPERTY",
+      "name": "Hlavná domácnosť",
+      "status": "ACTIVE",
+      "metadata": {}
+    },
+    {
+      "assetId": "meter-electricity-zse",
+      "domain": "HOME",
+      "kind": "UTILITY_METER",
+      "name": "Elektrina — ZSE",
+      "status": "ACTIVE",
+      "metadata": { "utility": "ELECTRICITY", "provider": "ZSE", "readingMode": "MANUAL" }
+    },
+    {
+      "assetId": "meter-water-imaz",
+      "domain": "HOME",
+      "kind": "UTILITY_METER",
+      "name": "Voda — IMAZ s.r.o.",
+      "status": "ACTIVE",
+      "metadata": { "utility": "WATER", "provider": "IMAZ s.r.o.", "readingMode": "MANUAL" }
+    }
+  ],
+  "subscriptions": [
+    {
+      "subscriptionId": "freeletics-revolut-benefit",
+      "name": "Freeletics",
+      "provider": "Revolut benefit",
+      "category": "HEALTH",
+      "billingCycle": "UNKNOWN",
+      "status": "ACTIVE",
+      "source": "MANUAL"
+    }
+  ],
+  "maintenance": [
+    {
+      "maintenanceId": "home-chimney-inspection",
+      "assetId": "home-primary",
+      "category": "SAFETY_INSPECTION",
+      "title": "Kontrola komína",
+      "recurrence": "ANNUAL",
+      "nextDueAt": "REPLACE_WITH_UNIX_MILLISECONDS",
+      "leadDays": [60, 30, 14, 3],
+      "status": "ACTIVE",
+      "notes": "Doplniť dátum poslednej kontroly a kontakt na servis."
+    }
+  ],
+  "vehicleTemplates": [
+    {
+      "assetId": "REPLACE_WITH_VEHICLE_ID",
+      "domain": "VEHICLE",
+      "kind": "CAR",
+      "name": "REPLACE_WITH_VEHICLE_NAME",
+      "status": "ACTIVE",
+      "metadata": {
+        "registrationNumber": "REPLACE_WITH_REGISTRATION_NUMBER",
+        "vin": "REPLACE_WITH_VIN",
+        "odometerKm": "REPLACE_WITH_ODOMETER"
+      }
+    }
+  ]
+}
