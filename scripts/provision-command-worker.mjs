@@ -1,0 +1,73 @@
+import crypto from "node:crypto"
+import { EnvHttpProxyAgent,setGlobalDispatcher } from "undici"
+
+const base=process.env.N8N_BASE_URL?.replace(/\/$/,""),key=process.env.N8N_API_KEY,site=process.env.CONVEX_SITE_URL?.replace(/\/$/,"")
+if(!base||!key||!site)throw new Error("Missing n8n/Convex runtime configuration")
+if(process.env.HTTPS_PROXY||process.env.HTTP_PROXY||process.env.ALL_PROXY)setGlobalDispatcher(new EnvHttpProxyAgent())
+const api=async(path,init={})=>{const response=await fetch(base+path,{...init,headers:{"X-N8N-API-KEY":key,"content-type":"application/json"}});const text=await response.text();if(!response.ok)throw new Error(`${path}: ${response.status} ${text.slice(0,500)}`);return text?JSON.parse(text):null}
+const list=await api("/api/v1/workflows?limit=250")
+const byName=name=>list.data.find(row=>row.name===name)
+const snapshotSummary=byName("NORA — Chief of Staff Snapshot Sync")
+const noraSummary=byName("NORA – Chief of Staff (Telegram Voice+Text → Command Inbox)")
+if(!snapshotSummary||!noraSummary)throw new Error("Required NORA source workflow missing")
+const [snapshot,nora]=await Promise.all([api(`/api/v1/workflows/${snapshotSummary.id}`),api(`/api/v1/workflows/${noraSummary.id}`)])
+const convexCredentials=snapshot.nodes.find(node=>node.credentials?.httpHeaderAuth)?.credentials
+const gmailCredentials=snapshot.nodes.find(node=>node.credentials?.gmailOAuth2)?.credentials
+const openAiCredentials=nora.nodes.find(node=>node.credentials?.openAiApi)?.credentials
+if(!convexCredentials||!gmailCredentials||!openAiCredentials)throw new Error("Required production credential references missing")
+
+const id=()=>crypto.randomUUID()
+const http=(name,position,parameters,credentials=convexCredentials)=>({id:id(),name,type:"n8n-nodes-base.httpRequest",typeVersion:4.2,position,credentials,parameters})
+const code=(name,position,jsCode)=>({id:id(),name,type:"n8n-nodes-base.code",typeVersion:2,position,parameters:{jsCode}})
+const iff=(name,position,leftValue,rightValue)=>({id:id(),name,type:"n8n-nodes-base.if",typeVersion:2.2,position,parameters:{conditions:{options:{caseSensitive:true,typeValidation:"strict",version:2},combinator:"and",conditions:[{id:id(),leftValue,rightValue,operator:{type:"string",operation:"equals"}}]},options:{}}})
+const post=(url,body)=>({method:"POST",url,authentication:"genericCredentialType",genericAuthType:"httpHeaderAuth",sendBody:true,specifyBody:"json",jsonBody:`={{ JSON.stringify(${body}) }}`,options:{timeout:30000}})
+
+const routeCode=`const command=$json;
+const needsApproval=['CREATE_CALENDAR_EVENT','SAVE_ATTACHMENT_TO_DRIVE'].includes(command.intent)&&!command.approvalGranted;
+const route=needsApproval?'WAITING_APPROVAL':command.intent==='DRAFT_EMAIL_REPLY'?'DRAFT':'UNSUPPORTED';
+return [{json:{...command,route}}];`
+const prepareDraftCode=`const command=$('Route command').item.json;const message=$json||{};const headers=message.payload?.headers||[];const header=name=>String(headers.find(h=>String(h.name).toLowerCase()===name.toLowerCase())?.value||'');
+const decode=value=>{try{return Buffer.from(String(value||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8')}catch{return ''}};
+const parts=[];const walk=part=>{if(part?.body?.data)parts.push(decode(part.body.data));for(const child of part?.parts||[])walk(child)};walk(message.payload);
+const source=parts.join('\n').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').slice(0,12000);
+const from=header('Reply-To')||header('From'),subject=header('Subject')||'(bez predmetu)';
+return [{json:{command,from,subject,messageId:header('Message-ID'),requestBody:{model:'gpt-5-mini',store:false,reasoning:{effort:'low'},max_output_tokens:1200,instructions:'Si NORA, profesionálna Chief of Staff asistentka. Napíš stručný, vecný a prirodzený draft odpovede v jazyku pôvodného e-mailu. Nič neposielaj, nevymýšľaj fakty a ak chýba rozhodnutie, označ ho hranatou poznámkou pre Tomáša.',input:[{role:'user',content:[{type:'input_text',text:'Pokyn: '+command.command+'\\n\\nPôvodný e-mail od '+from+', predmet '+subject+':\\n'+source}]}]}}}];`
+const prepareGmailCode=`const prepared=$('Prepare draft prompt').item.json;const response=$json||{};const draft=String(response.output_text||response.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text||'').trim();if(!draft)throw new Error('OpenAI nevrátil text draftu');const email=(prepared.from.match(/<([^>]+)>/)||prepared.from.match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/)||[])[1]||prepared.from;const subject=/^re:/i.test(prepared.subject)?prepared.subject:'Re: '+prepared.subject;const raw=['To: '+email,'Subject: '+subject,prepared.messageId?'In-Reply-To: '+prepared.messageId:'','Content-Type: text/plain; charset=UTF-8','',''+draft].filter(Boolean).join('\\r\\n');return [{json:{command:prepared.command,draft,raw:Buffer.from(raw).toString('base64url')}}];`
+
+const nodes=[
+  {id:id(),name:"Command worker — every 2 minutes",type:"n8n-nodes-base.scheduleTrigger",typeVersion:1.2,position:[0,0],parameters:{rule:{interval:[{field:"cronExpression",expression:"*/2 * * * *"}]}}},
+  http("Claim commands",[220,0],post(`${site}/integrations/n8n/chief-of-staff/commands/claim`,`{worker:'NORA_COMMAND_WORKER',limit:5}`)),
+  {id:id(),name:"Split commands",type:"n8n-nodes-base.splitOut",typeVersion:1,position:[440,0],parameters:{fieldToSplitOut:"commands",options:{}}},
+  http("Start command",[660,0],post(`${site}/integrations/n8n/chief-of-staff/commands/start`,`{commandId:$json.commandId,worker:'NORA_COMMAND_WORKER',attempt:$json.attempt}`)),
+  code("Route command",[880,0],routeCode),
+  iff("Needs owner approval?",[1100,0],"={{ $json.route }}","WAITING_APPROVAL"),
+  http("Complete — waiting approval",[1340,-180],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$json.commandId,worker:'NORA_COMMAND_WORKER',attempt:$json.attempt,outcome:'WAITING_APPROVAL',result:'Akcia '+$json.targetApp+' je naplánovaná a čaká na schválenie vlastníka.'}`)),
+  iff("Is Gmail draft?",[1340,80],"={{ $json.route }}","DRAFT"),
+  http("Gmail — load source message",[1580,-20],{method:"GET",url:"=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{$json.contextId}}?format=full",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",options:{timeout:30000}},gmailCredentials),
+  code("Prepare draft prompt",[1810,-20],prepareDraftCode),
+  http("OpenAI — write draft",[2040,-20],{method:"POST",url:"https://api.openai.com/v1/responses",authentication:"predefinedCredentialType",nodeCredentialType:"openAiApi",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify($json.requestBody) }}",options:{timeout:60000}},openAiCredentials),
+  code("Prepare Gmail draft",[2270,-20],prepareGmailCode),
+  http("Gmail — create draft",[2500,-20],{method:"POST",url:"https://gmail.googleapis.com/gmail/v1/users/me/drafts",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify({message:{raw:$json.raw}}) }}",options:{timeout:30000}},gmailCredentials),
+  http("Complete — draft ready",[2730,-20],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare Gmail draft').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare Gmail draft').item.json.command.attempt,outcome:'DONE',result:'Draft odpovede bol vytvorený v Gmaili. Draft ID: '+String($json.id||'')}`)),
+  http("Complete — unsupported",[1580,200],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$json.commandId,worker:'NORA_COMMAND_WORKER',attempt:$json.attempt,outcome:'FAILED',error:'Pre tento typ príkazu alebo zdroj ešte nie je pripojený vykonávací adaptér.'}`)),
+]
+const connections={
+  "Command worker — every 2 minutes":{main:[[{node:"Claim commands",type:"main",index:0}]]},
+  "Claim commands":{main:[[{node:"Split commands",type:"main",index:0}]]},
+  "Split commands":{main:[[{node:"Start command",type:"main",index:0}]]},
+  "Start command":{main:[[{node:"Route command",type:"main",index:0}]]},
+  "Route command":{main:[[{node:"Needs owner approval?",type:"main",index:0}]]},
+  "Needs owner approval?":{main:[[{node:"Complete — waiting approval",type:"main",index:0}],[{node:"Is Gmail draft?",type:"main",index:0}]]},
+  "Is Gmail draft?":{main:[[{node:"Gmail — load source message",type:"main",index:0}],[{node:"Complete — unsupported",type:"main",index:0}]]},
+  "Gmail — load source message":{main:[[{node:"Prepare draft prompt",type:"main",index:0}]]},
+  "Prepare draft prompt":{main:[[{node:"OpenAI — write draft",type:"main",index:0}]]},
+  "OpenAI — write draft":{main:[[{node:"Prepare Gmail draft",type:"main",index:0}]]},
+  "Prepare Gmail draft":{main:[[{node:"Gmail — create draft",type:"main",index:0}]]},
+  "Gmail — create draft":{main:[[{node:"Complete — draft ready",type:"main",index:0}]]},
+}
+const name="NORA — Command Execution Worker"
+const settings={executionOrder:"v1",timezone:"Europe/Bratislava",errorWorkflow:snapshot.settings?.errorWorkflow,saveDataSuccessExecution:"none",saveDataErrorExecution:"all",saveExecutionProgress:false,executionTimeout:180,callerPolicy:"workflowsFromSameOwner"}
+const payload={name,nodes,connections,settings}
+const existing=byName(name)
+const workflow=existing?await api(`/api/v1/workflows/${existing.id}`,{method:"PUT",body:JSON.stringify(payload)}):await api("/api/v1/workflows",{method:"POST",body:JSON.stringify(payload)})
+console.log(JSON.stringify({id:workflow.id,active:workflow.active,nodeCount:workflow.nodes.length,name:workflow.name}))
