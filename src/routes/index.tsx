@@ -386,6 +386,11 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
   const [commandState,setCommandState]=useState<'idle'|'saving'|'done'|'error'>('idle')
   const todayLabel=new Intl.DateTimeFormat('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Bratislava'}).format(new Date())
   const focus=projects.filter(p=>p.priority==='P0').slice(0,3)
+  const dailyOutcomes = [
+    pending[0] ? { label:pending[0].question, run:()=>go('decisions') } : null,
+    focus[0] ? { label:focus[0].nextAction, run:()=>openProject(focus[0]) } : null,
+    { label:openTasks>0?`Vyčistiť ${openTasks} otvorených úloh a pripomienok`:'Pripraviť ďalší pracovný krok', run:()=>go('tasks') },
+  ].filter((item):item is {label:string;run:()=>void}=>Boolean(item)).slice(0,3)
   const liveEvents=live?.calendar.map(item=>{
     const start=new Date(item.start)
     return {
@@ -432,9 +437,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
     <section className="daily-focus" aria-label="Tri výsledky dňa">
       <div className="daily-focus-heading"><span><Target size={16}/></span><div><small>3 výsledky dňa</small><strong>Čo dnes skutočne posunie veci</strong></div></div>
       <div className="daily-focus-items three-items">
-        <button onClick={() => go('decisions')}><b>01</b><span>Rozhodnúť hlavný vstup pre Chief of Staff</span><ArrowRight size={15}/></button>
-        <button onClick={() => openProject(projects.find(project => project.id === 'P003')!)}><b>02</b><span>Určiť ďalší krok pre WOF Event Platform</span><ArrowRight size={15}/></button>
-        <button onClick={() => go('tasks')}><b>03</b><span>Vyčistiť úlohy a pripomienky</span><ArrowRight size={15}/></button>
+        {dailyOutcomes.map((item,index)=><button key={item.label} onClick={item.run}><b>{String(index+1).padStart(2,'0')}</b><span>{item.label}</span><ArrowRight size={15}/></button>)}
       </div>
     </section>
 

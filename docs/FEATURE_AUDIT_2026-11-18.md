@@ -40,7 +40,7 @@ Audit date: 18 November 2026. This separates visible UI, persisted behavior, ext
 
 ### P0 — Complete truth migration
 
-Projects and decisions now have a Convex register, legacy bootstrap and fallback. After deployment, verify the one-time bootstrap and edits. The remaining static element is the three daily outcomes; those should be generated from live priorities only after the project/decision migration is verified.
+Projects and decisions now have a Convex register, legacy bootstrap and fallback. The three daily outcomes are derived from live pending decisions, P0 projects and open tasks. After deployment, verify the one-time bootstrap, edits and outcome links.
 
 ### P1 — Health assistant interaction
 

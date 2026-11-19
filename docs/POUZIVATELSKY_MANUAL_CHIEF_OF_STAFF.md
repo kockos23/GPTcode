@@ -80,7 +80,7 @@ Príklady:
 
 ### Tri výsledky dňa
 
-Ide o krátky navigačný zoznam najdôležitejších výstupov. Kliknutie otvorí rozhodnutia, konkrétny projekt alebo úlohy. V aktuálnej verzii sú tieto tri položky kurátorované, nie automaticky vypočítané zo všetkých dát.
+Ide o krátky navigačný zoznam zostavený zo živého rozhodovacieho radu, projektu s prioritou Teraz a počtu otvorených úloh. Kliknutie otvorí príslušné rozhodnutie, projekt alebo úlohy. Je to operačná skratka, nie plnohodnotný AI plán dňa.
 
 ### Metriky
 
