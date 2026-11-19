@@ -217,6 +217,8 @@ const events = [
 
 const navItems: { id: View; label: string; icon: LucideIcon; portrait?:string }[] = [
   { id:'home', label:'Dnes', icon:LayoutDashboard },
+  { id:'inbox', label:'Inbox Radar', icon:Inbox },
+  { id:'calendar', label:'Kalendár', icon:CalendarDays },
   { id:'decisions', label:'Rozhodnutia', icon:ListChecks },
   { id:'projects', label:'Projekty', icon:FolderKanban },
   { id:'tasks', label:'Úlohy', icon:BellRing },
@@ -319,12 +321,19 @@ function ChiefOfStaffHQ() {
   const snapshotDate = liveBriefing
     ? new Date(liveBriefing.generatedAt).toLocaleDateString('sk-SK')
     : 'čaká na synchronizáciu'
+  const navCount = (id:View) => id==='inbox'
+    ? liveBriefing?.emails.length
+    : id==='decisions'
+      ? pending.length
+      : id==='tasks'
+        ? openTasks
+        : undefined
 
   return <div className="app-shell" data-testid="dashboard" data-state="ready">
     <aside className="sidebar-desktop">
       <Brand />
       <nav className="nav-stack" aria-label="Hlavná navigácia">
-        {navItems.map(item => <NavButton key={item.id} item={item} active={view === item.id} count={item.id === 'decisions' ? pending.length : undefined} onClick={() => go(item.id)} />)}
+        {navItems.map(item => <NavButton key={item.id} item={item} active={view === item.id} count={navCount(item.id)} onClick={() => go(item.id)} />)}
       </nav>
       <div className="sidebar-footer">
         <div className="snapshot-note"><Sparkles size={14}/><div><strong>Pracovná verzia</strong><span>Dáta aktualizované · {snapshotDate}</span></div></div>
@@ -340,7 +349,7 @@ function ChiefOfStaffHQ() {
 
     {mobileMenu && <div className="mobile-menu">
       <div className="mobile-menu-top"><Brand compact/><button className="icon-button dark" onClick={() => setMobileMenu(false)} aria-label="Zavrieť menu"><X size={20}/></button></div>
-      <nav className="nav-stack">{navItems.map(item => <NavButton key={item.id} item={item} active={view === item.id} count={item.id === 'decisions' ? pending.length : undefined} onClick={() => go(item.id)} />)}</nav>
+      <nav className="nav-stack">{navItems.map(item => <NavButton key={item.id} item={item} active={view === item.id} count={navCount(item.id)} onClick={() => go(item.id)} />)}</nav>
     </div>}
 
     <main className="main">
