@@ -218,6 +218,13 @@ export default defineSchema({
   })
     .index("by_email_key", ["emailKey"])
     .index("by_received_at", ["receivedAt"]),
+  chiefOfStaffEmailTriage: defineTable({
+    emailId: v.string(),
+    state: v.string(),
+    folder: v.string(),
+    sourceAccount: v.string(),
+    updatedAt: v.number(),
+  }).index("by_email_id", ["emailId"]),
   chiefOfStaffProjects: defineTable({
     projectId: v.string(),
     area: v.string(),

@@ -71,7 +71,7 @@ type LiveCommand = {
 type LiveBriefing = {
   generatedAt: number
   calendar: { id:string; title:string; start:string; end:string; allDay:boolean; url:string; calendarId?:string; calendarName?:string; color?:string; readOnly?:boolean }[]
-  emails: { id:string; threadId:string; subject:string; sender:string; timestamp:string; preview:string; bodyText?:string; bodyHtml?:string; sourceAccount?:string; url:string; important:boolean }[]
+  emails: { id:string; threadId:string; subject:string; sender:string; timestamp:string; preview:string; bodyText?:string; bodyHtml?:string; sourceAccount?:string; url:string; important:boolean; triageState?:'INBOX'|'ARCHIVED'|'MOVED'; triageFolder?:string }[]
   agents: LiveAgent[]
   workQueue: LiveWorkItem[]
   tasks: LiveTask[]
@@ -356,7 +356,7 @@ function ChiefOfStaffHQ() {
     <main className="main">
       <Topbar view={view} snapshotDate={snapshotDate}/>
       {view === 'home' && <HomeView pending={pending} projects={portfolioProjects} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
-      {view === 'inbox' && <InboxRadarView live={liveBriefing} go={go}/>}
+      {view === 'inbox' && <InboxRadarView live={liveBriefing} go={go} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'calendar' && <CalendarView live={liveBriefing} go={go}/>}
       {view === 'decisions' && <DecisionsView decisions={portfolioDecisions} projects={portfolioProjects} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
       {view === 'projects' && <ProjectsView projects={portfolioProjects} openProject={setSelectedProject}/>}
@@ -429,10 +429,10 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
       window.setTimeout(()=>setCommandState('idle'),2600)
     } catch { setCommandState('error') }
   }
-  const prepareEmailCommand=(email:LiveBriefing['emails'][number],kind:'draft'|'event'|'attachment')=>{
-    setCommandContext({type:'Email',id:email.id,label:email.subject})
-    setCommandText(kind==='draft'?'Priprav mi draft odpovede na tento e-mail.':kind==='event'?'Vytvor z tohto e-mailu udalosť v kalendári.':'Ulož prílohy z tohto e-mailu na Google Drive.')
-    document.getElementById('command-center')?.scrollIntoView({behavior:'smooth',block:'center'})
+  const prepareEmailCommand=async(email:LiveBriefing['emails'][number],kind:'draft'|'event'|'attachment')=>{
+    const command=kind==='draft'?'Priprav mi draft odpovede na tento e-mail.':kind==='event'?'Vytvor z tohto e-mailu udalosť v kalendári.':'Ulož prílohy z tohto e-mailu na Google Drive.'
+    setCommandState('saving')
+    try{const saved=await submitCommand({command,contextType:'Email',contextId:email.id,channel:'Inbox Radar',agentId:'NORA'});setLastCommandId(saved.id);setCommandState('done');window.setTimeout(()=>setCommandState('idle'),2600)}catch{setCommandState('error')}
   }
   return <div className="page today-page">
     <section className="hero today-hero">
@@ -470,7 +470,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
       <section className="panel mail-panel command-mail">
         <SectionTitle eyebrow="Inbox radar" title="Neprečítané maily na kontrolu" action={<button className="text-link" onClick={()=>go('inbox')}>{live?Math.min(live.emails.length,12)+' z '+live.emails.length:'—'} <ChevronRight size={14}/></button>}/>
         <div className={'source-notice '+(live?'connected':'')}><Mail size={15}/><span><strong>Gmail: tomas.kocner@gmail.com.</strong> Neprečítané za posledných 7 dní, bez promo, sociálnych sietí a fór.</span></div>
-        {live?<div className="mail-list">{uniqueDisplayEmails(live.emails).slice(0,12).map(email=><article className="mail-command-row" key={email.id}><a href={email.url} target="_blank" rel="noreferrer"><span className={email.important?'mail-mark important':'mail-mark'}><Mail size={14}/></span><div><strong>{email.subject}</strong><small>{email.sender}</small><p>{emailPreviewForCard(email.preview)}</p></div><ArrowUpRight size={14}/></a><div className="mail-actions"><button onClick={()=>prepareEmailCommand(email,'draft')}>Draft odpovede</button><button onClick={()=>prepareEmailCommand(email,'event')}>Do kalendára</button><button onClick={()=>prepareEmailCommand(email,'attachment')}>Príloha → Drive</button></div></article>)}{live.emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Žiadne neprečítané maily</strong><p>Zdroj funguje; filter kontroluje posledných 7 dní.</p></div></div>}</div>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Načítavam pripojený Gmail</strong><p>Inbox sa po prihlásení obnoví automaticky.</p></div></div>}
+        {live?<div className="mail-list">{uniqueDisplayEmails(live.emails).filter(email=>(email.triageState??'INBOX')==='INBOX').slice(0,12).map(email=><article className="mail-command-row" key={email.id}><a href={email.url} target="_blank" rel="noreferrer"><span className={email.important?'mail-mark important':'mail-mark'}><Mail size={14}/></span><div><strong>{email.subject}</strong><small>{email.sender}</small><p>{emailPreviewForCard(email.preview)}</p></div><ArrowUpRight size={14}/></a><div className="mail-actions"><button onClick={()=>void prepareEmailCommand(email,'draft')}>Draft odpovede</button><button onClick={()=>void prepareEmailCommand(email,'event')}>Do kalendára</button><button onClick={()=>void prepareEmailCommand(email,'attachment')}>Príloha → Drive</button></div></article>)}{live.emails.filter(email=>(email.triageState??'INBOX')==='INBOX').length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Inbox je čistý</strong><p>Zdroj funguje; filter kontroluje posledných 7 dní.</p></div></div>}</div>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Načítavam pripojený Gmail</strong><p>Inbox sa po prihlásení obnoví automaticky.</p></div></div>}
       </section>
 
       <div className="command-side">
@@ -509,22 +509,32 @@ function MetricLink({ icon:Icon, value, label, note, tone, onClick }: { icon:Luc
   return <button className={'metric-card '+tone} onClick={onClick}><span className="metric-icon"><Icon size={19}/></span><span className="metric-content"><strong>{value}</strong><b>{label}</b><small>{note}</small></span><ArrowUpRight className="metric-arrow" size={20}/></button>
 }
 
-function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
-  const emails=uniqueDisplayEmails(live?.emails??[])
-  const [selectedId,setSelectedId]=useState<string|null>(emails[0]?.id??null)
+function InboxRadarView({live,go,refreshBriefing}:{live:LiveBriefing|null;go:(view:View)=>void;refreshBriefing:()=>Promise<void>}) {
+  const setEmailState=useMutation(makeFunctionReference<'mutation',{emailId:string;state:'INBOX'|'ARCHIVED'|'MOVED';folder?:string;sourceAccount?:string},{ok:boolean;state:string;folder:string}>('emailTriage:setState'))
+  const submitCommand=useAction(api.commandCenter.submitCommand)
+  const allEmails=uniqueDisplayEmails(live?.emails??[])
+  const [tab,setTab]=useState<'INBOX'|'ARCHIVED'|'MOVED'>('INBOX')
+  const [selectedId,setSelectedId]=useState<string|null>(allEmails[0]?.id??null)
+  const [folder,setFolder]=useState('Na neskôr')
+  const [busy,setBusy]=useState('')
+  const [feedback,setFeedback]=useState('')
+  const emails=allEmails.filter(email=>(email.triageState??'INBOX')===tab)
   const selected=emails.find(email=>email.id===selectedId)??emails[0]
+  const changeState=async(email:LiveBriefing['emails'][number],state:'INBOX'|'ARCHIVED'|'MOVED',targetFolder?:string)=>{setBusy(email.id);setFeedback('');try{await setEmailState({emailId:email.id,state,folder:targetFolder,sourceAccount:email.sourceAccount});setSelectedId(null);setFeedback(state==='ARCHIVED'?'Správa je archivovaná.':state==='MOVED'?`Správa je v priečinku „${targetFolder}“.`:'Správa je späť v inboxe.');await refreshBriefing()}finally{setBusy('')}}
+  const prepareDraft=async(email:LiveBriefing['emails'][number])=>{setBusy(email.id);setFeedback('');try{const saved=await submitCommand({command:'Priprav mi draft odpovede na tento e-mail.',contextType:'Email',contextId:email.id,channel:'Inbox Radar',agentId:'NORA'});setFeedback(`NORA začala pripravovať draft · príkaz ${saved.id}. Stav nájdeš v Command Centre.`)}catch{setFeedback('Draft sa nepodarilo zaradiť. Skús obnoviť zdroje.')}finally{setBusy('')}}
   return <div className="page workspace-page inbox-workspace">
     <section className="workspace-heading">
       <div><p className="eyebrow">Inbox Radar · NORA AI engine · live triage</p><h2>Inbox Radar <span>/ Inteligentná pošta</span></h2><p>Prehľad dôležitých správ a okamžité previazanie na projekty a rozhodnutia.</p></div>
       <div className="workspace-heading-actions"><span><RefreshCw size={14}/> Synchronizované</span><button onClick={()=>go('home')}><Sparkles size={15}/> Otvoriť Command Center</button></div>
     </section>
-    <div className="workspace-tabs"><button className="active">Všetky kľúčové <b>{emails.length}</b></button><button>Na schválenie</button><button>Partneri & investori</button><button>Vybavené / Archív</button></div>
+    <div className="workspace-tabs"><button className={tab==='INBOX'?'active':''} onClick={()=>{setTab('INBOX');setSelectedId(null)}}>Inbox <b>{allEmails.filter(email=>(email.triageState??'INBOX')==='INBOX').length}</b></button><button className={tab==='MOVED'?'active':''} onClick={()=>{setTab('MOVED');setSelectedId(null)}}>Priečinky <b>{allEmails.filter(email=>email.triageState==='MOVED').length}</b></button><button className={tab==='ARCHIVED'?'active':''} onClick={()=>{setTab('ARCHIVED');setSelectedId(null)}}>Archív <b>{allEmails.filter(email=>email.triageState==='ARCHIVED').length}</b></button></div>
+    {feedback&&<div className="inbox-feedback"><CircleCheckBig size={15}/>{feedback}</div>}
     <div className="inbox-layout">
       <aside className="priority-stream">
-        <div className="stream-title"><span>Prioritný prúd správ ({emails.length})</span><b>Automatický triage aktívny</b></div>
+        <div className="stream-title"><span>{tab==='INBOX'?'Prioritný prúd':tab==='ARCHIVED'?'Archivované':'Správy v priečinkoch'} ({emails.length})</span><b>Automatický triage aktívny</b></div>
         {emails.map((email,index)=><button key={email.id} className={selected?.id===email.id?'selected':''} onClick={()=>setSelectedId(email.id)}>
           <span className={email.important?'mail-mark important':'mail-mark'}><Mail size={15}/></span>
-          <div><div className="stream-meta"><strong>{email.sender}</strong><small>{index===0?'Najnovšie':'Neprečítané'}</small></div><h3>{email.subject}</h3><p>{emailPreviewForCard(email.preview)}</p><span className="stream-tag">{email.important?'Vysoká priorita':'NORA triage'}</span></div>
+          <div><div className="stream-meta"><strong>{email.sender}</strong><small>{tab==='MOVED'?email.triageFolder:index===0?'Najnovšie':'Neprečítané'}</small></div><h3>{email.subject}</h3><p>{emailPreviewForCard(email.preview)}</p><span className="stream-tag">{email.important?'Vysoká priorita':'NORA triage'}</span></div>
         </button>)}
         {emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Inbox je čistý</strong><p>Momentálne nie sú žiadne neprečítané správy vo filtrovanom období.</p></div></div>}
       </aside>
@@ -535,7 +545,7 @@ function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void})
           <div className="reader-sender"><span>{selected.sender.slice(0,2).toUpperCase()}</span><div><strong>{selected.sender}</strong><small>Neprečítaná správa</small></div><a href={selected.url} target="_blank" rel="noreferrer">Otvoriť v Gmaili <ArrowUpRight size={14}/></a></div>
           <div className="nora-summary"><p><Sparkles size={14}/> Čitateľný náhľad správy</p><strong>{emailPreviewForCard(selected.preview,420)}</strong></div>
           <SafeEmailBody bodyHtml={selected.bodyHtml} bodyText={selected.bodyText} title={selected.subject}/>
-          <div className="reader-actions"><a className="button-primary" href={selected.url} target="_blank" rel="noreferrer"><Mail size={15}/> Otvoriť správu</a><button className="button-secondary" onClick={()=>go('home')}><Command size={15}/> Zadať Nore úlohu</button></div>
+          <div className="reader-actions inbox-zero-actions"><a className="button-secondary" href={selected.url} target="_blank" rel="noreferrer"><Mail size={15}/> Otvoriť správu</a><button className="button-primary" disabled={busy===selected.id} onClick={()=>void prepareDraft(selected)}><Sparkles size={15}/> Pripraviť draft cez NORA</button>{tab==='INBOX'?<><button className="button-secondary" disabled={busy===selected.id} onClick={()=>void changeState(selected,'ARCHIVED')}><Inbox size={15}/> Archivovať</button><label>Presunúť do<select value={folder} onChange={event=>setFolder(event.target.value)}><option>Na neskôr</option><option>Follow-up</option><option>WOF</option><option>Financie</option><option>Osobné</option></select></label><button className="button-secondary" disabled={busy===selected.id} onClick={()=>void changeState(selected,'MOVED',folder)}><FolderKanban size={15}/> Presunúť</button></>:<button className="button-secondary" disabled={busy===selected.id} onClick={()=>void changeState(selected,'INBOX')}><Inbox size={15}/> Vrátiť do inboxu</button>}</div>
         </>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Vyber správu</strong><p>Detail správy sa zobrazí na tomto mieste.</p></div></div>}
       </section>
     </div>

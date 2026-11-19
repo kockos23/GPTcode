@@ -48,10 +48,11 @@ export const getSnapshot = internalQuery({
       .withIndex("by_cache_key", query => query.eq("cacheKey", "primary"))
       .unique()
     if (!row) return null
-    const [nativeTasks, nativeCommands, externalEmails] = await Promise.all([
+    const [nativeTasks, nativeCommands, externalEmails, emailTriage] = await Promise.all([
       ctx.db.query("chiefOfStaffTasks").withIndex("by_status").collect(),
       ctx.db.query("chiefOfStaffCommands").withIndex("by_created_at").order("desc").take(MAX_COLLECTION),
       ctx.db.query("chiefOfStaffExternalEmails").withIndex("by_received_at").order("desc").take(100),
+      ctx.db.query("chiefOfStaffEmailTriage").collect(),
     ])
     const taskIds = new Set(nativeTasks.map(item => item.taskId))
     const commandIds = new Set(nativeCommands.map(item => item.commandId))
@@ -76,14 +77,18 @@ export const getSnapshot = internalQuery({
     const snapshotEmails = Array.isArray(row.emails) ? row.emails as Array<Record<string, unknown>> : []
     const uniqueExternalEmails = [...new Map(externalEmails.map(item => [item.emailKey, item])).values()]
     const externalIds = new Set(uniqueExternalEmails.map(item => item.emailKey))
-    const emails = [
+    const triageById=new Map(emailTriage.map(item=>[item.emailId,item]))
+    const mergedEmails:Array<Record<string,unknown>> = [
       ...uniqueExternalEmails.map(item => ({
         id: item.emailKey, threadId: item.threadId, subject: item.subject, sender: item.sender,
         timestamp: item.timestamp, preview: item.preview, bodyText: item.bodyText, bodyHtml: item.bodyHtml,
         sourceAccount: item.sourceAccount, url: item.url, important: item.important,
       })),
       ...snapshotEmails.filter(item => !externalIds.has(String(item.id ?? ""))),
-    ].sort((left, right) => Date.parse(String(right.timestamp ?? "")) - Date.parse(String(left.timestamp ?? "")))
+    ]
+    const emails = mergedEmails.filter(item=>String(item.sourceAccount??"").trim().toLowerCase()!=="tomas.kocner@wofexpo.com")
+      .map(item=>{const triage=triageById.get(String(item.id??""));return{...item,triageState:triage?.state??"INBOX",triageFolder:triage?.folder??""}})
+      .sort((left, right) => Date.parse(String(right["timestamp"] ?? "")) - Date.parse(String(left["timestamp"] ?? "")))
       .slice(0, 100)
     return {
       calendar: row.calendar, emails, agents: row.agents, workQueue: row.workQueue,
