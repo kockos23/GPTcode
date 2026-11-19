@@ -1131,6 +1131,18 @@ body {
 .home-form-grid form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:7px; padding:11px; border:1px solid hsl(var(--line)); border-radius:10px; }
 .home-form-grid form strong { grid-column:1/-1; font-size:10px; }
 .home-form-grid input,.home-form-grid select { min-width:0; border:1px solid hsl(var(--line)); border-radius:8px; padding:9px; background:white; font:inherit; font-size:9px; }
+.handoff-workspace { margin:18px 0; }
+.handoff-create { display:grid; grid-template-columns:140px 70px minmax(150px,1fr) minmax(180px,1.3fr) auto; gap:8px; align-items:start; }
+.handoff-create input,.handoff-create select,.handoff-create textarea { min-width:0; border:1px solid hsl(var(--line)); border-radius:8px; padding:9px; background:white; font:inherit; font-size:9px; }
+.handoff-create textarea { grid-column:1/-2; resize:vertical; }
+.handoff-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:15px; }
+.handoff-list article { border:1px solid hsl(var(--line)); border-radius:10px; padding:12px; background:white; }
+.handoff-list article>div:first-child { display:flex; justify-content:space-between; gap:8px; }
+.handoff-list h4 { margin:9px 0 5px; font-family:var(--font-display); font-size:14px; }
+.handoff-list p { display:flex; align-items:center; gap:5px; margin:4px 0; color:hsl(var(--muted)); font-size:9px; line-height:1.5; }
+.handoff-list small { display:flex; align-items:center; gap:4px; color:hsl(var(--muted)); font-size:8px; }
+.handoff-result { margin-top:8px; border-radius:7px; padding:8px; background:hsl(var(--lime)/.25); font-size:9px; }
+.handoff-feedback { margin:8px 0 0; color:hsl(var(--muted)); font-size:9px; }
 .project-edit-form { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 10px; margin-top: 16px; }
 .project-edit-form label { display: grid; gap: 5px; color: hsl(var(--muted)); font-size: 9px; font-weight: 800; }
 .project-edit-form input, .project-edit-form select, .project-edit-form textarea { width: 100%; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 10px; background: white; color: hsl(var(--black)); font: inherit; font-size: 10px; }
@@ -1171,6 +1183,8 @@ body {
   .home-form-grid { grid-template-columns:1fr; }
   .home-form-grid form { grid-template-columns:1fr; }
   .home-form-grid form strong { grid-column:auto; }
+  .handoff-create,.handoff-list { grid-template-columns:1fr; }
+  .handoff-create textarea { grid-column:auto; }
 }
 .idea-profile-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 760px) { .idea-profile-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }

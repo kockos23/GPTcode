@@ -8,6 +8,7 @@ import { IdeaVaultView } from '@/components/idea-vault'
 import { NoraWorkspace } from '@/components/nora-workspace'
 import { HealthWorkspace } from '@/components/health-workspace'
 import { HomeWorkspace } from '@/components/home-workspace'
+import { AgentHandoffWorkspace } from '@/components/agent-handoff-workspace'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
 import {
@@ -1182,6 +1183,7 @@ function AgentsView({ live, briefingState, refreshBriefing }: { live:LiveBriefin
     </div>
     <div className={'source-notice '+(agents.length?'connected':'')}><PlugZap size={15}/><span><strong>Agent Registry je živý.</strong> Zdroj: Google Sheet · kontrola {live?new Date(live.generatedAt).toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'}):'—'}.</span><button className="text-link" onClick={()=>void refreshBriefing()} disabled={briefingState==='loading'}>{briefingState==='loading'?'Načítavam…':'Obnoviť'}</button></div>
     <section className="routing-model"><div><p className="eyebrow">Komunikačný model</p><h3>Jedna centrála, priame odborné kontakty.</h3><p>NORA vidí stav celého systému. Každá špecialistka vidí iba svoju oblasť a zapisuje výsledok do spoločného registra.</p></div><div className="routing-lanes"><span><strong>NORA</strong><small>všeobecné a komplexné zadania</small></span><span><strong>SARA · WOF Finance</strong><small>Telegram kontakt pripravujeme</small></span><span><strong>Firma 2 Finance</strong><small>samostatný Telegram kontakt</small></span><span><strong>Ostatní špecialisti</strong><small>zatiaľ priamo z dashboardu alebo cez NORA</small></span></div></section>
+    <AgentHandoffWorkspace/>
     {live?.sourceErrors.length?<div className="source-errors">{live.sourceErrors.map(error=><div key={error}><AlertCircle size={15}/><span>{error}</span></div>)}</div>:null}
     <div className="agents-grid">{agents.map(agent=><article className="agent-card" key={agent.id}>
       <div className="agent-card-top"><AssistantAvatar id={agent.id}/><StatusBadge value={agent.status}/></div>

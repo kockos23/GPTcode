@@ -4,6 +4,8 @@
 
 ChatGPT/Codex, Claude Code, Cursor and Grok Bot exchange durable work through the Agent Handoff Bus. Chat transcripts are not a source of truth. GitHub owns code and reviewed documentation; Convex owns handoff state and audit; n8n connects bots and scheduled workers; NORA coordinates cross-domain work.
 
+The owner can create and inspect durable handoffs in **Agent Control → Agent Handoff Bus**. Agents shown in its destination selector are valid routing identities, not proof that their external adapter is online. Live connectivity remains visible in the Agent Registry.
+
 ## Agent IDs
 
 - `NORA` — central coordinator and owner-facing Chief of Staff.
@@ -73,3 +75,5 @@ The connector exposes only `list_handoffs`, `claim_handoffs`, `send_handoff`, an
 ## Deployment gate
 
 The schema and endpoints may be deployed only after a new dedicated `AGENT_HANDOFF_SECRET` is stored in Convex and in the authorized agent/n8n credential stores. Do not reuse the broad n8n API key, Convex deploy key, SARA Telegram token, VERA token, or finance integration secret.
+
+See `AI_PROVIDER_OPERATING_MODEL.md` for provider roles, routing rules and the recommended activation order.
