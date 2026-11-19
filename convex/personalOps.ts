@@ -3,6 +3,7 @@ import { internalMutation, internalQuery } from "./_generated/server"
 import { PERSONAL_DOMAINS, SIGNAL_SEVERITIES, planSignals, requiresOwnerApproval, type PersonalDomain, type SignalSeverity } from "./personalOpsLogic"
 import { analyzeHealthDay, normalizeGarminDaily } from "./healthAgentLogic"
 import { dueMaintenanceSignals, subscriptionRenewalSignal } from "./homeVehicleLogic"
+import { subscriptionUpsertRecord } from "./recordUpdates"
 
 const MAX_SIGNALS = 100
 const domain = v.union(...PERSONAL_DOMAINS.map(value => v.literal(value)))
@@ -302,12 +303,7 @@ export const upsertSubscription = internalMutation({
     const subscriptionId = bounded(args.subscriptionId, 120)
     const existing = await ctx.db.query("personalSubscriptions").withIndex("by_subscription_id", query => query.eq("subscriptionId", subscriptionId)).unique()
     const now = Date.now()
-    const values = {
-      ...args, subscriptionId, name: bounded(args.name, 300), provider: bounded(args.provider, 200), category: bounded(args.category, 80),
-      currency: args.currency ? bounded(args.currency.toUpperCase(), 3) : undefined, billingCycle: bounded(args.billingCycle, 40),
-      cancellationUrl: args.cancellationUrl ? bounded(args.cancellationUrl, 1000) : undefined,
-      status: bounded(args.status, 40), source: bounded(args.source, 100), updatedAt: now,
-    }
+    const values = subscriptionUpsertRecord(args, now)
     if (existing) await ctx.db.patch(existing._id, values)
     else await ctx.db.insert("personalSubscriptions", { ...values, createdAt: now })
     return { ok: true, created: !existing, subscriptionId }
