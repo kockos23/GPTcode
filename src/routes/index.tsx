@@ -9,6 +9,7 @@ import { NoraWorkspace } from '@/components/nora-workspace'
 import { HealthWorkspace } from '@/components/health-workspace'
 import { HomeWorkspace } from '@/components/home-workspace'
 import { AgentHandoffWorkspace } from '@/components/agent-handoff-workspace'
+import { cleanEmailPreview, emailPreviewForCard, uniqueDisplayEmails } from '@/lib/email-preview'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
 import {
@@ -455,7 +456,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
       <section className="panel mail-panel command-mail">
         <SectionTitle eyebrow="Inbox radar" title="Neprečítané maily na kontrolu" action={<button className="text-link" onClick={()=>go('inbox')}>{live?Math.min(live.emails.length,12)+' z '+live.emails.length:'—'} <ChevronRight size={14}/></button>}/>
         <div className={'source-notice '+(live?'connected':'')}><Mail size={15}/><span><strong>Gmail: tomas.kocner@gmail.com.</strong> Neprečítané za posledných 7 dní, bez promo, sociálnych sietí a fór.</span></div>
-        {live?<div className="mail-list">{live.emails.slice(0,12).map(email=><article className="mail-command-row" key={email.id}><a href={email.url} target="_blank" rel="noreferrer"><span className={email.important?'mail-mark important':'mail-mark'}><Mail size={14}/></span><div><strong>{email.subject}</strong><small>{email.sender}</small><p>{email.preview}</p></div><ArrowUpRight size={14}/></a><div className="mail-actions"><button onClick={()=>prepareEmailCommand(email,'draft')}>Draft odpovede</button><button onClick={()=>prepareEmailCommand(email,'event')}>Do kalendára</button><button onClick={()=>prepareEmailCommand(email,'attachment')}>Príloha → Drive</button></div></article>)}{live.emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Žiadne neprečítané maily</strong><p>Zdroj funguje; filter kontroluje posledných 7 dní.</p></div></div>}</div>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Načítavam pripojený Gmail</strong><p>Inbox sa po prihlásení obnoví automaticky.</p></div></div>}
+        {live?<div className="mail-list">{uniqueDisplayEmails(live.emails).slice(0,12).map(email=><article className="mail-command-row" key={email.id}><a href={email.url} target="_blank" rel="noreferrer"><span className={email.important?'mail-mark important':'mail-mark'}><Mail size={14}/></span><div><strong>{email.subject}</strong><small>{email.sender}</small><p>{emailPreviewForCard(email.preview)}</p></div><ArrowUpRight size={14}/></a><div className="mail-actions"><button onClick={()=>prepareEmailCommand(email,'draft')}>Draft odpovede</button><button onClick={()=>prepareEmailCommand(email,'event')}>Do kalendára</button><button onClick={()=>prepareEmailCommand(email,'attachment')}>Príloha → Drive</button></div></article>)}{live.emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Žiadne neprečítané maily</strong><p>Zdroj funguje; filter kontroluje posledných 7 dní.</p></div></div>}</div>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Načítavam pripojený Gmail</strong><p>Inbox sa po prihlásení obnoví automaticky.</p></div></div>}
       </section>
 
       <div className="command-side">
@@ -495,7 +496,7 @@ function MetricLink({ icon:Icon, value, label, note, tone, onClick }: { icon:Luc
 }
 
 function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
-  const emails=live?.emails??[]
+  const emails=uniqueDisplayEmails(live?.emails??[])
   const [selectedId,setSelectedId]=useState<string|null>(emails[0]?.id??null)
   const selected=emails.find(email=>email.id===selectedId)??emails[0]
   return <div className="page workspace-page inbox-workspace">
@@ -509,7 +510,7 @@ function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void})
         <div className="stream-title"><span>Prioritný prúd správ ({emails.length})</span><b>Automatický triage aktívny</b></div>
         {emails.map((email,index)=><button key={email.id} className={selected?.id===email.id?'selected':''} onClick={()=>setSelectedId(email.id)}>
           <span className={email.important?'mail-mark important':'mail-mark'}><Mail size={15}/></span>
-          <div><div className="stream-meta"><strong>{email.sender}</strong><small>{index===0?'Najnovšie':'Neprečítané'}</small></div><h3>{email.subject}</h3><p>{email.preview}</p><span className="stream-tag">{email.important?'Vysoká priorita':'NORA triage'}</span></div>
+          <div><div className="stream-meta"><strong>{email.sender}</strong><small>{index===0?'Najnovšie':'Neprečítané'}</small></div><h3>{email.subject}</h3><p>{emailPreviewForCard(email.preview)}</p><span className="stream-tag">{email.important?'Vysoká priorita':'NORA triage'}</span></div>
         </button>)}
         {emails.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Inbox je čistý</strong><p>Momentálne nie sú žiadne neprečítané správy vo filtrovanom období.</p></div></div>}
       </aside>
@@ -518,8 +519,8 @@ function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void})
           <div className="reader-labels"><span>Prioritná správa</span><small>ID: {selected.id.slice(0,18)}</small></div>
           <h2>{selected.subject}</h2>
           <div className="reader-sender"><span>{selected.sender.slice(0,2).toUpperCase()}</span><div><strong>{selected.sender}</strong><small>Neprečítaná správa</small></div><a href={selected.url} target="_blank" rel="noreferrer">Otvoriť v Gmaili <ArrowUpRight size={14}/></a></div>
-          <div className="nora-summary"><p><Sparkles size={14}/> NORA AI Executive Summary</p><strong>{selected.preview||'Správa čaká na otvorenie a spracovanie.'}</strong></div>
-          <div className="reader-body"><p>{selected.preview}</p><p>Celý bezpečný obsah správy a prílohy otvoríš v pripojenej poštovej schránke. Z dashboardu môžeš pripraviť ďalšiu akciu cez Command Center.</p></div>
+          <div className="nora-summary"><p><Sparkles size={14}/> NORA AI Executive Summary</p><strong>{emailPreviewForCard(selected.preview,420)}</strong></div>
+          <div className="reader-body"><p>{cleanEmailPreview(selected.preview)||'Správa nemá dostupný textový náhľad.'}</p><p>Celý bezpečný obsah správy a prílohy otvoríš v pripojenej poštovej schránke. Z dashboardu môžeš pripraviť ďalšiu akciu cez Command Center.</p></div>
           <div className="reader-actions"><a className="button-primary" href={selected.url} target="_blank" rel="noreferrer"><Mail size={15}/> Otvoriť správu</a><button className="button-secondary" onClick={()=>go('home')}><Command size={15}/> Zadať Nore úlohu</button></div>
         </>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Vyber správu</strong><p>Detail správy sa zobrazí na tomto mieste.</p></div></div>}
       </section>
