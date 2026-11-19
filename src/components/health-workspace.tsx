@@ -33,7 +33,7 @@ export function HealthWorkspace({notify}:{notify:(message:string)=>void}){
   const number=(value:string)=>value?Number(value):undefined
   const submitCheckin=async()=>{
     await saveCheckin({date:form.date,mood:number(form.mood),energy:number(form.energy),soreness:number(form.soreness),perceivedStress:number(form.perceivedStress),sleepQuality:number(form.sleepQuality),note:form.note})
-    notify('Denný zdravotný check-in je uložený.');setForm(current=>({...current,note:''}))
+    notify('Denný zdravotný check-in je uložený.')
   }
   const submitHabit=async()=>{
     if(!habit.name.trim())return

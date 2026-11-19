@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { v } from "convex/values"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { decisionPatch } from "./recordUpdates"
 
 async function requireOwner(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx)
@@ -84,7 +85,7 @@ export const updateDecision = mutation({
     await requireOwner(ctx)
     const row = await ctx.db.query("chiefOfStaffDecisions").withIndex("by_decision_id", q => q.eq("decisionId", args.decisionId)).unique()
     if (!row) throw new Error("DECISION_NOT_FOUND")
-    await ctx.db.patch(row._id, { status: args.status.slice(0, 40), answer: args.answer?.trim().slice(0, 5000), updatedAt: Date.now() })
+    await ctx.db.patch(row._id, decisionPatch({ status: args.status, answer: args.answer, updatedAt: Date.now() }))
     return { ok: true }
   },
 })

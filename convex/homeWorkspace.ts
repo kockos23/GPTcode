@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { v } from "convex/values"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { manualSubscriptionRecord } from "./recordUpdates"
 
 async function requireOwner(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx)
@@ -89,7 +90,11 @@ export const saveSubscription = mutation({
     const subscriptionId = `manual:${slug(name)}`
     const existing = await ctx.db.query("personalSubscriptions").withIndex("by_subscription_id", q => q.eq("subscriptionId", subscriptionId)).unique()
     const now = Date.now()
-    const row = { subscriptionId, name, provider: clean(args.provider, 160), category: "PERSONAL", amount: args.amount, currency: clean(args.currency, 3).toUpperCase() || "EUR", billingCycle: clean(args.billingCycle, 40) || "MONTHLY", nextRenewalAt: args.nextRenewalDate ? Date.parse(`${args.nextRenewalDate}T12:00:00Z`) : undefined, status: "ACTIVE", source: "HOME_WORKSPACE", updatedAt: now }
+    const row = manualSubscriptionRecord({
+      subscriptionId, name, provider: clean(args.provider, 160), amount: args.amount,
+      currency: clean(args.currency, 3).toUpperCase() || "EUR", billingCycle: clean(args.billingCycle, 40) || "MONTHLY",
+      nextRenewalAt: args.nextRenewalDate ? Date.parse(`${args.nextRenewalDate}T12:00:00Z`) : undefined, updatedAt: now,
+    })
     if (existing) await ctx.db.patch(existing._id, row)
     else await ctx.db.insert("personalSubscriptions", { ...row, createdAt: now })
     return { ok: true, subscriptionId }
