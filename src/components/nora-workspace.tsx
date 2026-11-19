@@ -13,6 +13,7 @@ const noraApi = {
   createTask: makeFunctionReference<'mutation', { title:string; details?:string; priority:string; deadline?:string }, { id:string; status:string }>('noraWorkspace:createTask'),
   completeTask: makeFunctionReference<'mutation', { taskId:string }, null>('noraWorkspace:completeTask'),
   proposeCalendarEvent: makeFunctionReference<'mutation', { taskId:string }, { id:string; status:string }>('noraWorkspace:proposeCalendarEvent'),
+  decideProposal: makeFunctionReference<'mutation', { stepId:string; decision:'APPROVE'|'POSTPONE'|'DISMISS' }, { ok:boolean; status:string; taskId?:string }>('noraWorkspace:decideProposal'),
 }
 
 export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
@@ -20,6 +21,7 @@ export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
   const createTask = useMutation(noraApi.createTask)
   const completeTask = useMutation(noraApi.completeTask)
   const proposeCalendar = useMutation(noraApi.proposeCalendarEvent)
+  const decideProposal = useMutation(noraApi.decideProposal)
   const [title,setTitle] = useState('')
   const [details,setDetails] = useState('')
   const [priority,setPriority] = useState('P2')
@@ -56,7 +58,7 @@ export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
         {overview&&openTasks.length===0&&<div className="connection-empty"><span><Check size={18}/></span><div><strong>Inbox je čistý</strong><p>Nové úlohy môžeš pridať tu alebo nadiktovať Nore.</p></div></div>}
       </section>
       <section className="panel"><div className="idea-panel-heading"><Sparkles size={17}/><div><h3>Návrhy agentov</h3><p>Plánovač nič nevykoná bez príslušného schválenia.</p></div></div>
-        <div className="nora-proposal-list">{overview?.proposals.map(item=><article key={item.id}><div><span>{item.priority}</span><small>{item.assignedAgent}{item.approval==='OWNER'?' · čaká na schválenie':''}</small></div><h4>{item.title}</h4><p>{item.expectedOutput}</p></article>)}</div>
+        <div className="nora-proposal-list">{overview?.proposals.map(item=><article key={item.id}><div><span>{item.priority}</span><small>{item.assignedAgent}{item.approval==='OWNER'?' · čaká na schválenie':''}</small></div><h4>{item.title}</h4><p>{item.expectedOutput}</p><div className="idea-row-actions"><button className="button-secondary" onClick={()=>void decideProposal({stepId:item.id,decision:'APPROVE'}).then(()=>notify('Návrh je schválený a vznikla interná úloha.'))}><Check size={13}/>Schváliť</button><button className="button-quiet" onClick={()=>void decideProposal({stepId:item.id,decision:'POSTPONE'}).then(()=>notify('Návrh je odložený o jeden deň.'))}>Odložiť</button><button className="button-quiet" onClick={()=>void decideProposal({stepId:item.id,decision:'DISMISS'}).then(()=>notify('Návrh je zahodený.'))}>Zahodiť</button></div></article>)}</div>
         {overview&&overview.proposals.length===0&&<div className="connection-empty"><span><Sparkles size={18}/></span><div><strong>Žiadne nové návrhy</strong><p>Planner skontroluje signály pri ďalšom behu.</p></div></div>}
       </section>
     </div>

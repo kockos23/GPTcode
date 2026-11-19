@@ -78,3 +78,29 @@ export const proposeCalendarEvent = mutation({
     return { id: commandId, status: "NOVÉ" }
   },
 })
+
+export const decideProposal = mutation({
+  args: { stepId: v.string(), decision: v.union(v.literal("APPROVE"), v.literal("POSTPONE"), v.literal("DISMISS")) },
+  handler: async (ctx, args) => {
+    await requireOwner(ctx)
+    const step = await ctx.db.query("personalPlanSteps").withIndex("by_step_id", query => query.eq("stepId", args.stepId)).unique()
+    if (!step) throw new Error("Návrh neexistuje")
+    if (step.status !== "PROPOSED") throw new Error("O návrhu už bolo rozhodnuté")
+    const now = Date.now()
+    const status = args.decision === "APPROVE" ? "APPROVED" : args.decision === "POSTPONE" ? "POSTPONED" : "DISMISSED"
+    await ctx.db.patch(step._id, { status, deadline: args.decision === "POSTPONE" ? now + 86_400_000 : step.deadline, updatedAt: now })
+    let taskId: string|undefined
+    if (args.decision === "APPROVE") {
+      taskId = `PLAN-${step.stepId}`.slice(0, 120)
+      const existing = await ctx.db.query("chiefOfStaffTasks").withIndex("by_task_id", query => query.eq("taskId", taskId!)).unique()
+      if (!existing) await ctx.db.insert("chiefOfStaffTasks", {
+        taskId, projectId: "", title: step.title, details: `Schválený návrh z plánu ${step.planId}.`, owner: "Tomáš",
+        assignee: step.assignedAgent, priority: step.priority, status: "NOVÉ",
+        deadline: step.deadline ? new Date(step.deadline).toISOString().slice(0, 10) : undefined,
+        expectedOutput: step.expectedOutput, result: "", approval: "Schválené vlastníkom",
+        source: "Personal Operations Planner", createdAt: now, updatedAt: now,
+      })
+    }
+    return { ok: true, status, taskId }
+  },
+})
