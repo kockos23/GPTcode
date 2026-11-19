@@ -350,7 +350,7 @@ function ChiefOfStaffHQ() {
       {view === 'tasks' && <TasksView live={liveBriefing} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'nora' && <NoraWorkspace notify={notify}/>}
       {view === 'health' && <HealthWorkspace notify={notify}/>}
-      {view === 'household' && <HomeWorkspace/>}
+      {view === 'household' && <HomeWorkspace notify={notify}/>}
       {view === 'agents' && <AgentsView live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'ideas' && <IdeaVaultView notify={notify}/>}
       {view === 'finance' && <FinanceView/>}

@@ -273,6 +273,15 @@ Samostatná položka v hlavnom menu zobrazuje prevádzkový register domácnosti
 
 Prázdna sekcia nie je chyba: znamená, že príslušný register ešte nebol bezpečne naplnený. Automatický planner môže z termínov pripraviť upozornenie alebo návrh úlohy. Systém sám neplatí faktúry, neruší predplatné, neobjednáva servis a nemení zmluvy; také kroky vždy vyžadujú potvrdenie vlastníka.
 
+Panel **Rýchle doplnenie registra** umožňuje priamo v aplikácii:
+
+1. založiť domáce aktívum alebo vozidlo,
+2. pridať k nemu termín kontroly či servisu,
+3. uložiť stav elektromera alebo vodomera,
+4. evidovať predplatné a jeho cenu.
+
+Najprv vždy založ aktívum. Následne sa objaví vo výbere pri údržbe a odpočtoch. Rovnaký odpočet za rovnaký deň prepíše predchádzajúcu hodnotu namiesto vytvorenia duplicity. Termíny používajú bratislavský kalendárny deň a upozornenia sa štandardne pripravujú 30, 14, 7 a 1 deň vopred.
+
 ## 12. VERA — Idea Vault a poznámky
 
 VERA je kurátorka myšlienok, poznámok, know-how a inšpirácie. Cez Telegram prijíma text, hlasovku, odkaz, screenshot, fotku, PDF alebo menší dokument.
