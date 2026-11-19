@@ -1121,6 +1121,7 @@ body {
 .project-edit-form label { display: grid; gap: 5px; color: hsl(var(--muted)); font-size: 9px; font-weight: 800; }
 .project-edit-form input, .project-edit-form select, .project-edit-form textarea { width: 100%; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 10px; background: white; color: hsl(var(--black)); font: inherit; font-size: 10px; }
 .project-edit-form .wide { grid-column: 1/-1; }
+.calendar-modes select { border: 0; border-radius: 8px; padding: 8px 10px; background: white; color: hsl(var(--black)); font: inherit; font-size: 9px; font-weight: 750; }
 .nora-capture-card { margin-bottom: 18px; border-top: 5px solid hsl(var(--lime)); }
 .nora-task-form { display: grid; gap: 10px; }
 .nora-task-form input, .nora-task-form textarea, .nora-task-form select { width: 100%; min-width: 0; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 11px 12px; outline: none; background: white; color: hsl(var(--black)); font: inherit; font-size: 11px; }

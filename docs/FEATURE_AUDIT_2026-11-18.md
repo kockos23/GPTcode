@@ -51,7 +51,7 @@ Projects and decisions now have a Convex register, legacy bootstrap and fallback
 
 ### P1 — Calendar completeness
 
-Read all calendars visible to the connected Google account, while continuing to write only to `primary`. Store calendar ID/name/color in the snapshot and add filters. Confirm shared calendars individually because Google ACL permissions differ.
+The provisioner now reads all selected calendars visible to the connected Google account, stores calendar ID/name/color/read-only metadata and the UI has a calendar filter. Writes remain restricted to `primary`. After deployment, confirm each shared calendar individually because Google ACL permissions differ.
 
 ### P1 — Unified action lifecycle
 

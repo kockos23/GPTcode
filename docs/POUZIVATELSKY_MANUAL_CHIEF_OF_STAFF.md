@@ -117,18 +117,19 @@ Záložky „Na schválenie“, „Partneri & investori“ a „Vybavené / Arch
 
 ## 6. Kalendár
 
-Kalendár zobrazuje udalosti zo živého briefingu v čase Bratislavy.
+Kalendár zobrazuje udalosti zo živého briefingu v čase Bratislavy. Snapshot workflow načíta hlavný aj zdieľané kalendáre, ktoré sú v Google Calendar označené ako vybrané a ku ktorým má pripojený účet aspoň právo čítať.
 
 - Horný pás ukazuje okolité dni.
+- Filter **Všetky kalendáre** umožní zobraziť iba konkrétny hlavný alebo zdieľaný kalendár.
 - Súhrn uvádza počet udalostí, bloky hlbokej práce a stav AI triage.
 - Ľavý zoznam obsahuje udalosti zoradené podľa času.
 - Pravý detail obsahuje názov, čas, odkaz do Google Calendar a priestor pre NORA briefing.
 
-Prepínače Deň/Týždeň/Mesiac a Filter sú v aktuálnej verzii prevažne prezentačné; hlavný funkčný pohľad je denný zoznam.
+Hlavný funkčný pohľad je denný zoznam. Týždenný a mesačný režim sú ďalší krok.
 
 ### Zadávanie cez Telegram NORA
 
-NORA vie vytvoriť a presunúť udalosť iba v hlavnom Google kalendári `primary`.
+NORA vie čítať súhrnný obraz všetkých synchronizovaných kalendárov, ale vytvoriť a presunúť udalosť smie iba v hlavnom Google kalendári `primary`.
 
 1. Pošli text alebo hlasovku s názvom, dátumom a časom.
 2. NORA pošle presný návrh.
