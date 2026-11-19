@@ -1,9 +1,27 @@
 import crypto from "node:crypto"
+import net from "node:net"
+import { Agent, EnvHttpProxyAgent, setGlobalDispatcher } from "undici"
 
 const base = process.env.N8N_BASE_URL?.replace(/\/$/, "")
 const apiKey = process.env.N8N_API_KEY
 const site = process.env.CONVEX_SITE_URL?.replace(/\/$/, "")
 if (!base || !apiKey || !site) throw new Error("Missing n8n/Convex runtime configuration")
+
+// Optional DNS-only escape hatch for restricted runtimes. TLS still validates
+// N8N_BASE_URL's hostname; the API key is never sent to an unverified host.
+const resolvedN8nIp = process.env.N8N_RESOLVE_IP?.trim()
+if (resolvedN8nIp) {
+  if (!net.isIP(resolvedN8nIp)) throw new Error("N8N_RESOLVE_IP must be a valid IP address")
+  setGlobalDispatcher(new Agent({ connect: { lookup: (_hostname, options, callback) => {
+    const family = net.isIP(resolvedN8nIp)
+    if (options?.all) callback(null, [{ address: resolvedN8nIp, family }])
+    else callback(null, resolvedN8nIp, family)
+  } } }))
+} else if (process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.ALL_PROXY) {
+  // Node fetch does not use proxy environment variables unless explicitly
+  // configured. This keeps restricted cloud runs on their approved egress.
+  setGlobalDispatcher(new EnvHttpProxyAgent())
+}
 
 const api = async (path, options = {}) => {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
