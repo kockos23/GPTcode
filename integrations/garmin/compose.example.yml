@@ -5,7 +5,6 @@ services:
     env_file:
       - .env.garmin
     environment:
-      GARMIN_DAILY_WEBHOOK_URL: "REPLACE_WITH_N8N_WEBHOOK_URL"
       GARMIN_TOKEN_STORE: /tokens
     volumes:
       - garmin_tokens:/tokens
