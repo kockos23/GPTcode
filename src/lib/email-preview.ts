@@ -16,11 +16,35 @@ function decodeEntities(value: string) {
   })
 }
 
+function removeTechnicalNoise(value: string) {
+  let text = value
+    .replace(/^https?:\/\/[^\s]*?(?=(?:Vážený|Dobrý deň|Ahoj|Hello|Dear)\s)/i, "")
+    .replace(/text version of this email is not supported\s*/gi, "")
+    .replace(/click on the link below to open (?:the|this) message in (?:a|your) browser:?\s*/gi, "")
+    .replace(/view (?:this email|it) in (?:your )?browser\.?\s*/gi, "")
+    .replace(/https?:\/\/[^\s<>'\"]+/gi, " ")
+
+  const footer = /\b(?:you(?:'|’)ve received this email because|if you (?:feel you )?received (?:this|it) by mistake|manage (?:your )?(?:preferences|consent)|unsubscribe(?: from)?|odhlásiť (?:sa|odber)|zrušiť odber)\b/i.exec(text)
+  if (footer) text = text.slice(0, footer.index)
+  const quotedReply = /\b(?:On .{0,120} wrote:|Dňa .{0,120} napísal(?:a)?:)\s*/i.exec(text)
+  if (quotedReply && quotedReply.index > 40) text = text.slice(0, quotedReply.index)
+
+  return text
+    .replace(/\b(?:utm_[a-z]+|wixToken|mc_cid|mc_eid)=[^\s]+/gi, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([.!?])(?=[A-ZÁÄČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ])/g, "$1 ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 export function cleanEmailPreview(input: string | null | undefined): string {
   const source = String(input ?? "").trim()
   if (!source) return ""
   const looksLikeHtml = /<!doctype|<html\b|<body\b|<table\b|<div\b|<p\b|<br\s*\/?\s*>/i.test(source)
-  if (!looksLikeHtml) return decodeEntities(source).replace(/\s+/g, " ").trim()
+  if (!looksLikeHtml) {
+    const plainText = removeTechnicalNoise(decodeEntities(source))
+    return plainText || FALLBACK
+  }
 
   const text = decodeEntities(source
     .replace(/<!--[\s\S]*?-->/g, " ")
@@ -35,8 +59,9 @@ export function cleanEmailPreview(input: string | null | undefined): string {
     .replace(/^(?:\s*\u2022\s*)+|(?:\s*\u2022\s*)+$/g, "")
     .trim()
 
-  if (!text || /^(?:BEGIN|END) (?:TEMPLATE|HEADER)/i.test(text) || text.length < 12) return FALLBACK
-  return text
+  const clean = removeTechnicalNoise(text)
+  if (!clean || /^(?:BEGIN|END) (?:TEMPLATE|HEADER)/i.test(clean) || clean.length < 12) return FALLBACK
+  return clean
 }
 
 export function emailPreviewForCard(input: string | null | undefined, maxLength = 220): string {

@@ -9,7 +9,7 @@ import { NoraWorkspace } from '@/components/nora-workspace'
 import { HealthWorkspace } from '@/components/health-workspace'
 import { HomeWorkspace } from '@/components/home-workspace'
 import { AgentHandoffWorkspace } from '@/components/agent-handoff-workspace'
-import { cleanEmailPreview, emailPreviewForCard, uniqueDisplayEmails } from '@/lib/email-preview'
+import { emailPreviewForCard, uniqueDisplayEmails } from '@/lib/email-preview'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
 import {
@@ -519,8 +519,8 @@ function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void})
           <div className="reader-labels"><span>Prioritná správa</span><small>ID: {selected.id.slice(0,18)}</small></div>
           <h2>{selected.subject}</h2>
           <div className="reader-sender"><span>{selected.sender.slice(0,2).toUpperCase()}</span><div><strong>{selected.sender}</strong><small>Neprečítaná správa</small></div><a href={selected.url} target="_blank" rel="noreferrer">Otvoriť v Gmaili <ArrowUpRight size={14}/></a></div>
-          <div className="nora-summary"><p><Sparkles size={14}/> NORA AI Executive Summary</p><strong>{emailPreviewForCard(selected.preview,420)}</strong></div>
-          <div className="reader-body"><p>{cleanEmailPreview(selected.preview)||'Správa nemá dostupný textový náhľad.'}</p><p>Celý bezpečný obsah správy a prílohy otvoríš v pripojenej poštovej schránke. Z dashboardu môžeš pripraviť ďalšiu akciu cez Command Center.</p></div>
+          <div className="nora-summary"><p><Sparkles size={14}/> Čitateľný náhľad správy</p><strong>{emailPreviewForCard(selected.preview,900)}</strong></div>
+          <div className="reader-body"><p>Celý obsah správy, formátovanie, odkazy a prílohy otvoríš bezpečne v pripojenej poštovej schránke.</p></div>
           <div className="reader-actions"><a className="button-primary" href={selected.url} target="_blank" rel="noreferrer"><Mail size={15}/> Otvoriť správu</a><button className="button-secondary" onClick={()=>go('home')}><Command size={15}/> Zadať Nore úlohu</button></div>
         </>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Vyber správu</strong><p>Detail správy sa zobrazí na tomto mieste.</p></div></div>}
       </section>
