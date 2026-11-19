@@ -262,6 +262,17 @@ Suplementový denník eviduje názov, dávku, jednotku, dátum a voliteľnú poz
 
 Systém smie hovoriť iba o „možnej pozorovanej súvislosti“. Vyžaduje aspoň sedem párových dní a minimálne tri dni v oboch porovnávaných skupinách. Výsledok musí uviesť vzorku a obdobie a nesmie tvrdiť príčinu. Zmenu liekov alebo zdravotnej liečby systém nesmie odporúčať.
 
+### Domácnosť & autá
+
+Samostatná položka v hlavnom menu zobrazuje prevádzkový register domácnosti a vozidiel:
+
+- aktíva, napríklad byt/dom, elektromer, vodomer a autá,
+- najbližšiu údržbu, kontrolu komína, servis, STK a prezutie,
+- posledný odpočet elektriny zo ZSE a vody od IMAZ,
+- aktívne predplatné, cenu, interval a najbližšie obnovenie.
+
+Prázdna sekcia nie je chyba: znamená, že príslušný register ešte nebol bezpečne naplnený. Automatický planner môže z termínov pripraviť upozornenie alebo návrh úlohy. Systém sám neplatí faktúry, neruší predplatné, neobjednáva servis a nemení zmluvy; také kroky vždy vyžadujú potvrdenie vlastníka.
+
 ## 12. VERA — Idea Vault a poznámky
 
 VERA je kurátorka myšlienok, poznámok, know-how a inšpirácie. Cez Telegram prijíma text, hlasovku, odkaz, screenshot, fotku, PDF alebo menší dokument.
