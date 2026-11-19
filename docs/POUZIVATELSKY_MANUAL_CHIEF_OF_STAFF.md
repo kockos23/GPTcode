@@ -156,7 +156,7 @@ Každá karta obsahuje otázku, odporúčanie, dôvod, dopad, alternatívy, dead
 
 Filtre menia pohľad podľa stavu. Kliknutie na projekt otvorí jeho detail. Pri vlastnej odpovedi sa zmena uloží až tlačidlom **Uložiť odpoveď**.
 
-Poznámka: časť pôvodných rozhodnutí je stále statický register v aplikácii. Pri ďalšej iterácii treba dokončiť jednotný živý zdroj a audit histórie zmien.
+Pri prvom otvorení po nasadení sa pôvodný register bezpečne prenesie do Convexu. Existujúce lokálne stavy rozhodnutí sa použijú pri bootstrapovaní prázdneho registra. Ďalšie rozhodnutia sa ukladajú do živého registra; lokálna kópia zostáva iba ako prechodná poistka.
 
 ## 8. Projekty
 
@@ -177,7 +177,7 @@ Stav je nezávislý: Aktívny, Plánovaný, Čaká alebo Pozastavený.
 - prepínač Karty/Riadky sa pamätá v prehliadači,
 - kliknutie otvorí detail s ownerom, horizontom, deadline, progressom, najbližším krokom, blokérom a tým, na koho sa čaká.
 
-Aktuálny projektový register je prevažne verzovaný v kóde. Cieľom ďalšej verzie je editácia a plný živý register cez Convex.
+Pri prvom otvorení sa pôvodný projektový register vloží do Convexu bez prepisovania existujúcich riadkov. V detaile projektu je možné upraviť stav, prioritu, progress, najbližší krok a blokér. Pôvodná verzia v kóde zostáva ako fallback pre prípad, že backend ešte nie je nasadený.
 
 ## 9. Úlohy — Execution Center
 

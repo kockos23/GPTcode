@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { makeFunctionReference } from 'convex/server'
-import { useAction } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { AuthGate, SignOutButton } from '@/components/auth-gate'
@@ -116,6 +116,13 @@ const wofFinanceApi = {
   addManualPayable: makeFunctionReference<'action', ManualPayableArgs, ManualPayableResult>('financeCommands:addManualPayable'),
   markPayablePaidManually: makeFunctionReference<'action', ManualPaymentArgs, ManualPaymentResult>('financeCommands:markPayablePaidManually'),
 }
+type PortfolioOverview = { projects:Project[]; decisions:Decision[] }
+const portfolioApi = {
+  overview: makeFunctionReference<'query', Record<string, never>, PortfolioOverview>('portfolioWorkspace:overview'),
+  bootstrapDefaults: makeFunctionReference<'mutation', {projects:Project[];decisions:Decision[]}, {ok:boolean;createdProjects:number;createdDecisions:number}>('portfolioWorkspace:bootstrapDefaults'),
+  updateDecision: makeFunctionReference<'mutation', {decisionId:string;status:string;answer?:string}, {ok:boolean}>('portfolioWorkspace:updateDecision'),
+  updateProject: makeFunctionReference<'mutation', {projectId:string;status?:string;priority?:string;progress?:number;nextAction?:string;blocker?:string}, {ok:boolean}>('portfolioWorkspace:updateProject'),
+}
 
 const priorityMeta: Record<Priority, { label: string; description: string }> = {
   P0: { label: 'Teraz', description: 'Vyžaduje pozornosť teraz' },
@@ -218,22 +225,34 @@ const navItems: { id: View; label: string; icon: LucideIcon; portrait?:string }[
 
 function ChiefOfStaffHQ() {
   const refreshLiveBriefing = useAction(api.liveBriefing.refresh)
+  const portfolio = useQuery(portfolioApi.overview, {})
+  const bootstrapPortfolio = useMutation(portfolioApi.bootstrapDefaults)
+  const persistDecision = useMutation(portfolioApi.updateDecision)
   const [view, setView] = useState<View>('home')
   const [mobileMenu, setMobileMenu] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [decisions, setDecisions] = useState<Decision[]>(initialDecisions)
+  const [legacyDecisionsLoaded,setLegacyDecisionsLoaded] = useState(false)
   const [editingDecision, setEditingDecision] = useState<string | null>(null)
   const [draftAnswers, setDraftAnswers] = useState<Record<string,string>>({})
   const [toast, setToast] = useState('')
   const [liveBriefing, setLiveBriefing] = useState<LiveBriefing | null>(null)
   const [briefingState, setBriefingState] = useState<BriefingState>('idle')
   const liveRefreshStarted = useRef(false)
+  const portfolioBootstrapStarted = useRef(false)
+
+  useEffect(() => {
+    if (!portfolio || !legacyDecisionsLoaded || portfolioBootstrapStarted.current || (portfolio.projects.length > 0 && portfolio.decisions.length > 0)) return
+    portfolioBootstrapStarted.current = true
+    void bootstrapPortfolio({projects,decisions}).catch(()=>{ portfolioBootstrapStarted.current=false })
+  }, [portfolio,bootstrapPortfolio,legacyDecisionsLoaded,decisions])
 
   useEffect(() => {
     const saved = window.localStorage.getItem('chief-decisions-v2')
     if (saved) {
       try { setDecisions(JSON.parse(saved) as Decision[]) } catch { /* keep snapshot */ }
     }
+    setLegacyDecisionsLoaded(true)
   }, [])
 
   const go = (next: View) => {
@@ -251,7 +270,7 @@ function ChiefOfStaffHQ() {
       return next
     })
     setEditingDecision(null)
-    notify(status === 'Podklady vyžiadané' ? 'Požiadavka na podklady je uložená.' : 'Rozhodnutie je uložené v tomto zariadení.')
+    void persistDecision({decisionId:id,status,answer}).then(()=>notify(status === 'Podklady vyžiadané' ? 'Požiadavka na podklady je uložená.' : 'Rozhodnutie je uložené.')).catch(()=>notify('Lokálna zmena je zachovaná; synchronizácia rozhodnutia zlyhala.'))
   }
   const handleRefreshBriefing = async () => {
     setBriefingState('loading')
@@ -285,7 +304,9 @@ function ChiefOfStaffHQ() {
     void handleRefreshBriefing()
   }, [])
 
-  const pending = decisions.filter(item => item.status === 'Čaká na Tomáša')
+  const portfolioProjects = portfolio?.projects.length ? portfolio.projects : projects
+  const portfolioDecisions = portfolio?.decisions.length ? portfolio.decisions : decisions
+  const pending = portfolioDecisions.filter(item => item.status === 'Čaká na Tomáša')
   const openTasks = liveBriefing
     ? liveBriefing.tasks.filter(item => item.status !== 'HOTOVO' && item.status !== 'ZRUŠENÉ').length
       + liveBriefing.workQueue.filter(item => item.status !== 'HOTOVO').length
@@ -319,11 +340,11 @@ function ChiefOfStaffHQ() {
 
     <main className="main">
       <Topbar view={view} snapshotDate={snapshotDate}/>
-      {view === 'home' && <HomeView pending={pending} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
+      {view === 'home' && <HomeView pending={pending} projects={portfolioProjects} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'inbox' && <InboxRadarView live={liveBriefing} go={go}/>}
       {view === 'calendar' && <CalendarView live={liveBriefing} go={go}/>}
-      {view === 'decisions' && <DecisionsView decisions={decisions} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
-      {view === 'projects' && <ProjectsView openProject={setSelectedProject}/>}
+      {view === 'decisions' && <DecisionsView decisions={portfolioDecisions} projects={portfolioProjects} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
+      {view === 'projects' && <ProjectsView projects={portfolioProjects} openProject={setSelectedProject}/>}
       {view === 'tasks' && <TasksView live={liveBriefing} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'nora' && <NoraWorkspace notify={notify}/>}
       {view === 'health' && <HealthWorkspace notify={notify}/>}
@@ -357,7 +378,7 @@ function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {
   return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · {snapshotDate}</div></div>
 }
 
-function HomeView({ pending, openTasks, go, openProject, live, briefingState, refreshBriefing }: { pending:Decision[]; openTasks:number; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {
+function HomeView({ pending, projects, openTasks, go, openProject, live, briefingState, refreshBriefing }: { pending:Decision[]; projects:Project[]; openTasks:number; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {
   const submitCommand=useAction(api.commandCenter.submitCommand)
   const [commandText,setCommandText]=useState('')
   const [commandContext,setCommandContext]=useState<{type:string;id:string;label:string}|null>(null)
@@ -535,8 +556,8 @@ function CalendarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void}) {
   </div>
 }
 
-function DecisionsView({ decisions, editingDecision, setEditingDecision, drafts, setDrafts, update, goProject }: {
-  decisions:Decision[]; editingDecision:string|null; setEditingDecision:(id:string|null)=>void
+function DecisionsView({ decisions, projects, editingDecision, setEditingDecision, drafts, setDrafts, update, goProject }: {
+  decisions:Decision[]; projects:Project[]; editingDecision:string|null; setEditingDecision:(id:string|null)=>void
   drafts:Record<string,string>; setDrafts:(next:Record<string,string>)=>void
   update:(id:string,status:DecisionStatus,answer?:string)=>void; goProject:(p:Project)=>void
 }) {
@@ -1020,7 +1041,7 @@ function normalizeFinanceReviews(value:unknown): FinanceReview[] {
   })
 }
 
-function ProjectsView({ openProject }: { openProject:(p:Project)=>void }) {
+function ProjectsView({ projects, openProject }: { projects:Project[]; openProject:(p:Project)=>void }) {
   const [query,setQuery]=useState('')
   const [priority,setPriority]=useState('Všetky priority')
   const [status,setStatus]=useState('Všetky stavy')
@@ -1172,7 +1193,16 @@ function PriorityBadge({ value }: { value:Priority }) { return <span className={
 function StatusBadge({ value }: { value:string }) { return <span className={'badge status '+value.toLowerCase().replaceAll(' ','-').replaceAll('á','a').replaceAll('é','e').replaceAll('ý','y')}>{value}</span> }
 
 function ProjectModal({ project,onClose }: { project:Project; onClose:()=>void }) {
-  return <div className="modal-backdrop" onMouseDown={onClose}><div className="project-modal" onMouseDown={e=>e.stopPropagation()}><button className="icon-button modal-close" onClick={onClose} aria-label="Zavrieť"><X size={18}/></button><div className="modal-heading"><div><PriorityBadge value={project.priority}/><StatusBadge value={project.status}/><span>{project.id} · {project.area}</span></div><h2>{project.name}</h2></div><div className="modal-details"><div><p className="detail-label">Owner</p><strong>{project.owner}</strong></div><div><p className="detail-label">Horizont</p><strong>{project.horizon}</strong></div>{project.deadline&&<div><p className="detail-label">Deadline</p><strong>{project.deadline}</strong></div>}<div><p className="detail-label">Progress</p><strong>{project.progress}%</strong></div></div><div className="next-action"><p className="detail-label">Najbližší krok</p><p>{project.nextAction}</p></div>{project.blocker&&<div className="blocker"><p className="detail-label">Blokér</p><p>{project.blocker}</p>{project.waitingFor&&<strong>Čaká na: {project.waitingFor}</strong>}</div>}<button className="button-primary full" onClick={onClose}><ArrowLeft size={16}/>Späť na portfólio</button></div></div>
+  const updateProject=useMutation(portfolioApi.updateProject)
+  const [editing,setEditing]=useState(false)
+  const [status,setStatus]=useState<string>(project.status)
+  const [priority,setPriority]=useState<string>(project.priority)
+  const [progress,setProgress]=useState(String(project.progress))
+  const [nextAction,setNextAction]=useState(project.nextAction)
+  const [blocker,setBlocker]=useState(project.blocker??'')
+  const [saving,setSaving]=useState(false)
+  const save=async()=>{setSaving(true);try{await updateProject({projectId:project.id,status,priority,progress:Number(progress),nextAction,blocker});setEditing(false);onClose()}finally{setSaving(false)}}
+  return <div className="modal-backdrop" onMouseDown={onClose}><div className="project-modal" onMouseDown={e=>e.stopPropagation()}><button className="icon-button modal-close" onClick={onClose} aria-label="Zavrieť"><X size={18}/></button><div className="modal-heading"><div><PriorityBadge value={project.priority}/><StatusBadge value={project.status}/><span>{project.id} · {project.area}</span></div><h2>{project.name}</h2></div>{editing?<div className="project-edit-form"><label>Stav<select value={status} onChange={e=>setStatus(e.target.value)}><option>Aktívny</option><option>Plánovaný</option><option>Čaká</option><option>Pozastavený</option></select></label><label>Priorita<select value={priority} onChange={e=>setPriority(e.target.value)}><option value="P0">Teraz</option><option value="P1">Dôležité</option><option value="P2">Neskôr</option></select></label><label>Progress<input type="number" min="0" max="100" value={progress} onChange={e=>setProgress(e.target.value)}/></label><label className="wide">Najbližší krok<textarea rows={3} value={nextAction} onChange={e=>setNextAction(e.target.value)}/></label><label className="wide">Blokér<textarea rows={2} value={blocker} onChange={e=>setBlocker(e.target.value)}/></label><div className="wide decision-actions"><button className="button-primary" disabled={saving||!nextAction.trim()} onClick={()=>void save()}>{saving?'Ukladám…':'Uložiť projekt'}</button><button className="button-secondary" onClick={()=>setEditing(false)}>Zrušiť</button></div></div>:<><div className="modal-details"><div><p className="detail-label">Owner</p><strong>{project.owner}</strong></div><div><p className="detail-label">Horizont</p><strong>{project.horizon}</strong></div>{project.deadline&&<div><p className="detail-label">Deadline</p><strong>{project.deadline}</strong></div>}<div><p className="detail-label">Progress</p><strong>{project.progress}%</strong></div></div><div className="next-action"><p className="detail-label">Najbližší krok</p><p>{project.nextAction}</p></div>{project.blocker&&<div className="blocker"><p className="detail-label">Blokér</p><p>{project.blocker}</p>{project.waitingFor&&<strong>Čaká na: {project.waitingFor}</strong>}</div>}<div className="decision-actions"><button className="button-secondary" onClick={()=>setEditing(true)}>Upraviť projekt</button><button className="button-primary" onClick={onClose}><ArrowLeft size={16}/>Späť na portfólio</button></div></>}</div></div>
 }
 
 function SectionTitle({ eyebrow,title,action }: { eyebrow?:string; title:string; action?:React.ReactNode }) { return <div className="section-title"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}<h2>{title}</h2></div>{action}</div> }

@@ -11,8 +11,8 @@ Audit date: 18 November 2026. This separates visible UI, persisted behavior, ext
 | Calendar day view | Yes | Snapshot | Opens Google Calendar | Live read |
 | NORA calendar create/move | Telegram | n8n pending proposal | Google Calendar primary | Pilot verified |
 | Multi-event calendar request | Telegram | n8n pending batch | Google Calendar primary | Pilot verified |
-| Decision Queue | Yes | Mixed/static | No generic executor | Needs Convex migration |
-| Project Register | Yes | Static code register | None | Needs live CRUD |
+| Decision Queue | Yes | Convex with legacy fallback | No generic executor | Live registry prepared; deploy required |
+| Project Register | Yes | Convex with code fallback | None | Live editing prepared; deploy required |
 | Personal tasks | Yes | Convex + snapshot merge | None required | Live |
 | AI Work Queue | Yes | Convex/snapshot | Worker-dependent | Live state; execution varies |
 | NORA task intake | Dashboard + Telegram | Convex + task register | Optional calendar proposal | Live |
@@ -38,9 +38,9 @@ Audit date: 18 November 2026. This separates visible UI, persisted behavior, ext
 4. Create/attach a dedicated n8n Header Auth credential for the Garmin webhook.
 5. Enable the Convex HTTP node, run a one-day pilot, verify the Health dashboard, then activate the daily schedule.
 
-### P0 — Separate truth from presentation
+### P0 — Complete truth migration
 
-Migrate projects, decisions and the three daily outcomes from code constants to Convex. Add audited create/update/status changes and retain a read-only fallback. This removes the largest remaining mismatch between a polished dashboard and an operational system.
+Projects and decisions now have a Convex register, legacy bootstrap and fallback. After deployment, verify the one-time bootstrap and edits. The remaining static element is the three daily outcomes; those should be generated from live priorities only after the project/decision migration is verified.
 
 ### P1 — Health assistant interaction
 

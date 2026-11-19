@@ -1117,6 +1117,10 @@ body {
 .health-supplement-list { display: grid; gap: 6px; margin-top: 12px; }
 .health-supplement-list > div { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; border-radius: 8px; padding: 8px 10px; background: hsl(var(--warm)); font-size: 9px; }
 .health-supplement-list small { color: hsl(var(--muted)); }
+.project-edit-form { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 10px; margin-top: 16px; }
+.project-edit-form label { display: grid; gap: 5px; color: hsl(var(--muted)); font-size: 9px; font-weight: 800; }
+.project-edit-form input, .project-edit-form select, .project-edit-form textarea { width: 100%; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 10px; background: white; color: hsl(var(--black)); font: inherit; font-size: 10px; }
+.project-edit-form .wide { grid-column: 1/-1; }
 .nora-capture-card { margin-bottom: 18px; border-top: 5px solid hsl(var(--lime)); }
 .nora-task-form { display: grid; gap: 10px; }
 .nora-task-form input, .nora-task-form textarea, .nora-task-form select { width: 100%; min-width: 0; border: 1px solid hsl(var(--line)); border-radius: 9px; padding: 11px 12px; outline: none; background: white; color: hsl(var(--black)); font: inherit; font-size: 11px; }
@@ -1143,6 +1147,8 @@ body {
   .health-habit-add input:first-child, .health-habit-add button { grid-column: 1/-1; }
   .health-supplement-add { grid-template-columns: 1fr 1fr; }
   .health-supplement-add input:first-child, .health-supplement-add input:nth-child(4), .health-supplement-add button { grid-column: 1/-1; }
+  .project-edit-form { grid-template-columns: 1fr; }
+  .project-edit-form .wide { grid-column: auto; }
 }
 .idea-profile-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 760px) { .idea-profile-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
