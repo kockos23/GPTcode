@@ -27,6 +27,9 @@ describe("personal operations planner", () => {
   it("requires owner approval for external and health-changing actions", () => {
     expect(requiresOwnerApproval({ domain: "HOME", action: "PURCHASE leak sensor" })).toBe(true)
     expect(requiresOwnerApproval({ domain: "HEALTH", action: "MOVE TRAINING" })).toBe(true)
+    expect(requiresOwnerApproval({ domain: "HOME", action: "Objednať kontrolu komína" })).toBe(true)
+    expect(requiresOwnerApproval({ domain: "FINANCE", action: "Zaplatiť predplatné" })).toBe(true)
+    expect(requiresOwnerApproval({ domain: "HEALTH", action: "Presunúť tréning" })).toBe(true)
     expect(requiresOwnerApproval({ domain: "VEHICLE", action: "Review STK date" })).toBe(false)
   })
 })

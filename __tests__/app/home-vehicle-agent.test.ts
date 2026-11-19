@@ -12,8 +12,8 @@ describe("home and vehicle agent rules", () => {
       { maintenanceId: "far-away", domain: "HOME", title: "Revízia", nextDueAt: now + 100 * day, leadDays: [30] },
     ], now)
     expect(signals.map(signal => [signal.signalId, signal.severity])).toEqual([
-      ["maintenance:car-stk:1795132800000", "HIGH"],
-      ["maintenance:chimney:1794873600000", "CRITICAL"],
+      ["maintenance:car-stk:1795132800000:lead-3", "HIGH"],
+      ["maintenance:chimney:1794873600000:overdue-week-0", "CRITICAL"],
     ])
   })
 
@@ -25,7 +25,15 @@ describe("home and vehicle agent rules", () => {
 
   it("warns about subscriptions within fourteen days", () => {
     expect(subscriptionRenewalSignal({ subscriptionId: "freeletics", name: "Freeletics", nextRenewalAt: now + 10 * day, amount: 0, currency: "EUR", now }))
-      .toMatchObject({ domain: "HOME", severity: "ATTENTION" })
+      .toMatchObject({ domain: "HOME", severity: "ATTENTION", signalId: expect.stringContaining(":lead-14") })
     expect(subscriptionRenewalSignal({ subscriptionId: "later", name: "Later", nextRenewalAt: now + 20 * day, now })).toBeNull()
+  })
+
+  it("creates a new stage only at meaningful reminder thresholds", () => {
+    const input = { subscriptionId: "service", name: "Service", nextRenewalAt: now + 10 * day, now }
+    expect(subscriptionRenewalSignal(input)?.signalId).toContain(":lead-14")
+    expect(subscriptionRenewalSignal({ ...input, now: now + 4 * day })?.signalId).toContain(":lead-7")
+    expect(subscriptionRenewalSignal({ ...input, now: now + 9 * day })?.signalId).toContain(":lead-1")
+    expect(subscriptionRenewalSignal({ ...input, now: now + 11 * day })?.signalId).toContain(":overdue-week-0")
   })
 })

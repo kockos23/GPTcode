@@ -82,6 +82,6 @@ export function planSignals(signals: PlanningSignal[], now: number, limit = 12):
 
 export function requiresOwnerApproval(input: { domain: PersonalDomain; action: string }): boolean {
   const action = input.action.toLocaleUpperCase("sk")
-  if (input.domain === "HEALTH" && /(CHANGE|MOVE|CANCEL|TRAINING|MEDICATION)/.test(action)) return true
-  return /(SEND|PURCHASE|BOOK|DELETE|PAY|CREATE_CALENDAR|MOVE_CALENDAR)/.test(action)
+  if (input.domain === "HEALTH" && /(CHANGE|MOVE|CANCEL|TRAINING|MEDICATION|ZMEN|PRESU|ZRUŠ|ZRUS|TRÉNING|TRENING|LIEK|MEDIK)/.test(action)) return true
+  return /(SEND|PURCHASE|BOOK|DELETE|PAY|CREATE_CALENDAR|MOVE_CALENDAR|ODOSL|POSL|KÚP|KUP|OBJEDN|ZAPL|UHRAD|REZERV|ZRUŠ|ZRUS|VYMAZ|VYTVOR.*KALEND|PRESU.*KALEND)/.test(action)
 }
