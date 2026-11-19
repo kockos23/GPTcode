@@ -9,6 +9,7 @@ import { NoraWorkspace } from '@/components/nora-workspace'
 import { HealthWorkspace } from '@/components/health-workspace'
 import { HomeWorkspace } from '@/components/home-workspace'
 import { AgentHandoffWorkspace } from '@/components/agent-handoff-workspace'
+import { SafeEmailBody } from '@/components/safe-email-body'
 import { emailPreviewForCard, uniqueDisplayEmails } from '@/lib/email-preview'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
@@ -69,7 +70,7 @@ type LiveCommand = {
 type LiveBriefing = {
   generatedAt: number
   calendar: { id:string; title:string; start:string; end:string; allDay:boolean; url:string; calendarId?:string; calendarName?:string; color?:string; readOnly?:boolean }[]
-  emails: { id:string; threadId:string; subject:string; sender:string; timestamp:string; preview:string; url:string; important:boolean }[]
+  emails: { id:string; threadId:string; subject:string; sender:string; timestamp:string; preview:string; bodyText?:string; bodyHtml?:string; sourceAccount?:string; url:string; important:boolean }[]
   agents: LiveAgent[]
   workQueue: LiveWorkItem[]
   tasks: LiveTask[]
@@ -520,7 +521,7 @@ function InboxRadarView({live,go}:{live:LiveBriefing|null;go:(view:View)=>void})
           <h2>{selected.subject}</h2>
           <div className="reader-sender"><span>{selected.sender.slice(0,2).toUpperCase()}</span><div><strong>{selected.sender}</strong><small>Neprečítaná správa</small></div><a href={selected.url} target="_blank" rel="noreferrer">Otvoriť v Gmaili <ArrowUpRight size={14}/></a></div>
           <div className="nora-summary"><p><Sparkles size={14}/> Čitateľný náhľad správy</p><strong>{emailPreviewForCard(selected.preview,900)}</strong></div>
-          <div className="reader-body"><p>Celý obsah správy, formátovanie, odkazy a prílohy otvoríš bezpečne v pripojenej poštovej schránke.</p></div>
+          <SafeEmailBody bodyHtml={selected.bodyHtml} bodyText={selected.bodyText} preview={selected.preview} title={selected.subject}/>
           <div className="reader-actions"><a className="button-primary" href={selected.url} target="_blank" rel="noreferrer"><Mail size={15}/> Otvoriť správu</a><button className="button-secondary" onClick={()=>go('home')}><Command size={15}/> Zadať Nore úlohu</button></div>
         </>:<div className="connection-empty"><span><Mail size={18}/></span><div><strong>Vyber správu</strong><p>Detail správy sa zobrazí na tomto mieste.</p></div></div>}
       </section>

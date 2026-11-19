@@ -79,7 +79,8 @@ export const getSnapshot = internalQuery({
     const emails = [
       ...uniqueExternalEmails.map(item => ({
         id: item.emailKey, threadId: item.threadId, subject: item.subject, sender: item.sender,
-        timestamp: item.timestamp, preview: item.preview, url: item.url, important: item.important,
+        timestamp: item.timestamp, preview: item.preview, bodyText: item.bodyText, bodyHtml: item.bodyHtml,
+        sourceAccount: item.sourceAccount, url: item.url, important: item.important,
       })),
       ...snapshotEmails.filter(item => !externalIds.has(String(item.id ?? ""))),
     ].sort((left, right) => Date.parse(String(right.timestamp ?? "")) - Date.parse(String(left.timestamp ?? "")))
@@ -95,7 +96,8 @@ export const getSnapshot = internalQuery({
 export const upsertExternalEmail = internalMutation({
   args: {
     sourceAccount: v.string(), messageId: v.string(), threadId: v.string(), subject: v.string(),
-    sender: v.string(), timestamp: v.string(), preview: v.string(), url: v.string(), important: v.boolean(),
+    sender: v.string(), timestamp: v.string(), preview: v.string(), bodyText: v.optional(v.string()),
+    bodyHtml: v.optional(v.string()), url: v.string(), important: v.boolean(),
   },
   returns: v.object({ ok: v.boolean(), created: v.boolean(), emailKey: v.string() }),
   handler: async (ctx, args) => {
@@ -111,6 +113,7 @@ export const upsertExternalEmail = internalMutation({
       emailKey, sourceAccount, messageId, threadId: args.threadId.trim().slice(0, 500),
       subject: args.subject.trim().slice(0, 500), sender: args.sender.trim().slice(0, 500),
       timestamp: new Date(timestampMs).toISOString(), preview: args.preview.trim().slice(0, 2000),
+      bodyText: args.bodyText?.trim().slice(0, 50000), bodyHtml: args.bodyHtml?.trim().slice(0, 250000),
       url: args.url.trim().slice(0, 1000), important: args.important,
       receivedAt: timestampMs, updatedAt: now,
     }

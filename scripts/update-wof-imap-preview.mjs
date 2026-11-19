@@ -29,6 +29,16 @@ const definitions = [
 ]
 const summaries = await api("/api/v1/workflows?limit=250")
 
+function withFullEmailBody(code) {
+  if (!code.includes("const bodyHtml=json=>")) {
+    code = code.replace("\nconst address=", `
+const bodyHtml=json=>{const candidate=json.html||(/<(?:!doctype|html|body|table|div|p)\\b/i.test(String(json.text||''))?json.text:'');return String(candidate||'').slice(0,250000)};
+const bodyText=json=>String(json.textPlain||(!bodyHtml(json)?json.text:'')||stripHtml(bodyHtml(json))).trim().slice(0,50000);
+const address=`)
+  }
+  return code.replace("preview:preview(json),url:''", "preview:preview(json),bodyText:bodyText(json),bodyHtml:bodyHtml(json),url:''")
+}
+
 for (const [workflowName, file, nodeName] of definitions) {
   const summary = summaries.data?.find(item => item.name === workflowName)
   if (!summary) throw new Error(`Workflow not found: ${workflowName}`)
@@ -37,8 +47,9 @@ for (const [workflowName, file, nodeName] of definitions) {
   const source = template.nodes.find(node => node.name === nodeName)
   const target = live.nodes.find(node => node.name === nodeName)
   if (!source?.parameters?.jsCode || !target?.parameters?.jsCode) throw new Error(`Normalization node missing: ${workflowName}`)
+  const desiredCode = withFullEmailBody(source.parameters.jsCode)
   const nodes = live.nodes.map(node => node.name === nodeName
-    ? { ...node, parameters: { ...node.parameters, jsCode: source.parameters.jsCode } }
+    ? { ...node, parameters: { ...node.parameters, jsCode: desiredCode } }
     : node)
   await api(`/api/v1/workflows/${live.id}`, {
     method: "PUT",
@@ -46,6 +57,6 @@ for (const [workflowName, file, nodeName] of definitions) {
   })
   const verified = await api(`/api/v1/workflows/${live.id}`)
   const verifiedCode = verified.nodes.find(node => node.name === nodeName)?.parameters?.jsCode
-  if (verifiedCode !== source.parameters.jsCode || !verified.active) throw new Error(`Verification failed: ${workflowName}`)
+  if (verifiedCode !== desiredCode || !verified.active) throw new Error(`Verification failed: ${workflowName}`)
   console.log(`UPDATED ${verified.id} ${verified.name} active=${verified.active}`)
 }

@@ -208,6 +208,8 @@ export default defineSchema({
     sender: v.string(),
     timestamp: v.string(),
     preview: v.string(),
+    bodyText: v.optional(v.string()),
+    bodyHtml: v.optional(v.string()),
     url: v.string(),
     important: v.boolean(),
     receivedAt: v.number(),

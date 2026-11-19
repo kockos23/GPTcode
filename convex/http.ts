@@ -346,7 +346,9 @@ http.route({
       const result = await ctx.runMutation(internal.chiefOfStaff.upsertExternalEmail, {
         sourceAccount, messageId, timestamp,
         threadId: text("threadId", 500), subject: text("subject", 500), sender: text("sender", 500),
-        preview: text("preview", 2000), url: text("url", 1000), important: body?.important === true,
+        preview: text("preview", 2000), bodyText: text("bodyText", 50000) || undefined,
+        bodyHtml: text("bodyHtml", 250000) || undefined,
+        url: text("url", 1000), important: body?.important === true,
       })
       return Response.json(result)
     } catch (error) {

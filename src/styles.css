@@ -696,6 +696,11 @@ a.event-row:hover { border-color: hsl(var(--magenta)); transform: translateY(-2p
 .nora-summary strong { font-size:11px; line-height:1.65; }
 .reader-body { border-radius:12px; padding:16px; background:#f2f3ff; color:hsl(var(--black)); font-size:11px; line-height:1.7; }
 .reader-body p:last-child { margin-bottom:0; }
+.safe-email-body { overflow:hidden; border:1px solid hsl(var(--line)); border-radius:12px; background:white; }
+.safe-email-body>div { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid hsl(var(--line)); padding:11px 14px; font-size:10px; }
+.safe-email-body button { display:inline-flex; align-items:center; gap:6px; border:1px solid hsl(var(--line)); border-radius:8px; padding:7px 9px; background:hsl(var(--lavender)); color:hsl(var(--plum)); font:inherit; font-weight:750; }
+.safe-email-body iframe { display:block; width:100%; height:min(680px,70vh); border:0; background:white; }
+.safe-email-body.text-only p { max-height:420px; overflow:auto; margin:0; padding:16px; white-space:pre-wrap; color:hsl(var(--black)); font-size:11px; line-height:1.7; }
 .reader-actions, .meeting-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; }
 .reader-actions a { text-decoration:none; }
 .reader-actions .button-primary, .reader-actions .button-secondary, .meeting-actions .button-secondary { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:40px; border-radius:10px; padding:10px 14px; }
