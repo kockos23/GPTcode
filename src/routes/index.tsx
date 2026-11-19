@@ -10,6 +10,7 @@ import { HealthWorkspace } from '@/components/health-workspace'
 import { HomeWorkspace } from '@/components/home-workspace'
 import { AgentHandoffWorkspace } from '@/components/agent-handoff-workspace'
 import { SafeEmailBody } from '@/components/safe-email-body'
+import { CommandActivity } from '@/components/command-activity'
 import { emailPreviewForCard, uniqueDisplayEmails } from '@/lib/email-preview'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
@@ -399,6 +400,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
   const [commandContext,setCommandContext]=useState<{type:string;id:string;label:string}|null>(null)
   const [selectedAgent,setSelectedAgent]=useState<(typeof directAssistants)[number]['id']>('NORA')
   const [commandState,setCommandState]=useState<'idle'|'saving'|'done'|'error'>('idle')
+  const [lastCommandId,setLastCommandId]=useState<string>()
   const todayLabel=new Intl.DateTimeFormat('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Bratislava'}).format(new Date())
   const focus=projects.filter(p=>p.priority==='P0').slice(0,3)
   const dailyOutcomes = [
@@ -420,7 +422,8 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
     if(!commandText.trim()) return
     setCommandState('saving')
     try {
-      await submitCommand({command:commandText,contextType:commandContext?.type,contextId:commandContext?.id,channel:'Dashboard',agentId:selectedAgent})
+      const saved=await submitCommand({command:commandText,contextType:commandContext?.type,contextId:commandContext?.id,channel:'Dashboard',agentId:selectedAgent})
+      setLastCommandId(saved.id)
       setCommandText('');setCommandContext(null);setCommandState('done')
       await refreshBriefing()
       window.setTimeout(()=>setCommandState('idle'),2600)
@@ -445,8 +448,9 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
       <div className="command-chips">
         {['Priprav mi dnešné priority','Pridaj úlohu a pripomienku','Skontroluj, čo čaká na moje rozhodnutie','Priprav ranný briefing'].map(text=><button key={text} onClick={()=>{setCommandContext(null);setCommandText(text)}}>{text}</button>)}
       </div>
-      {commandState==='done'&&<p className="command-feedback success"><CircleCheckBig size={14}/> Príkaz je v Command Inboxe a bol pridelený: {directAssistants.find(agent=>agent.id===selectedAgent)?.name}.</p>}
+      {commandState==='done'&&<p className="command-feedback success"><CircleCheckBig size={14}/> Príkaz je uložený. Jeho skutočný stav a výsledok vidíš nižšie.</p>}
       {commandState==='error'&&<p className="command-feedback error"><AlertCircle size={14}/> Príkaz sa nepodarilo uložiť. Skús obnoviť zdroje.</p>}
+      <CommandActivity highlightId={lastCommandId}/>
     </section>
 
     <section className="daily-focus" aria-label="Tri výsledky dňa">

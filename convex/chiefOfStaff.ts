@@ -207,11 +207,11 @@ export const createCommand = internalMutation({
     await ctx.db.insert("chiefOfStaffCommands", {
       commandId: id, command: args.command, contextType: args.contextType,
       contextId: args.contextId, channel: args.channel, intent: args.intent,
-      targetApp: args.targetApp, approval: args.approval, status: "NOVÉ",
+      targetApp: args.targetApp, approval: args.approval, status: "NEW", attempt: 0,
       agent: args.agent, result: "", error: "", createdBy: args.createdBy,
       createdAt: now, updatedAt: now,
     })
-    return { id, status: "NOVÉ" }
+    return { id, status: "NEW" }
   },
 })
 

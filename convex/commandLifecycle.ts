@@ -1,0 +1,33 @@
+import { getAuthUserId } from "@convex-dev/auth/server"
+import { v } from "convex/values"
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { canRetryCommand, canonicalCommandStatus, isTerminalCommandStatus } from "./commandLifecycleLogic"
+
+const LEASE_MS=15*60*1000
+async function requireOwner(ctx:QueryCtx|MutationCtx){const id=await getAuthUserId(ctx);if(!id)throw new Error("UNAUTHENTICATED");const user=await ctx.db.get(id);if(user?.email?.trim().toLowerCase()!==process.env.OWNER_EMAIL?.trim().toLowerCase())throw new Error("FORBIDDEN")}
+async function event(ctx:MutationCtx,commandId:string,fromStatus:string,toStatus:string,actor:string,note=""){await ctx.db.insert("chiefOfStaffCommandEvents",{commandId,fromStatus,toStatus,actor,note:note.slice(0,1000),createdAt:Date.now()})}
+
+export const overview=query({args:{limit:v.optional(v.number())},handler:async(ctx,args)=>{await requireOwner(ctx);const limit=Math.min(100,Math.max(1,args.limit??30));const commands=await ctx.db.query("chiefOfStaffCommands").withIndex("by_created_at").order("desc").take(limit);return Promise.all(commands.map(async command=>({
+  id:command.commandId,command:command.command,intent:command.intent,targetApp:command.targetApp,approval:command.approval,status:canonicalCommandStatus(command.status),agent:command.agent,result:command.result,error:command.error,attempt:command.attempt??0,createdAt:command.createdAt,updatedAt:command.updatedAt,startedAt:command.startedAt,completedAt:command.completedAt,
+  events:(await ctx.db.query("chiefOfStaffCommandEvents").withIndex("by_command_id_created_at",q=>q.eq("commandId",command.commandId)).order("asc").take(30)).map(row=>({fromStatus:row.fromStatus,toStatus:row.toStatus,actor:row.actor,note:row.note,createdAt:row.createdAt}))
+})))}})
+
+export const decide=mutation({args:{commandId:v.string(),decision:v.union(v.literal("APPROVE"),v.literal("CANCEL"),v.literal("RETRY"))},handler:async(ctx,args)=>{await requireOwner(ctx);const row=await ctx.db.query("chiefOfStaffCommands").withIndex("by_command_id",q=>q.eq("commandId",args.commandId)).unique();if(!row)throw new Error("COMMAND_NOT_FOUND");const from=canonicalCommandStatus(row.status),attempt=row.attempt??0;let to:string
+  if(args.decision==="APPROVE"&&from==="WAITING_APPROVAL")to="NEW"
+  else if(args.decision==="CANCEL"&&!isTerminalCommandStatus(from))to="CANCELLED"
+  else if(args.decision==="RETRY"&&canRetryCommand(from,attempt))to="NEW"
+  else throw new Error("INVALID_TRANSITION")
+  const now=Date.now();await ctx.db.patch(row._id,{status:to,approvalGrantedAt:args.decision==="APPROVE"?now:row.approvalGrantedAt,claimedBy:undefined,leaseUntil:undefined,error:args.decision==="RETRY"?"":row.error,updatedAt:now,completedAt:to==="CANCELLED"?now:row.completedAt});await event(ctx,row.commandId,from,to,"OWNER",args.decision);return{ok:true,status:to}
+}})
+
+export const claim=internalMutation({args:{worker:v.string(),limit:v.optional(v.number())},handler:async(ctx,args)=>{const worker=args.worker.trim().slice(0,80);if(!worker)throw new Error("INVALID_WORKER");const now=Date.now(),limit=Math.min(20,Math.max(1,args.limit??5));const candidates=[...await ctx.db.query("chiefOfStaffCommands").withIndex("by_status_created_at",q=>q.eq("status","NEW")).take(50),...await ctx.db.query("chiefOfStaffCommands").withIndex("by_status_created_at",q=>q.eq("status","NOVÉ")).take(50)].sort((a,b)=>a.createdAt-b.createdAt);const claimed:Array<{commandId:string;command:string;contextType:string;contextId:string;intent:string;targetApp:string;approval:string;approvalGranted:boolean;agent:string;attempt:number}>=[]
+  for(const row of candidates){if(claimed.length>=limit)break;const attempt=(row.attempt??0)+1;if(attempt>3)continue;await ctx.db.patch(row._id,{status:"PLANNED",claimedBy:worker,leaseUntil:now+LEASE_MS,attempt,updatedAt:now,error:""});await event(ctx,row.commandId,canonicalCommandStatus(row.status),"PLANNED",worker);claimed.push({commandId:row.commandId,command:row.command,contextType:row.contextType,contextId:row.contextId,intent:row.intent,targetApp:row.targetApp,approval:row.approval,approvalGranted:typeof row.approvalGrantedAt==="number",agent:row.agent,attempt})}return claimed
+}})
+
+export const start=internalMutation({args:{commandId:v.string(),worker:v.string(),attempt:v.number()},handler:async(ctx,args)=>{const row=await ctx.db.query("chiefOfStaffCommands").withIndex("by_command_id",q=>q.eq("commandId",args.commandId)).unique();if(!row||row.claimedBy!==args.worker||row.attempt!==args.attempt||canonicalCommandStatus(row.status)!=="PLANNED"||(row.leaseUntil??0)<Date.now())return{ok:false,code:"STALE_CLAIM"};const now=Date.now();await ctx.db.patch(row._id,{status:"RUNNING",startedAt:now,leaseUntil:now+LEASE_MS,updatedAt:now});await event(ctx,row.commandId,"PLANNED","RUNNING",args.worker);return{ok:true,code:"OK"}
+}})
+
+export const complete=internalMutation({args:{commandId:v.string(),worker:v.string(),attempt:v.number(),outcome:v.union(v.literal("DONE"),v.literal("WAITING_APPROVAL"),v.literal("FAILED")),result:v.optional(v.string()),error:v.optional(v.string())},handler:async(ctx,args)=>{const row=await ctx.db.query("chiefOfStaffCommands").withIndex("by_command_id",q=>q.eq("commandId",args.commandId)).unique();if(!row||row.claimedBy!==args.worker||row.attempt!==args.attempt||canonicalCommandStatus(row.status)!=="RUNNING")return{ok:false,code:"STALE_CLAIM",status:row?canonicalCommandStatus(row.status):""};const now=Date.now();await ctx.db.patch(row._id,{status:args.outcome,result:(args.result??"").slice(0,10000),error:(args.error??"").slice(0,2000),leaseUntil:undefined,completedAt:args.outcome==="DONE"?now:undefined,updatedAt:now});await event(ctx,row.commandId,"RUNNING",args.outcome,args.worker,args.error??"");return{ok:true,code:"OK",status:args.outcome}
+}})
+
+export const completeDirect=internalMutation({args:{commandId:v.string(),result:v.string()},handler:async(ctx,args)=>{const row=await ctx.db.query("chiefOfStaffCommands").withIndex("by_command_id",q=>q.eq("commandId",args.commandId)).unique();if(!row)return;const from=canonicalCommandStatus(row.status),now=Date.now();await ctx.db.patch(row._id,{status:"DONE",result:args.result.slice(0,10000),error:"",completedAt:now,updatedAt:now});await event(ctx,row.commandId,from,"DONE","SYSTEM","Bezpečná interná akcia")}})

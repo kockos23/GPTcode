@@ -290,13 +290,29 @@ export default defineSchema({
     agent: v.string(),
     result: v.string(),
     error: v.string(),
+    attempt: v.optional(v.number()),
+    claimedBy: v.optional(v.string()),
+    leaseUntil: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    approvalGrantedAt: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_command_id", ["commandId"])
     .index("by_status", ["status"])
+    .index("by_status_created_at", ["status", "createdAt"])
     .index("by_created_at", ["createdAt"]),
+  chiefOfStaffCommandEvents: defineTable({
+    commandId: v.string(),
+    fromStatus: v.string(),
+    toStatus: v.string(),
+    actor: v.string(),
+    note: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_command_id_created_at", ["commandId", "createdAt"]),
   agentHandoffs: defineTable({
     handoffId: v.string(),
     threadId: v.string(),

@@ -359,6 +359,49 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/chief-of-staff/commands/claim",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    const body = await request.json().catch(() => null) as null|Record<string,unknown>
+    const worker = safeAgentText(body?.worker, 80)
+    const limit = typeof body?.limit === "number" && Number.isInteger(body.limit) ? body.limit : undefined
+    if (!worker) return Response.json({ ok:false, code:"INVALID_PAYLOAD" }, { status:400 })
+    const commands = await ctx.runMutation(internal.commandLifecycle.claim, { worker, limit })
+    return Response.json({ ok:true, commands })
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/chief-of-staff/commands/start",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    const body = await request.json().catch(() => null) as null|Record<string,unknown>
+    const commandId=safeAgentText(body?.commandId,120),worker=safeAgentText(body?.worker,80)
+    const attempt=typeof body?.attempt==="number"&&Number.isInteger(body.attempt)?body.attempt:0
+    if(!commandId||!worker||attempt<1)return Response.json({ok:false,code:"INVALID_PAYLOAD"},{status:400})
+    const result=await ctx.runMutation(internal.commandLifecycle.start,{commandId,worker,attempt})
+    return Response.json(result,{status:result.ok?200:409})
+  }),
+})
+
+http.route({
+  path: "/integrations/n8n/chief-of-staff/commands/complete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    const body = await request.json().catch(() => null) as null|Record<string,unknown>
+    const commandId=safeAgentText(body?.commandId,120),worker=safeAgentText(body?.worker,80)
+    const attempt=typeof body?.attempt==="number"&&Number.isInteger(body.attempt)?body.attempt:0
+    const outcome=body?.outcome==="DONE"||body?.outcome==="WAITING_APPROVAL"||body?.outcome==="FAILED"?body.outcome:""
+    if(!commandId||!worker||attempt<1||!outcome)return Response.json({ok:false,code:"INVALID_PAYLOAD"},{status:400})
+    const result=await ctx.runMutation(internal.commandLifecycle.complete,{commandId,worker,attempt,outcome,result:safeAgentText(body?.result,10000)||undefined,error:safeAgentText(body?.error,2000)||undefined})
+    return Response.json(result,{status:result.ok?200:409})
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/chief-of-staff/health",
   method: "GET",
   handler: httpAction(async (ctx, request) => {

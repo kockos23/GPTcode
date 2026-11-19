@@ -81,6 +81,11 @@ export const submitCommand = action({
       targetApp: classified.targetApp, approval: classified.approval, agent: assignedAgent,
       createdBy: access.email ?? "Tomáš",
     })
+    if(classified.intent==="CREATE_TASK"){
+      const task=await ctx.runMutation(internal.chiefOfStaff.createTask,{title:command.slice(0,300),details:`Vytvorené z príkazu ${saved.id}${args.contextId?` a kontextu ${args.contextId}`:""}.`,projectId:"",priority:"DÔLEŽITÉ",source:"Command Center"})
+      await ctx.runMutation(internal.commandLifecycle.completeDirect,{commandId:saved.id,result:`Úloha ${task.id} bola vytvorená.`})
+      return { id:saved.id,status:"DONE",intent:classified.intent,targetApp:classified.targetApp }
+    }
     return { id: saved.id, status: saved.status, intent: classified.intent, targetApp: classified.targetApp }
   },
 })
