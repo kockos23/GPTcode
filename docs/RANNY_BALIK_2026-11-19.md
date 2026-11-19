@@ -19,13 +19,13 @@ Tento dokument obsahuje iba kroky, ktoré nebolo možné dokončiť bez externé
 - Kompletný používateľský manuál a feature audit.
 - Kompletné testy: 20 testovacích súborov a 126 testov prešli; TypeScript aj produkčný build prešli.
 
-Nasadzovací GitHub commit vo vetve `work`: `f48cf50`.
+Nasadzovací GitHub commit vo vetve `work`: `798ec66`.
 
 ## Krok 1 — Macaly sync, Convex deploy a Publish
 
 Vlož do Macaly jeden prompt:
 
-> Synchronizuj projekt s GitHub repozitárom `kockos23/GPTcode`, vetva `work`, až po commit `f48cf50`. Urob bezpečný 3-way merge a zachovaj všetky existujúce živé dáta, autentifikáciu, environment variables, dashboard routy, n8n integrácie a predchádzajúce Macaly zmeny. Nasaď celý priečinok `convex/` na Live `prod:coordinated-mongoose-77` a následne publikuj frontend. Neaktivuj žiadne nové n8n workflowy. Over, že NORA má portrét, existuje sekcia Zdravie & výkon so suplementmi, sekcia Domácnosť & autá, projekty a rozhodnutia používajú živý register a kalendár má filter všetkých kalendárov. Nič nemaž a nemen credentials.
+> Synchronizuj projekt s GitHub repozitárom `kockos23/GPTcode`, vetva `work`, až po commit `798ec66`. Urob bezpečný 3-way merge a zachovaj všetky existujúce živé dáta, autentifikáciu, environment variables, dashboard routy, n8n integrácie a predchádzajúce Macaly zmeny. Nasaď celý priečinok `convex/` na Live `prod:coordinated-mongoose-77` a následne publikuj frontend. Neaktivuj žiadne nové n8n workflowy. Over, že NORA má portrét, existuje sekcia Zdravie & výkon so suplementmi, sekcia Domácnosť & autá vrátane rýchleho doplnenia aktíva, údržby, odpočtu a predplatného, projekty a rozhodnutia používajú živý register a kalendár má filter všetkých kalendárov. Nič nemaž a nemen credentials.
 
 Po úspechu stačí poslať odpoveď Macaly.
 
