@@ -20,7 +20,14 @@ export const overview = query({
       ctx.db.query("chiefOfStaffCommands").withIndex("by_created_at").order("desc").take(20),
     ])
     return {
-      tasks: tasks.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 100).map(task => ({
+      tasks: tasks.sort((a, b) => {
+        const terminal = (status: string) => ["HOTOVO", "ZRUŠENÉ"].includes(status) ? 1 : 0
+        const priority = (value: string) => ({ P1: 1, P2: 2, P3: 3 }[value] ?? 4)
+        return terminal(a.status) - terminal(b.status)
+          || (a.deadline || "9999-12-31").localeCompare(b.deadline || "9999-12-31")
+          || priority(a.priority) - priority(b.priority)
+          || b.updatedAt - a.updatedAt
+      }).slice(0, 100).map(task => ({
         id: task.taskId, title: task.title, details: task.details, priority: task.priority, status: task.status,
         deadline: task.deadline, source: task.source, assignee: task.assignee, updatedAt: task.updatedAt,
       })),
@@ -58,6 +65,22 @@ export const completeTask = mutation({
     const task = await ctx.db.query("chiefOfStaffTasks").withIndex("by_task_id", query => query.eq("taskId", args.taskId)).unique()
     if (!task) throw new Error("Úloha neexistuje")
     await ctx.db.patch(task._id, { status: "HOTOVO", updatedAt: Date.now() })
+  },
+})
+
+export const updateTask = mutation({
+  args: { taskId: v.string(), priority: v.optional(v.string()), deadline: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    await requireOwner(ctx)
+    const task = await ctx.db.query("chiefOfStaffTasks").withIndex("by_task_id", query => query.eq("taskId", args.taskId)).unique()
+    if (!task) throw new Error("Úloha neexistuje")
+    if (args.priority && !["P1", "P2", "P3"].includes(args.priority)) throw new Error("Neplatná priorita")
+    if (args.deadline && !/^\d{4}-\d{2}-\d{2}$/.test(args.deadline)) throw new Error("Neplatný termín")
+    await ctx.db.patch(task._id, {
+      ...(args.priority !== undefined ? { priority: args.priority } : {}),
+      ...(args.deadline !== undefined ? { deadline: args.deadline || undefined } : {}),
+      updatedAt: Date.now(),
+    })
   },
 })
 

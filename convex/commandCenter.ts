@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { api, internal } from "./_generated/api"
 import { action } from "./_generated/server"
+import { parseTaskCommand } from "./taskCommandLogic"
 
 function classify(command: string) {
   const normalized = command.toLocaleLowerCase("sk")
@@ -82,8 +83,9 @@ export const submitCommand = action({
       createdBy: access.email ?? "Tomáš",
     })
     if(classified.intent==="CREATE_TASK"){
-      const task=await ctx.runMutation(internal.chiefOfStaff.createTask,{title:command.slice(0,300),details:`Vytvorené z príkazu ${saved.id}${args.contextId?` a kontextu ${args.contextId}`:""}.`,projectId:"",priority:"DÔLEŽITÉ",source:"Command Center"})
-      await ctx.runMutation(internal.commandLifecycle.completeDirect,{commandId:saved.id,result:`Úloha ${task.id} bola vytvorená.`})
+      const parsed=parseTaskCommand(command)
+      const task=await ctx.runMutation(internal.chiefOfStaff.createTask,{title:parsed.title,details:`Pôvodné zadanie: ${parsed.original}${args.contextId?`\nKontext: ${args.contextId}`:""}`,projectId:"",priority:parsed.priority,deadline:parsed.deadline,source:"Command Center"})
+      await ctx.runMutation(internal.commandLifecycle.completeDirect,{commandId:saved.id,result:`Úloha ${task.id} bola vytvorená${parsed.deadline?` na ${parsed.deadline}`:""} s prioritou ${parsed.priority}.`})
       return { id:saved.id,status:"DONE",intent:classified.intent,targetApp:classified.targetApp }
     }
     return { id: saved.id, status: saved.status, intent: classified.intent, targetApp: classified.targetApp }

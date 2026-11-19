@@ -12,6 +12,7 @@ const noraApi = {
   overview: makeFunctionReference<'query', Record<string, never>, Overview>('noraWorkspace:overview'),
   createTask: makeFunctionReference<'mutation', { title:string; details?:string; priority:string; deadline?:string }, { id:string; status:string }>('noraWorkspace:createTask'),
   completeTask: makeFunctionReference<'mutation', { taskId:string }, null>('noraWorkspace:completeTask'),
+  updateTask: makeFunctionReference<'mutation', { taskId:string; priority?:string; deadline?:string }, null>('noraWorkspace:updateTask'),
   proposeCalendarEvent: makeFunctionReference<'mutation', { taskId:string }, { id:string; status:string }>('noraWorkspace:proposeCalendarEvent'),
   decideProposal: makeFunctionReference<'mutation', { stepId:string; decision:'APPROVE'|'POSTPONE'|'DISMISS' }, { ok:boolean; status:string; taskId?:string }>('noraWorkspace:decideProposal'),
 }
@@ -20,6 +21,7 @@ export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
   const overview = useQuery(noraApi.overview, {})
   const createTask = useMutation(noraApi.createTask)
   const completeTask = useMutation(noraApi.completeTask)
+  const updateTask = useMutation(noraApi.updateTask)
   const proposeCalendar = useMutation(noraApi.proposeCalendarEvent)
   const decideProposal = useMutation(noraApi.decideProposal)
   const [title,setTitle] = useState('')
@@ -39,6 +41,15 @@ export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
   }
 
   const openTasks = overview?.tasks.filter(task => !['HOTOVO','ZRUŠENÉ'].includes(task.status)) ?? []
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Bratislava',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
+  const tomorrow = new Date(Date.parse(today+'T00:00:00Z')+86_400_000).toISOString().slice(0,10)
+  const taskGroups = [
+    { key:'overdue', label:'Po termíne', tasks:openTasks.filter(task=>task.deadline && task.deadline<today) },
+    { key:'today', label:'Dnes', tasks:openTasks.filter(task=>task.deadline===today) },
+    { key:'tomorrow', label:'Zajtra', tasks:openTasks.filter(task=>task.deadline===tomorrow) },
+    { key:'upcoming', label:'Nadchádzajúce', tasks:openTasks.filter(task=>task.deadline && task.deadline>tomorrow) },
+    { key:'later', label:'Bez termínu', tasks:openTasks.filter(task=>!task.deadline) },
+  ].filter(group=>group.tasks.length)
   return <div className="page nora-workspace">
     <div className="page-intro nora-intro"><span className="nora-section-avatar"><img src="/nora-avatar.webp" alt="NORA — Chief of Staff" width={58} height={58}/></span><div><p className="eyebrow">Chief of Staff · osobný inbox</p><h2>NORA</h2><p>Nadiktuj alebo napíš večerný zoznam úloh. NORA ho rozdelí na samostatné položky, zoradí a pripraví ďalší krok. Z úlohy môžeš vytvoriť návrh udalosti; zápis do kalendára ostáva schvaľovaný.</p></div></div>
 
@@ -54,7 +65,7 @@ export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
 
     <div className="nora-columns">
       <section className="panel"><div className="idea-panel-heading"><ListTodo size={17}/><div><h3>NORA Inbox</h3><p>{openTasks.length} otvorených úloh zo všetkých vstupov</p></div></div>
-        <div className="nora-task-list">{openTasks.map(task=><article key={task.id}><div><span className="task-priority">{task.priority}</span><small>{task.source} · {task.status}{task.deadline?' · do '+task.deadline:''}</small></div><h4>{task.title}</h4>{task.details&&<p>{task.details}</p>}<div className="idea-row-actions"><button className="button-secondary" onClick={()=>void proposeCalendar({taskId:task.id}).then(()=>notify('NORA pripraví návrh udalosti na potvrdenie.'))}><CalendarPlus size={13}/>Do kalendára</button><button className="button-quiet" onClick={()=>void completeTask({taskId:task.id}).then(()=>notify('Úloha označená ako hotová.'))}><Check size={13}/>Hotovo</button></div></article>)}</div>
+        <div className="nora-task-list">{taskGroups.map(group=><section className={'nora-task-group '+group.key} key={group.key}><h4>{group.label}<span>{group.tasks.length}</span></h4>{group.tasks.map(task=><article key={task.id}><div><span className="task-priority">{task.priority}</span><small>{task.source} · {task.status}</small></div><h4>{task.title}</h4>{task.details&&<p>{task.details}</p>}<div className="nora-task-edit"><label>Dôležitosť<select value={task.priority} onChange={event=>void updateTask({taskId:task.id,priority:event.target.value})}><option value="P1">Dôležité</option><option value="P2">Normálne</option><option value="P3">Neskôr</option></select></label><label>Termín<input type="date" value={task.deadline??''} onChange={event=>void updateTask({taskId:task.id,deadline:event.target.value})}/></label></div><div className="idea-row-actions"><button className="button-secondary" onClick={()=>void proposeCalendar({taskId:task.id}).then(()=>notify('NORA pripraví návrh udalosti na potvrdenie.'))}><CalendarPlus size={13}/>Do kalendára</button><button className="button-quiet" onClick={()=>void completeTask({taskId:task.id}).then(()=>notify('Úloha označená ako hotová.'))}><Check size={13}/>Hotovo</button></div></article>)}</section>)}</div>
         {overview&&openTasks.length===0&&<div className="connection-empty"><span><Check size={18}/></span><div><strong>Inbox je čistý</strong><p>Nové úlohy môžeš pridať tu alebo nadiktovať Nore.</p></div></div>}
       </section>
       <section className="panel"><div className="idea-panel-heading"><Sparkles size={17}/><div><h3>Návrhy agentov</h3><p>Plánovač nič nevykoná bez príslušného schválenia.</p></div></div>
