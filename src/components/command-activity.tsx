@@ -1,11 +1,11 @@
 import { makeFunctionReference } from 'convex/server'
 import { useMutation,useQuery } from 'convex/react'
-import { AlertCircle,Check,ChevronDown,ChevronUp,Clock3,History,LoaderCircle,RefreshCw,X } from 'lucide-react'
+import { AlertCircle,Archive,Check,ChevronDown,ChevronUp,Clock3,History,LoaderCircle,RefreshCw,X } from 'lucide-react'
 import { useEffect,useMemo,useState } from 'react'
 
 type Event={fromStatus:string;toStatus:string;actor:string;note:string;createdAt:number}
-type Command={id:string;command:string;intent:string;targetApp:string;approval:string;status:string;agent:string;result:string;error:string;attempt:number;createdAt:number;updatedAt:number;startedAt?:number;completedAt?:number;events:Event[]}
-const api={overview:makeFunctionReference<'query',{limit?:number},Command[]>('commandLifecycle:overview'),decide:makeFunctionReference<'mutation',{commandId:string;decision:'APPROVE'|'CANCEL'|'RETRY'},{ok:boolean;status:string}>('commandLifecycle:decide')}
+type Command={id:string;command:string;intent:string;targetApp:string;approval:string;status:string;agent:string;result:string;error:string;attempt:number;createdAt:number;updatedAt:number;startedAt?:number;completedAt?:number;archivedAt?:number;events:Event[]}
+const api={overview:makeFunctionReference<'query',{limit?:number},Command[]>('commandLifecycle:overview'),decide:makeFunctionReference<'mutation',{commandId:string;decision:'APPROVE'|'CANCEL'|'RETRY'},{ok:boolean;status:string}>('commandLifecycle:decide'),archive:makeFunctionReference<'mutation',{commandId:string},{ok:boolean}>('commandLifecycle:archive')}
 const labels:Record<string,string>={NEW:'Nové',PLANNED:'Naplánované',RUNNING:'Spracúva sa',WAITING_APPROVAL:'Čaká na schválenie',DONE:'Hotovo',FAILED:'Zlyhalo',CANCELLED:'Zrušené'}
 const icons:Record<string,typeof Clock3>={NEW:Clock3,PLANNED:Clock3,RUNNING:LoaderCircle,WAITING_APPROVAL:AlertCircle,DONE:Check,FAILED:AlertCircle,CANCELLED:X}
 const terminal=(status:string)=>['DONE','FAILED','CANCELLED'].includes(status)
@@ -13,17 +13,21 @@ const terminal=(status:string)=>['DONE','FAILED','CANCELLED'].includes(status)
 export function CommandActivity({highlightId}:{highlightId?:string}){
   const commands=useQuery(api.overview,{limit:8})
   const decide=useMutation(api.decide)
+  const archive=useMutation(api.archive)
   const [busy,setBusy]=useState('')
   const [expanded,setExpanded]=useState(false)
   const [history,setHistory]=useState(false)
-  const current=useMemo(()=>commands?.find(item=>item.id===highlightId)??commands?.[0],[commands,highlightId])
+  const current=useMemo(()=>{const highlighted=commands?.find(item=>item.id===highlightId);if(highlighted&&!highlighted.archivedAt)return highlighted;const latest=commands?.[0];return latest&&!latest.archivedAt?latest:undefined},[commands,highlightId])
   useEffect(()=>{if(!highlightId)return;setExpanded(true);setHistory(false);const timer=window.setTimeout(()=>setExpanded(false),8_000);return()=>window.clearTimeout(timer)},[highlightId])
   const act=async(id:string,decision:'APPROVE'|'CANCEL'|'RETRY')=>{setBusy(id);try{await decide({commandId:id,decision})}finally{setBusy('')}}
-  if(!commands?.length||!current)return null
+  if(!commands?.length)return null
+  if(!current&&!history)return <section className="command-activity command-activity-archived"><button type="button" onClick={()=>setHistory(true)}><History size={14}/>História príkazov</button></section>
+  const historyItems=commands.filter(item=>item.archivedAt)
+  if(!current)return <section className="command-activity"><div className="command-history-heading"><strong>Archivované príkazy</strong><button type="button" onClick={()=>setHistory(false)}><X size={14}/>Zavrieť</button></div><div className="command-activity-list">{historyItems.map(command=><article key={command.id}><div className="command-activity-top"><span className="command-status done"><Check size={13}/>{labels[command.status]??command.status}</span><small>{new Date(command.updatedAt).toLocaleString('sk-SK')}</small></div><strong>{command.command}</strong>{command.result&&<div className="command-result">{command.result}</div>}</article>)}</div></section>
   const CurrentIcon=icons[current.status]??Clock3
   const visible=history?commands.slice(0,6):(expanded||!terminal(current.status))?[current]:[]
   return <section className="command-activity">
-    <div className="command-activity-summary"><span className={'command-status '+current.status.toLowerCase()}><CurrentIcon className={current.status==='RUNNING'?'spin':''} size={13}/>{labels[current.status]??current.status}</span><strong>{current.command}</strong><small>{current.result||'Stav sa aktualizuje z vykonávacej fronty.'}</small><button type="button" onClick={()=>{setHistory(false);setExpanded(value=>!value)}}>{expanded?<ChevronUp size={14}/>:<ChevronDown size={14}/>} Detail</button><button type="button" onClick={()=>{setHistory(value=>!value);setExpanded(false)}}><History size={14}/> História</button></div>
+    <div className="command-activity-summary"><span className={'command-status '+current.status.toLowerCase()}><CurrentIcon className={current.status==='RUNNING'?'spin':''} size={13}/>{labels[current.status]??current.status}</span><strong>{current.command}</strong><small>{current.result||'Stav sa aktualizuje z vykonávacej fronty.'}</small><button type="button" onClick={()=>{setHistory(false);setExpanded(value=>!value)}}>{expanded?<ChevronUp size={14}/>:<ChevronDown size={14}/>} Detail</button><button type="button" onClick={()=>{setHistory(value=>!value);setExpanded(false)}}><History size={14}/> História</button>{terminal(current.status)&&<button className="command-archive" type="button" title="Archivovať a skryť" onClick={()=>void archive({commandId:current.id}).then(()=>{setExpanded(false);setHistory(false)})}><Archive size={14}/>Archivovať</button>}</div>
     {visible.length>0&&<div className="command-activity-list">{visible.map(command=>{const Icon=icons[command.status]??Clock3;return <article key={command.id} className={highlightId===command.id?'highlighted':''}><div className="command-activity-top"><span className={'command-status '+command.status.toLowerCase()}><Icon className={command.status==='RUNNING'?'spin':''} size={13}/>{labels[command.status]??command.status}</span><small>{command.id}{command.attempt>0?' · pokus '+command.attempt+'/3':''}</small></div><strong>{command.command}</strong><p>{command.targetApp} · {command.agent}</p>{command.result&&<div className="command-result">{command.result}</div>}{command.error&&<div className="task-error">{command.error}</div>}<div className="command-timeline">{command.events.slice(-5).map((event,index)=><span key={event.createdAt+'-'+index}><i/>{labels[event.toStatus]??event.toStatus}<small>{new Date(event.createdAt).toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'})}</small></span>)}</div><div className="command-decision-actions">{command.status==='WAITING_APPROVAL'&&<button className="button-primary" disabled={busy===command.id} onClick={()=>void act(command.id,'APPROVE')}><Check size={13}/>Schváliť vykonanie</button>}{command.status==='FAILED'&&command.attempt<3&&<button className="button-secondary" disabled={busy===command.id} onClick={()=>void act(command.id,'RETRY')}><RefreshCw size={13}/>Skúsiť znova</button>}{!['DONE','CANCELLED'].includes(command.status)&&<button className="text-link" disabled={busy===command.id} onClick={()=>void act(command.id,'CANCEL')}><X size={13}/>Zrušiť</button>}</div></article>})}</div>}
   </section>
 }

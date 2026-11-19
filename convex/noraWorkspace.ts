@@ -69,14 +69,17 @@ export const completeTask = mutation({
 })
 
 export const updateTask = mutation({
-  args: { taskId: v.string(), priority: v.optional(v.string()), deadline: v.optional(v.string()) },
+  args: { taskId: v.string(), title: v.optional(v.string()), details: v.optional(v.string()), priority: v.optional(v.string()), deadline: v.optional(v.string()) },
   handler: async (ctx, args) => {
     await requireOwner(ctx)
     const task = await ctx.db.query("chiefOfStaffTasks").withIndex("by_task_id", query => query.eq("taskId", args.taskId)).unique()
     if (!task) throw new Error("Úloha neexistuje")
+    if (args.title !== undefined && !args.title.trim()) throw new Error("Názov úlohy nemôže byť prázdny")
     if (args.priority && !["P1", "P2", "P3"].includes(args.priority)) throw new Error("Neplatná priorita")
     if (args.deadline && !/^\d{4}-\d{2}-\d{2}$/.test(args.deadline)) throw new Error("Neplatný termín")
     await ctx.db.patch(task._id, {
+      ...(args.title !== undefined ? { title: args.title.trim().slice(0, 300) } : {}),
+      ...(args.details !== undefined ? { details: args.details.trim().slice(0, 5000) } : {}),
       ...(args.priority !== undefined ? { priority: args.priority } : {}),
       ...(args.deadline !== undefined ? { deadline: args.deadline || undefined } : {}),
       updatedAt: Date.now(),

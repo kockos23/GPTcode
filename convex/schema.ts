@@ -295,6 +295,7 @@ export default defineSchema({
     leaseUntil: v.optional(v.number()),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    archivedAt: v.optional(v.number()),
     approvalGrantedAt: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
