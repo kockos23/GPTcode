@@ -49,7 +49,7 @@ const config = defineConfig({
     tanstackStart({
       prerender: {
         // Keep prerender enabled for DEV_BUILD (preview) otherwise preview will not work!
-        enabled: !!process.env.DEV_BUILD,
+        enabled: !!process.env.DEV_BUILD || !!process.env.STATIC_BUILD,
         autoSubfolderIndex: true,
         autoStaticPathsDiscovery: true,
         crawlLinks: false,

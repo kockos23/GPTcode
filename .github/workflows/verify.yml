@@ -1,0 +1,28 @@
+name: Verify application
+
+on:
+  push:
+    branches: [work, main]
+  pull_request:
+    branches: [work, main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run build:static
+        env:
+          VITE_CONVEX_URL: https://coordinated-mongoose-77.eu-west-1.convex.cloud
+          VITE_ENABLE_MACALY_GOOGLE: "false"
+          VITE_ENABLE_MACALY_BRIDGE: "false"

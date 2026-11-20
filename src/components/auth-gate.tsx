@@ -26,7 +26,10 @@ function OwnerOnly({ children }: { children: React.ReactNode }) {
 
 function SignInScreen() {
   const { signIn } = useAuthActions()
-  const [step, setStep] = React.useState<"choice" | "email" | "code">("choice")
+  const macalyGoogleEnabled = import.meta.env.VITE_ENABLE_MACALY_GOOGLE === "true"
+  const [step, setStep] = React.useState<"choice" | "email" | "code">(
+    macalyGoogleEnabled ? "choice" : "email",
+  )
   const [email, setEmail] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
@@ -70,7 +73,7 @@ function SignInScreen() {
         <h1>Tvoj systém.<br/><span>Za bezpečnou bránou.</span></h1>
         <p className="auth-copy">Projekty, rozhodnutia a osobné dáta sú dostupné iba po overenom prihlásení vlastníka.</p>
         {step === "choice" && <>
-          <GoogleAuthButton />
+          {macalyGoogleEnabled && <GoogleAuthButton />}
           <button type="button" className="auth-cancel" onClick={() => setStep("email")}>Prihlásiť sa kódom na e-mail</button>
         </>}
         {step === "email" && <form className="space-y-3" onSubmit={sendCode}>

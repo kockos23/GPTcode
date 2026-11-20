@@ -38,17 +38,22 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const content = (
+    <>
+      <AppConvexProvider>{children}</AppConvexProvider>
+      <Scripts />
+    </>
+  )
   return (
     <html lang="sk" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <MacalyBridge>
-        <body>
-          <AppConvexProvider>{children}</AppConvexProvider>
-          <Scripts />
-        </body>
-      </MacalyBridge>
+      <body>
+        {import.meta.env.VITE_ENABLE_MACALY_BRIDGE === "true"
+          ? <MacalyBridge>{content}</MacalyBridge>
+          : content}
+      </body>
     </html>
   )
 }
