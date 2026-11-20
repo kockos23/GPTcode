@@ -137,6 +137,22 @@ export const upsertExternalEmail = internalMutation({
   },
 })
 
+export const getExternalEmailForWorker = internalQuery({
+  args: { emailKey: v.string() },
+  returns: v.union(v.null(), v.object({
+    emailKey: v.string(), sourceAccount: v.string(), messageId: v.string(), threadId: v.string(),
+    subject: v.string(), sender: v.string(), timestamp: v.string(), preview: v.string(),
+    bodyText: v.optional(v.string()), bodyHtml: v.optional(v.string()),
+  })),
+  handler: async (ctx, args) => {
+    const emailKey = args.emailKey.trim().slice(0, 600)
+    if (!emailKey) return null
+    const row = await ctx.db.query("chiefOfStaffExternalEmails").withIndex("by_email_key", query => query.eq("emailKey", emailKey)).unique()
+    if (!row) return null
+    return { emailKey: row.emailKey, sourceAccount: row.sourceAccount, messageId: row.messageId, threadId: row.threadId, subject: row.subject, sender: row.sender, timestamp: row.timestamp, preview: row.preview, bodyText: row.bodyText, bodyHtml: row.bodyHtml }
+  },
+})
+
 export const health = internalQuery({
   args: {},
   returns: v.object({

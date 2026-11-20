@@ -359,6 +359,20 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/chief-of-staff/email/get",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const body = await request.json().catch(() => null) as null | Record<string, unknown>
+    const emailKey = safeAgentText(body?.emailKey, 600)
+    if (!emailKey) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
+    const email = await ctx.runQuery(internal.chiefOfStaff.getExternalEmailForWorker, { emailKey })
+    if (!email) return Response.json({ ok: false, code: "EMAIL_NOT_FOUND" }, { status: 404 })
+    return Response.json({ ok: true, email }, { headers: { "cache-control": "no-store" } })
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/chief-of-staff/commands/claim",
   method: "POST",
   handler: httpAction(async (ctx, request) => {

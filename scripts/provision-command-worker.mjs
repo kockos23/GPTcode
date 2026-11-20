@@ -15,6 +15,11 @@ const convexCredentials=snapshot.nodes.find(node=>node.credentials?.httpHeaderAu
 const gmailCredentials=snapshot.nodes.find(node=>node.credentials?.gmailOAuth2)?.credentials
 const openAiCredentials=nora.nodes.find(node=>node.credentials?.openAiApi)?.credentials
 if(!convexCredentials||!gmailCredentials||!openAiCredentials)throw new Error("Required production credential references missing")
+const eventsSummary=byName("NORA — WOF Events IMAP intake (PILOT)")
+if(!eventsSummary)throw new Error("WOF Events IMAP intake workflow missing")
+const eventsWorkflow=await api(`/api/v1/workflows/${eventsSummary.id}`)
+const eventsImapCredentials=eventsWorkflow.nodes.find(node=>node.type==="n8n-nodes-base.emailReadImap")?.credentials?.imap
+if(!eventsImapCredentials)throw new Error("WOF Events IMAP credential reference missing")
 
 const id=()=>crypto.randomUUID()
 const http=(name,position,parameters,credentials=convexCredentials)=>({id:id(),name,type:"n8n-nodes-base.httpRequest",typeVersion:4.2,position,credentials,parameters})
@@ -22,9 +27,10 @@ const code=(name,position,jsCode)=>({id:id(),name,type:"n8n-nodes-base.code",typ
 const iff=(name,position,leftValue,rightValue)=>({id:id(),name,type:"n8n-nodes-base.if",typeVersion:2.2,position,parameters:{conditions:{options:{caseSensitive:true,typeValidation:"strict",version:2},combinator:"and",conditions:[{id:id(),leftValue,rightValue,operator:{type:"string",operation:"equals"}}]},options:{}}})
 const post=(url,body)=>({method:"POST",url,authentication:"genericCredentialType",genericAuthType:"httpHeaderAuth",sendBody:true,specifyBody:"json",jsonBody:`={{ JSON.stringify(${body}) }}`,options:{timeout:30000}})
 
-const routeCode=`const command=$json;
+const routeCode=`const command=$('Split commands').item.json;
 const needsApproval=['CREATE_CALENDAR_EVENT','SAVE_ATTACHMENT_TO_DRIVE'].includes(command.intent)&&!command.approvalGranted;
-const route=needsApproval?'WAITING_APPROVAL':command.intent==='DRAFT_EMAIL_REPLY'?'DRAFT':'UNSUPPORTED';
+const externalWofDraft=command.intent==='DRAFT_EMAIL_REPLY'&&String(command.contextId||'').startsWith('imap:tomas.kocner@wofevents.com:');
+const route=needsApproval?'WAITING_APPROVAL':externalWofDraft?'IMAP_DRAFT':command.intent==='DRAFT_EMAIL_REPLY'?'DRAFT':'UNSUPPORTED';
 return [{json:{...command,route}}];`
 const prepareDraftCode=`const command=$('Route command').item.json;const message=$json||{};const headers=message.payload?.headers||[];const header=name=>String(headers.find(h=>String(h.name).toLowerCase()===name.toLowerCase())?.value||'');
 const decode=value=>{try{return Buffer.from(String(value||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8')}catch{return ''}};
@@ -33,6 +39,8 @@ const source=parts.join('\n').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').repl
 const from=header('Reply-To')||header('From'),subject=header('Subject')||'(bez predmetu)';
 return [{json:{command,from,subject,messageId:header('Message-ID'),requestBody:{model:'gpt-5-mini',store:false,reasoning:{effort:'low'},max_output_tokens:1200,instructions:'Si NORA, profesionálna Chief of Staff asistentka. Napíš stručný, vecný a prirodzený draft odpovede v jazyku pôvodného e-mailu. Nič neposielaj, nevymýšľaj fakty a ak chýba rozhodnutie, označ ho hranatou poznámkou pre Tomáša.',input:[{role:'user',content:[{type:'input_text',text:'Pokyn: '+command.command+'\\n\\nPôvodný e-mail od '+from+', predmet '+subject+':\\n'+source}]}]}}}];`
 const prepareGmailCode=`const prepared=$('Prepare draft prompt').item.json;const response=$json||{};const draft=String(response.output_text||response.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text||'').trim();if(!draft)throw new Error('OpenAI nevrátil text draftu');const email=(prepared.from.match(/<([^>]+)>/)||prepared.from.match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/)||[])[1]||prepared.from;const subject=/^re:/i.test(prepared.subject)?prepared.subject:'Re: '+prepared.subject;const raw=['To: '+email,'Subject: '+subject,prepared.messageId?'In-Reply-To: '+prepared.messageId:'','Content-Type: text/plain; charset=UTF-8','',''+draft].filter(Boolean).join('\\r\\n');return [{json:{command:prepared.command,draft,raw:Buffer.from(raw).toString('base64url')}}];`
+const prepareImapPromptCode=`const command=$('Route command').item.json;const email=$json.email||{};const strip=value=>String(value||'').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim();const source=String(email.bodyText||strip(email.bodyHtml)||email.preview||'').slice(0,16000);if(!source)throw new Error('Pôvodný e-mail nemá čitateľný obsah');const from=String(email.sender||'').trim(),subject=String(email.subject||'(bez predmetu)').trim();return [{json:{command,email,from,subject,requestBody:{model:'gpt-5-mini',store:false,reasoning:{effort:'low'},max_output_tokens:1200,instructions:'Si NORA, profesionálna Chief of Staff asistentka. Napíš stručný, vecný a prirodzený draft odpovede v jazyku pôvodného e-mailu. Nič neposielaj, nevymýšľaj fakty a ak chýba rozhodnutie, označ ho hranatou poznámkou pre Tomáša.',input:[{role:'user',content:[{type:'input_text',text:'Pokyn: '+command.command+'\\n\\nPôvodný e-mail od '+from+', predmet '+subject+':\\n'+source}]}]}}}];`
+const prepareImapDraftCode=`const prepared=$('Prepare WOF draft prompt').item.json;const response=$json||{};const draft=String(response.output_text||response.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text||'').trim();if(!draft)throw new Error('OpenAI nevrátil text draftu');const match=prepared.from.match(/<([^>]+)>/)||prepared.from.match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/);const to=String(match?.[1]||match?.[0]||'').trim();if(!to)throw new Error('Nenašla sa adresa príjemcu');const subject=/^re:/i.test(prepared.subject)?prepared.subject:'Re: '+prepared.subject;return [{json:{command:prepared.command,draft,to,subject}}];`
 
 const nodes=[
   {id:id(),name:"Command worker — every 2 minutes",type:"n8n-nodes-base.scheduleTrigger",typeVersion:1.2,position:[0,0],parameters:{rule:{interval:[{field:"cronExpression",expression:"*/2 * * * *"}]}}},
@@ -49,7 +57,14 @@ const nodes=[
   code("Prepare Gmail draft",[2270,-20],prepareGmailCode),
   http("Gmail — create draft",[2500,-20],{method:"POST",url:"https://gmail.googleapis.com/gmail/v1/users/me/drafts",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify({message:{raw:$json.raw}}) }}",options:{timeout:30000}},gmailCredentials),
   http("Complete — draft ready",[2730,-20],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare Gmail draft').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare Gmail draft').item.json.command.attempt,outcome:'DONE',result:'Draft odpovede bol vytvorený v Gmaili. Draft ID: '+String($json.id||'')}`)),
-  http("Complete — unsupported",[1580,200],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$json.commandId,worker:'NORA_COMMAND_WORKER',attempt:$json.attempt,outcome:'FAILED',error:'Pre tento typ príkazu alebo zdroj ešte nie je pripojený vykonávací adaptér.'}`)),
+  iff("Is WOF IMAP draft?",[1580,200],"={{ $json.route }}","IMAP_DRAFT"),
+  http("Convex — load WOF source email",[1810,150],post(`${site}/integrations/n8n/chief-of-staff/email/get`,`{emailKey:$json.contextId}`)),
+  code("Prepare WOF draft prompt",[2040,150],prepareImapPromptCode),
+  http("OpenAI — write WOF draft",[2270,150],{method:"POST",url:"https://api.openai.com/v1/responses",authentication:"predefinedCredentialType",nodeCredentialType:"openAiApi",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify($json.requestBody) }}",options:{timeout:60000}},openAiCredentials),
+  code("Prepare WOF IMAP draft",[2500,150],prepareImapDraftCode),
+  {id:id(),name:"WOF Events IMAP — create draft",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[2730,150],credentials:{imap:eventsImapCredentials},parameters:{operation:"createDraft",draftFolder:{mode:"name",value:"Drafts"},to:"={{ $json.to }}",subject:"={{ $json.subject }}",messageFormat:"text",textBody:"={{ $json.draft }}",cc:"",bcc:"",fromName:"Tomáš Kočner"}},
+  http("Complete — WOF draft ready",[2960,150],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare WOF IMAP draft').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare WOF IMAP draft').item.json.command.attempt,outcome:'DONE',result:'Koncept odpovede bol uložený priamo v schránke tomas.kocner@wofevents.com do priečinka '+String($json.draftFolder||'Drafts')+'. UID: '+String($json.uid||'')}`)),
+  http("Complete — unsupported",[1810,330],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$json.commandId,worker:'NORA_COMMAND_WORKER',attempt:$json.attempt,outcome:'FAILED',error:'Pre tento typ príkazu alebo zdroj ešte nie je pripojený vykonávací adaptér.'}`)),
 ]
 const connections={
   "Command worker — every 2 minutes":{main:[[{node:"Claim commands",type:"main",index:0}]]},
@@ -58,12 +73,18 @@ const connections={
   "Start command":{main:[[{node:"Route command",type:"main",index:0}]]},
   "Route command":{main:[[{node:"Needs owner approval?",type:"main",index:0}]]},
   "Needs owner approval?":{main:[[{node:"Complete — waiting approval",type:"main",index:0}],[{node:"Is Gmail draft?",type:"main",index:0}]]},
-  "Is Gmail draft?":{main:[[{node:"Gmail — load source message",type:"main",index:0}],[{node:"Complete — unsupported",type:"main",index:0}]]},
+  "Is Gmail draft?":{main:[[{node:"Gmail — load source message",type:"main",index:0}],[{node:"Is WOF IMAP draft?",type:"main",index:0}]]},
   "Gmail — load source message":{main:[[{node:"Prepare draft prompt",type:"main",index:0}]]},
   "Prepare draft prompt":{main:[[{node:"OpenAI — write draft",type:"main",index:0}]]},
   "OpenAI — write draft":{main:[[{node:"Prepare Gmail draft",type:"main",index:0}]]},
   "Prepare Gmail draft":{main:[[{node:"Gmail — create draft",type:"main",index:0}]]},
   "Gmail — create draft":{main:[[{node:"Complete — draft ready",type:"main",index:0}]]},
+  "Is WOF IMAP draft?":{main:[[{node:"Convex — load WOF source email",type:"main",index:0}],[{node:"Complete — unsupported",type:"main",index:0}]]},
+  "Convex — load WOF source email":{main:[[{node:"Prepare WOF draft prompt",type:"main",index:0}]]},
+  "Prepare WOF draft prompt":{main:[[{node:"OpenAI — write WOF draft",type:"main",index:0}]]},
+  "OpenAI — write WOF draft":{main:[[{node:"Prepare WOF IMAP draft",type:"main",index:0}]]},
+  "Prepare WOF IMAP draft":{main:[[{node:"WOF Events IMAP — create draft",type:"main",index:0}]]},
+  "WOF Events IMAP — create draft":{main:[[{node:"Complete — WOF draft ready",type:"main",index:0}]]},
 }
 const name="NORA — Command Execution Worker"
 const settings={executionOrder:"v1",timezone:"Europe/Bratislava",errorWorkflow:snapshot.settings?.errorWorkflow,saveDataSuccessExecution:"none",saveDataErrorExecution:"all",saveExecutionProgress:false,executionTimeout:180,callerPolicy:"workflowsFromSameOwner"}
