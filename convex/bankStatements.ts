@@ -9,6 +9,27 @@ export function paymentMatchIsLocked(status: string): boolean {
 export function bankStatementNeedsResume(status: string): boolean {
   return status !== "NAČÍTANÝ"
 }
+
+// getTransactionById returns the Convex id as `id`. The document `_id` is removed
+// before the value leaves the query, so a command must store `id` or completion
+// can never mark the bank row POTVRDENÁ.
+export function bankMatchPaymentCommand(transaction: {
+  id: string
+  bookedOn: string
+  amount: number
+  operationId: string
+  matchReason?: string
+}, documentIds: string[]) {
+  return {
+    documentIds,
+    paymentDate: transaction.bookedOn,
+    amount: Math.abs(transaction.amount),
+    reference: `Banka: ${transaction.operationId}`,
+    note: `Potvrdené párovanie bankovej transakcie. ${transaction.matchReason ?? ""}`.trim(),
+    bankTransactionId: transaction.id,
+  }
+}
+
 function csvRow(line: string): string[] {
   const fields: string[] = []
   let current = ""
@@ -537,14 +558,13 @@ export const confirmPaymentMatch = action({
       row.supplier === selected.supplier && row.invoiceNumber === selected.invoiceNumber &&
       row.currency === selected.currency && row.amount.replace(/\s/g, "").replace(",", ".") === normalizedAmount,
     ).map(row => row.id)
-    const result = await ctx.runAction(api.financeCommands.markPayablePaidManually, {
-      documentIds,
-      paymentDate: transaction.bookedOn,
-      amount: Math.abs(transaction.amount),
-      reference: `Banka: ${transaction.operationId}`,
-      note: `Potvrdené párovanie bankovej transakcie. ${transaction.matchReason ?? ""}`.trim(),
-      bankTransactionId: transaction._id,
-    })
+    const result = await ctx.runAction(api.financeCommands.markPayablePaidManually, bankMatchPaymentCommand({
+      id: transaction.id,
+      bookedOn: transaction.bookedOn,
+      amount: transaction.amount,
+      operationId: transaction.operationId,
+      matchReason: transaction.matchReason,
+    }, documentIds))
     if (!result.ok) return { ok: false, message: result.message }
     await ctx.runMutation(internal.bankStatements.setMatchStatus, {
       id: args.transactionId, status: "ČAKÁ NA ZÁPIS", payableId: selected.id,
