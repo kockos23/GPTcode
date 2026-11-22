@@ -6,6 +6,7 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "build:static": "STATIC_BUILD=1 vite build",
+    "convex:bootstrap-owned": "node scripts/bootstrap-owned-convex.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:run": "vitest run",
