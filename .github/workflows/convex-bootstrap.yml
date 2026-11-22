@@ -28,4 +28,4 @@ jobs:
       - name: Configure owner identity and authentication keys
         run: npm run convex:bootstrap-owned
         env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_BOOTSTRAP_KEY }}
