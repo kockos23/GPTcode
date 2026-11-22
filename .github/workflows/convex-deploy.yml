@@ -1,5 +1,6 @@
 name: Deploy Convex
 
+# Production deploys are explicit; editing this workflow bootstraps the first run.
 on:
   workflow_dispatch:
   push:
