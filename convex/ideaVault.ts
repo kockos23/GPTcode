@@ -33,6 +33,9 @@ import {
 
 const PROFILE_KEY = "owner"
 const DAY = 24 * 60 * 60 * 1000
+// Dedicated VERA credential. Only the digest is shipped; plaintext stays in
+// n8n and that credential is restricted to the owner Convex HTTP domain.
+const OWNER_IDEA_VAULT_TOKEN_SHA256 = "cece0e47386e1050916c185fa8475b1a568d59167b178fb0872c8f1652878b4f"
 
 // ---------------------------------------------------------------------------
 // Access helpers
@@ -463,11 +466,13 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 }
 
-function authorized(request: Request) {
-  return isAuthorizedIngest(request.headers.get("Authorization"), {
+async function authorized(request: Request) {
+  const authorization = request.headers.get("Authorization")
+  if (await isAuthorizedIngest(authorization, {
     tokenSha256: process.env.IDEA_VAULT_INGEST_TOKEN_SHA256,
     token: process.env.IDEA_VAULT_INGEST_TOKEN,
-  })
+  })) return true
+  return isAuthorizedIngest(authorization, { tokenSha256: OWNER_IDEA_VAULT_TOKEN_SHA256 })
 }
 
 async function readJson(request: Request): Promise<unknown> {
