@@ -1,0 +1,57 @@
+name: Deploy owner preview from work
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pages-owner-preview.yml
+  workflow_run:
+    workflows: ["Verify application"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: owner-preview-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'work')
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run verify
+      - name: Build independent owner preview
+        run: npm run build:static
+        env:
+          VITE_BASE_PATH: /GPTcode/
+          VITE_CONVEX_URL: https://calm-alligator-455.eu-west-1.convex.cloud
+          VITE_ENABLE_MACALY_GOOGLE: "false"
+          VITE_ENABLE_MACALY_BRIDGE: "false"
+      - name: Add GitHub Pages SPA fallback
+        run: cp .output/public/index.html .output/public/404.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .output/public
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
