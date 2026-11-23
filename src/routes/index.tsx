@@ -510,7 +510,7 @@ function MetricLink({ icon:Icon, value, label, note, tone, onClick }: { icon:Luc
 }
 
 function InboxRadarView({live,go,refreshBriefing}:{live:LiveBriefing|null;go:(view:View)=>void;refreshBriefing:()=>Promise<void>}) {
-  const setEmailState=useMutation(makeFunctionReference<'mutation',{emailId:string;state:'INBOX'|'ARCHIVED'|'MOVED';folder?:string;sourceAccount?:string},{ok:boolean;state:string;folder:string}>('emailTriage:setState'))
+  const requestEmailState=useAction(makeFunctionReference<'action',{emailId:string;state:'INBOX'|'ARCHIVED'|'MOVED';folder?:string;previousFolder?:string;sourceAccount?:string},{id:string;status:string}>('emailTriage:requestState'))
   const submitCommand=useAction(api.commandCenter.submitCommand)
   const allEmails=uniqueDisplayEmails(live?.emails??[])
   const [tab,setTab]=useState<'INBOX'|'ARCHIVED'|'MOVED'>('INBOX')
@@ -520,7 +520,7 @@ function InboxRadarView({live,go,refreshBriefing}:{live:LiveBriefing|null;go:(vi
   const [feedback,setFeedback]=useState('')
   const emails=allEmails.filter(email=>(email.triageState??'INBOX')===tab)
   const selected=emails.find(email=>email.id===selectedId)??emails[0]
-  const changeState=async(email:LiveBriefing['emails'][number],state:'INBOX'|'ARCHIVED'|'MOVED',targetFolder?:string)=>{setBusy(email.id);setFeedback('');try{await setEmailState({emailId:email.id,state,folder:targetFolder,sourceAccount:email.sourceAccount});setSelectedId(null);setFeedback(state==='ARCHIVED'?'Správa je archivovaná.':state==='MOVED'?`Správa je v priečinku „${targetFolder}“.`:'Správa je späť v inboxe.');await refreshBriefing()}finally{setBusy('')}}
+  const changeState=async(email:LiveBriefing['emails'][number],state:'INBOX'|'ARCHIVED'|'MOVED',targetFolder?:string)=>{setBusy(email.id);setFeedback('');try{const saved=await requestEmailState({emailId:email.id,state,folder:targetFolder,previousFolder:email.triageFolder,sourceAccount:email.sourceAccount});setFeedback(`NORA vykonáva zmenu priamo v schránke · príkaz ${saved.id}. Po potvrdení sa správa presunie.`);window.setTimeout(()=>void refreshBriefing(),5000)}catch{setFeedback('Zmenu sa nepodarilo zaradiť. Správa zostala na pôvodnom mieste.')}finally{setBusy('')}}
   const prepareDraft=async(email:LiveBriefing['emails'][number])=>{setBusy(email.id);setFeedback('');try{const saved=await submitCommand({command:'Priprav mi draft odpovede na tento e-mail.',contextType:'Email',contextId:email.id,channel:'Inbox Radar',agentId:'NORA'});setFeedback(`NORA začala pripravovať draft · príkaz ${saved.id}. Stav nájdeš v Command Centre.`)}catch{setFeedback('Draft sa nepodarilo zaradiť. Skús obnoviť zdroje.')}finally{setBusy('')}}
   return <div className="page workspace-page inbox-workspace">
     <section className="workspace-heading">

@@ -203,6 +203,7 @@ export default defineSchema({
     emailKey: v.string(),
     sourceAccount: v.string(),
     messageId: v.string(),
+    providerUid: v.optional(v.string()),
     threadId: v.string(),
     subject: v.string(),
     sender: v.string(),

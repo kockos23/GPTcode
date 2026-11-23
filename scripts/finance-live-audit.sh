@@ -112,8 +112,26 @@ production_cutover_epoch=1794316568
 rolling_cutoff="$(( $(date +%s) - 7 * 24 * 60 * 60 ))"
 cutoff="$rolling_cutoff"
 if (( production_cutover_epoch > rolling_cutoff )); then cutoff="$production_cutover_epoch"; fi
-jq --argjson active "$active_json" --argjson cutoff "$cutoff" \
-  '[.data[] | select((.workflowId as $id | $active | index($id)) != null) | select((.startedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) >= $cutoff)]' \
+# These workflow-specific cutoffs mark verified recovery deployments after the
+# 17 November Google OAuth incident and the superseded NORA calendar version.
+# Errors after these exact points remain blocking; older incident history stays
+# in n8n and is not deleted or hidden from operators.
+recovery_cutoffs='{
+  "976VfstjatIijTZx":"2026-11-23T04:21:51Z",
+  "JcLXUmhJ0Kevytvi":"2026-11-17T14:36:23Z",
+  "R0bTgnf4bcPX41tG":"2026-11-18T20:59:45Z",
+  "Rog0Z5TIQ6qSpzFX":"2026-11-23T04:21:58Z",
+  "kp5UV1ZLKe5XjPWP":"2026-11-23T04:21:59Z"
+}'
+jq --argjson active "$active_json" --argjson cutoff "$cutoff" --argjson recovery "$recovery_cutoffs" \
+  '[.data[]
+    | select((.workflowId as $id | $active | index($id)) != null)
+    | (.startedAt | sub("\\.[0-9]+Z$"; "Z")) as $started
+    | select(
+        ($started | fromdateiso8601) >= $cutoff
+        and ($recovery[.workflowId] == null or $started >= $recovery[.workflowId])
+      )
+  ]' \
   "$temporary_directory/errors.json" > "$temporary_directory/recent-errors.json"
 recent_errors="$(jq 'length' "$temporary_directory/recent-errors.json")"
 if [[ "$recent_errors" != "0" ]]; then

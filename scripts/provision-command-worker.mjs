@@ -1,8 +1,9 @@
 import crypto from "node:crypto"
 import { EnvHttpProxyAgent,setGlobalDispatcher } from "undici"
 
-const base=process.env.N8N_BASE_URL?.replace(/\/$/,""),key=process.env.N8N_API_KEY,site=process.env.CONVEX_SITE_URL?.replace(/\/$/,"")
-if(!base||!key||!site)throw new Error("Missing n8n/Convex runtime configuration")
+const base=process.env.N8N_BASE_URL?.replace(/\/$/,""),key=process.env.N8N_API_KEY
+const site=(process.env.OWNER_CONVEX_SITE_URL||"https://calm-alligator-455.eu-west-1.convex.site").replace(/\/$/,"")
+if(!base||!key)throw new Error("Missing n8n runtime configuration")
 if(process.env.HTTPS_PROXY||process.env.HTTP_PROXY||process.env.ALL_PROXY)setGlobalDispatcher(new EnvHttpProxyAgent())
 const api=async(path,init={})=>{const response=await fetch(base+path,{...init,headers:{"X-N8N-API-KEY":key,"content-type":"application/json"}});const text=await response.text();if(!response.ok)throw new Error(`${path}: ${response.status} ${text.slice(0,500)}`);return text?JSON.parse(text):null}
 const list=await api("/api/v1/workflows?limit=250")
@@ -11,10 +12,12 @@ const snapshotSummary=byName("NORA — Chief of Staff Snapshot Sync")
 const noraSummary=byName("NORA – Chief of Staff (Telegram Voice+Text → Command Inbox)")
 if(!snapshotSummary||!noraSummary)throw new Error("Required NORA source workflow missing")
 const [snapshot,nora]=await Promise.all([api(`/api/v1/workflows/${snapshotSummary.id}`),api(`/api/v1/workflows/${noraSummary.id}`)])
-const convexCredentials=snapshot.nodes.find(node=>node.credentials?.httpHeaderAuth)?.credentials
+const convexCredentials=snapshot.nodes.find(node=>
+  node.credentials?.httpHeaderAuth?.name==="Chief of Staff HQ — Owner Convex"
+)?.credentials
 const gmailCredentials=snapshot.nodes.find(node=>node.credentials?.gmailOAuth2)?.credentials
 const openAiCredentials=nora.nodes.find(node=>node.credentials?.openAiApi)?.credentials
-if(!convexCredentials||!gmailCredentials||!openAiCredentials)throw new Error("Required production credential references missing")
+if(!convexCredentials||!gmailCredentials||!openAiCredentials)throw new Error("Required owner production credential references missing")
 const eventsSummary=byName("NORA — WOF Events IMAP intake (PILOT)")
 if(!eventsSummary)throw new Error("WOF Events IMAP intake workflow missing")
 const eventsWorkflow=await api(`/api/v1/workflows/${eventsSummary.id}`)
@@ -30,8 +33,12 @@ const post=(url,body)=>({method:"POST",url,authentication:"genericCredentialType
 const routeCode=`const command=$('Split commands').item.json;
 const needsApproval=['CREATE_CALENDAR_EVENT','SAVE_ATTACHMENT_TO_DRIVE'].includes(command.intent)&&!command.approvalGranted;
 const externalWofDraft=command.intent==='DRAFT_EMAIL_REPLY'&&String(command.contextId||'').startsWith('imap:tomas.kocner@wofevents.com:');
-const route=needsApproval?'WAITING_APPROVAL':externalWofDraft?'IMAP_DRAFT':command.intent==='DRAFT_EMAIL_REPLY'?'DRAFT':'UNSUPPORTED';
+const route=needsApproval?'WAITING_APPROVAL':command.intent==='TRIAGE_EMAIL'?'TRIAGE':externalWofDraft?'IMAP_DRAFT':command.intent==='DRAFT_EMAIL_REPLY'?'DRAFT':'UNSUPPORTED';
 return [{json:{...command,route}}];`
+const prepareTriageCode=`const command=$('Route command').item.json;const parts=String(command.contextType||'').split('|');if(parts[0]!=='EmailTriage')throw new Error('Neplatný triage kontext');const decode=value=>{try{return decodeURIComponent(String(value||''))}catch{return ''}};const state=parts[1],folder=decode(parts[2]),previousFolder=decode(parts[3]),sourceAccount=decode(parts[4]);if(!['INBOX','ARCHIVED','MOVED'].includes(state))throw new Error('Neplatný cieľový stav');const customLabel=name=>name?'Chief HQ - '+name:'';return [{json:{command,state,folder,previousFolder,sourceAccount,targetLabel:customLabel(folder),previousLabel:customLabel(previousFolder),provider:'imap:'===String(command.contextId||'').slice(0,5)?'IMAP':'GMAIL'}}];`
+const prepareGmailLabelsCode=`const triage=$('Prepare triage').item.json;const labels=Array.isArray($json.labels)?$json.labels:[];const byName=name=>labels.find(label=>label.name===name)?.id||'';const targetId=triage.state==='MOVED'?byName(triage.targetLabel):'';const previousId=triage.previousLabel?byName(triage.previousLabel):'';const createLabel=triage.state==='MOVED'&&!targetId;const addLabelIds=triage.state==='INBOX'?['INBOX']:targetId?[targetId]:[];const removeLabelIds=triage.state==='INBOX'?(previousId?[previousId]:[]):['INBOX'];return [{json:{...triage,createLabel,addLabelIds,removeLabelIds}}];`
+const prepareCreatedLabelCode=`const prepared=$('Prepare Gmail labels').item.json;const id=String($json.id||'');if(!id)throw new Error('Gmail nevytvoril priečinok');return [{json:{...prepared,addLabelIds:[id]}}];`
+const prepareImapMoveCode=`const triage=$('Prepare triage').item.json;const email=$json.email||{};const uid=String(email.providerUid||'').trim();if(!uid)throw new Error('Správa ešte nemá IMAP UID; obnov príjem pošty a skús znova');const targetMailbox=triage.state==='INBOX'?'INBOX':triage.state==='ARCHIVED'?'Archive':triage.targetLabel;return [{json:{...triage,emailUid:uid,targetMailbox}}];`
 const prepareDraftCode=`const command=$('Route command').item.json;const message=$json||{};const headers=message.payload?.headers||[];const header=name=>String(headers.find(h=>String(h.name).toLowerCase()===name.toLowerCase())?.value||'');
 const decode=value=>{try{return Buffer.from(String(value||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8')}catch{return ''}};
 const parts=[];const walk=part=>{if(part?.body?.data)parts.push(decode(part.body.data));for(const child of part?.parts||[])walk(child)};walk(message.payload);
@@ -50,7 +57,21 @@ const nodes=[
   code("Route command",[880,0],routeCode),
   iff("Needs owner approval?",[1100,0],"={{ $json.route }}","WAITING_APPROVAL"),
   http("Complete — waiting approval",[1340,-180],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$json.commandId,worker:'NORA_COMMAND_WORKER',attempt:$json.attempt,outcome:'WAITING_APPROVAL',result:'Akcia '+$json.targetApp+' je naplánovaná a čaká na schválenie vlastníka.'}`)),
-  iff("Is Gmail draft?",[1340,80],"={{ $json.route }}","DRAFT"),
+  iff("Is email triage?",[1340,80],"={{ $json.route }}","TRIAGE"),
+  code("Prepare triage",[1580,-320],prepareTriageCode),
+  iff("Is Gmail triage?",[1810,-320],"={{ $json.provider }}","GMAIL"),
+  http("Gmail — list labels",[2040,-440],{method:"GET",url:"https://gmail.googleapis.com/gmail/v1/users/me/labels",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",options:{timeout:30000}},gmailCredentials),
+  code("Prepare Gmail labels",[2270,-440],prepareGmailLabelsCode),
+  iff("Create Gmail label?",[2500,-440],"={{ String($json.createLabel) }}","true"),
+  http("Gmail — create label",[2730,-560],{method:"POST",url:"https://gmail.googleapis.com/gmail/v1/users/me/labels",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify({name:$json.targetLabel,labelListVisibility:'labelShow',messageListVisibility:'show'}) }}",options:{timeout:30000}},gmailCredentials),
+  code("Use created Gmail label",[2960,-560],prepareCreatedLabelCode),
+  http("Gmail — apply triage",[3190,-440],{method:"POST",url:"=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{$json.command.contextId}}/modify",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify({addLabelIds:$json.addLabelIds,removeLabelIds:$json.removeLabelIds}) }}",options:{timeout:30000}},gmailCredentials),
+  http("Complete — Gmail triage",[3420,-440],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Správa bola uprataná priamo v Gmaili.'}`)),
+  http("Convex — load IMAP triage email",[2040,-200],post(`${site}/integrations/n8n/chief-of-staff/email/get`,`{emailKey:$json.command.contextId}`)),
+  code("Prepare IMAP move",[2270,-200],prepareImapMoveCode),
+  {id:id(),name:"WOF Events IMAP — move email",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[2500,-200],credentials:{imap:eventsImapCredentials},parameters:{operation:"moveEmail",mailbox:{mode:"name",value:"INBOX"},emailUid:"={{ $json.emailUid }}",targetMailbox:{mode:"name",value:"={{ $json.targetMailbox }}"}}},
+  http("Complete — IMAP triage",[2730,-200],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Správa bola presunutá priamo v schránke WOF Events.'}`)),
+  iff("Is Gmail draft?",[1580,80],"={{ $json.route }}","DRAFT"),
   http("Gmail — load source message",[1580,-20],{method:"GET",url:"=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{$json.contextId}}?format=full",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",options:{timeout:30000}},gmailCredentials),
   code("Prepare draft prompt",[1810,-20],prepareDraftCode),
   http("OpenAI — write draft",[2040,-20],{method:"POST",url:"https://api.openai.com/v1/responses",authentication:"predefinedCredentialType",nodeCredentialType:"openAiApi",sendBody:true,specifyBody:"json",jsonBody:"={{ JSON.stringify($json.requestBody) }}",options:{timeout:60000}},openAiCredentials),
@@ -72,7 +93,19 @@ const connections={
   "Split commands":{main:[[{node:"Start command",type:"main",index:0}]]},
   "Start command":{main:[[{node:"Route command",type:"main",index:0}]]},
   "Route command":{main:[[{node:"Needs owner approval?",type:"main",index:0}]]},
-  "Needs owner approval?":{main:[[{node:"Complete — waiting approval",type:"main",index:0}],[{node:"Is Gmail draft?",type:"main",index:0}]]},
+  "Needs owner approval?":{main:[[{node:"Complete — waiting approval",type:"main",index:0}],[{node:"Is email triage?",type:"main",index:0}]]},
+  "Is email triage?":{main:[[{node:"Prepare triage",type:"main",index:0}],[{node:"Is Gmail draft?",type:"main",index:0}]]},
+  "Prepare triage":{main:[[{node:"Is Gmail triage?",type:"main",index:0}]]},
+  "Is Gmail triage?":{main:[[{node:"Gmail — list labels",type:"main",index:0}],[{node:"Convex — load IMAP triage email",type:"main",index:0}]]},
+  "Gmail — list labels":{main:[[{node:"Prepare Gmail labels",type:"main",index:0}]]},
+  "Prepare Gmail labels":{main:[[{node:"Create Gmail label?",type:"main",index:0}]]},
+  "Create Gmail label?":{main:[[{node:"Gmail — create label",type:"main",index:0}],[{node:"Gmail — apply triage",type:"main",index:0}]]},
+  "Gmail — create label":{main:[[{node:"Use created Gmail label",type:"main",index:0}]]},
+  "Use created Gmail label":{main:[[{node:"Gmail — apply triage",type:"main",index:0}]]},
+  "Gmail — apply triage":{main:[[{node:"Complete — Gmail triage",type:"main",index:0}]]},
+  "Convex — load IMAP triage email":{main:[[{node:"Prepare IMAP move",type:"main",index:0}]]},
+  "Prepare IMAP move":{main:[[{node:"WOF Events IMAP — move email",type:"main",index:0}]]},
+  "WOF Events IMAP — move email":{main:[[{node:"Complete — IMAP triage",type:"main",index:0}]]},
   "Is Gmail draft?":{main:[[{node:"Gmail — load source message",type:"main",index:0}],[{node:"Is WOF IMAP draft?",type:"main",index:0}]]},
   "Gmail — load source message":{main:[[{node:"Prepare draft prompt",type:"main",index:0}]]},
   "Prepare draft prompt":{main:[[{node:"OpenAI — write draft",type:"main",index:0}]]},

@@ -36,7 +36,8 @@ const bodyHtml=json=>{const candidate=json.html||(/<(?:!doctype|html|body|table|
 const bodyText=json=>String(json.textPlain||(!bodyHtml(json)?json.text:'')||stripHtml(bodyHtml(json))).trim().slice(0,50000);
 const address=`)
   }
-  return code.replace("preview:preview(json),url:''", "preview:preview(json),bodyText:bodyText(json),bodyHtml:bodyHtml(json),url:''")
+  code = code.replace("preview:preview(json),url:''", "preview:preview(json),bodyText:bodyText(json),bodyHtml:bodyHtml(json),url:''")
+  return code.replace("sourceAccount:account,messageId,threadId:", "sourceAccount:account,messageId,providerUid:clean(json.uid||json.attributes?.uid,120),threadId:")
 }
 
 for (const [workflowName, file, nodeName] of definitions) {

@@ -100,7 +100,7 @@ export const getSnapshot = internalQuery({
 
 export const upsertExternalEmail = internalMutation({
   args: {
-    sourceAccount: v.string(), messageId: v.string(), threadId: v.string(), subject: v.string(),
+    sourceAccount: v.string(), messageId: v.string(), providerUid: v.optional(v.string()), threadId: v.string(), subject: v.string(),
     sender: v.string(), timestamp: v.string(), preview: v.string(), bodyText: v.optional(v.string()),
     bodyHtml: v.optional(v.string()), url: v.string(), important: v.boolean(),
   },
@@ -115,7 +115,7 @@ export const upsertExternalEmail = internalMutation({
     const emailKey = `imap:${sourceAccount}:${messageId}`
     const now = Date.now()
     const record = {
-      emailKey, sourceAccount, messageId, threadId: args.threadId.trim().slice(0, 500),
+      emailKey, sourceAccount, messageId, providerUid: args.providerUid?.trim().slice(0, 120) || undefined, threadId: args.threadId.trim().slice(0, 500),
       subject: args.subject.trim().slice(0, 500), sender: args.sender.trim().slice(0, 500),
       timestamp: new Date(timestampMs).toISOString(), preview: args.preview.trim().slice(0, 2000),
       bodyText: args.bodyText?.trim().slice(0, 50000), bodyHtml: args.bodyHtml?.trim().slice(0, 250000),
@@ -140,7 +140,7 @@ export const upsertExternalEmail = internalMutation({
 export const getExternalEmailForWorker = internalQuery({
   args: { emailKey: v.string() },
   returns: v.union(v.null(), v.object({
-    emailKey: v.string(), sourceAccount: v.string(), messageId: v.string(), threadId: v.string(),
+    emailKey: v.string(), sourceAccount: v.string(), messageId: v.string(), providerUid: v.optional(v.string()), threadId: v.string(),
     subject: v.string(), sender: v.string(), timestamp: v.string(), preview: v.string(),
     bodyText: v.optional(v.string()), bodyHtml: v.optional(v.string()),
   })),
@@ -149,7 +149,7 @@ export const getExternalEmailForWorker = internalQuery({
     if (!emailKey) return null
     const row = await ctx.db.query("chiefOfStaffExternalEmails").withIndex("by_email_key", query => query.eq("emailKey", emailKey)).unique()
     if (!row) return null
-    return { emailKey: row.emailKey, sourceAccount: row.sourceAccount, messageId: row.messageId, threadId: row.threadId, subject: row.subject, sender: row.sender, timestamp: row.timestamp, preview: row.preview, bodyText: row.bodyText, bodyHtml: row.bodyHtml }
+    return { emailKey: row.emailKey, sourceAccount: row.sourceAccount, messageId: row.messageId, providerUid: row.providerUid, threadId: row.threadId, subject: row.subject, sender: row.sender, timestamp: row.timestamp, preview: row.preview, bodyText: row.bodyText, bodyHtml: row.bodyHtml }
   },
 })
 

@@ -2,7 +2,16 @@
 
 The production frontend can be deployed directly from GitHub without Macaly. Convex remains the data and authentication backend; n8n remains the execution layer.
 
-## Cloudflare Pages
+## GitHub Pages (active owner deployment)
+
+- Workflow: `.github/workflows/pages-deploy.yml`
+- Production branch: `work`
+- URL: `https://kockos23.github.io/GPTcode/`
+- Backend: `https://calm-alligator-455.eu-west-1.convex.cloud`
+
+The workflow builds and publishes `.output/public` directly. It does not depend on Macaly.
+
+## Cloudflare Pages (optional alternative)
 
 - Repository: `kockos23/GPTcode`
 - Production branch: `work` (switch to `main` after the release-branch cleanup)
@@ -13,7 +22,7 @@ The production frontend can be deployed directly from GitHub without Macaly. Con
 Set these non-secret build variables:
 
 ```text
-VITE_CONVEX_URL=https://coordinated-mongoose-77.eu-west-1.convex.cloud
+VITE_CONVEX_URL=https://calm-alligator-455.eu-west-1.convex.cloud
 VITE_ENABLE_MACALY_GOOGLE=false
 VITE_ENABLE_MACALY_BRIDGE=false
 ```
