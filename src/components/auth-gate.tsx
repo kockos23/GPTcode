@@ -83,7 +83,7 @@ function SignInScreen() {
           <button type="button" className="auth-cancel" onClick={() => setStep("choice")}>Späť</button>
         </form>}
         {step === "code" && <form className="space-y-3" onSubmit={verifyCode}>
-          <p className="auth-copy">Šesťmiestny kód sme poslali na {email}.</p>
+          <p className="auth-copy">NORA poslala šesťmiestny prihlasovací kód do tvojho Telegramu pre účet {email}.</p>
           <input name="email" type="hidden" value={email}/>
           <input className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white" name="code" type="text" inputMode="numeric" pattern="\\d{6}" placeholder="000000" required disabled={loading}/>
           {error && <p className="auth-error">{error}</p>}
