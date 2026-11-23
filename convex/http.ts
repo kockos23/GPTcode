@@ -4,7 +4,7 @@ import { internal } from "./_generated/api"
 import { httpAction } from "./_generated/server"
 import { downloadBillduDocument, listBillduDocuments } from "./billdu"
 import { httpCapture, httpContext, httpDigest, httpDigestInput, httpFile, httpLink, httpLookup } from "./ideaVault"
-import { createOtpDeliveryEnvelope, validateOtpDeliveryEnvelope } from "./otpDelivery"
+import { validateOtpDeliveryEnvelope } from "./otpDelivery"
 
 const http = httpRouter()
 
@@ -56,41 +56,6 @@ async function authorizedN8n(request: Request): Promise<boolean> {
   const suppliedDigest = await sha256Hex(authorization.slice("Bearer ".length))
   return constantTimeTextEqual(suppliedDigest, OWNER_N8N_SECRET_SHA256)
 }
-
-http.route({
-  path: "/auth/otp-delivery/diagnostic",
-  method: "POST",
-  handler: httpAction(async (_ctx, request) => {
-    if (!await authorizedN8n(request)) {
-      return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
-    }
-    const signingSecret = process.env.JWT_PRIVATE_KEY ?? ""
-    const ownerEmail = process.env.OWNER_EMAIL ?? ""
-    let cryptoReady = false
-    let n8nReachable = false
-    try {
-      if (signingSecret) {
-        await createOtpDeliveryEnvelope(ownerEmail || "diagnostic@example.invalid", "000000", signingSecret)
-        cryptoReady = true
-      }
-    } catch {
-      cryptoReady = false
-    }
-    try {
-      const response = await fetch("https://n8n.viaczakaznikov.sk/healthz")
-      n8nReachable = response.ok
-    } catch {
-      n8nReachable = false
-    }
-    return Response.json({
-      ok: Boolean(signingSecret && ownerEmail && cryptoReady && n8nReachable),
-      signingKeyConfigured: Boolean(signingSecret),
-      ownerEmailConfigured: Boolean(ownerEmail),
-      cryptoReady,
-      n8nReachable,
-    }, { headers: { "cache-control": "no-store" } })
-  }),
-})
 
 function authorizedAgent(request: Request): boolean {
   const configuredSecret = process.env.AGENT_HANDOFF_SECRET
