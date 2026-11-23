@@ -420,6 +420,16 @@ http.route({
 })
 
 http.route({
+  path: "/integrations/n8n/chief-of-staff/commands/recent",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!await authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    const commands=await ctx.runQuery(internal.commandLifecycle.recentForWorker,{limit:20})
+    return Response.json({ok:true,commands},{headers:{"cache-control":"no-store"}})
+  }),
+})
+
+http.route({
   path: "/integrations/n8n/chief-of-staff/commands/start",
   method: "POST",
   handler: httpAction(async (ctx, request) => {

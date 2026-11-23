@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { v } from "convex/values"
-import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { canRetryCommand, canonicalCommandStatus, isTerminalCommandStatus } from "./commandLifecycleLogic"
 
 const LEASE_MS=15*60*1000
@@ -11,6 +11,8 @@ export const overview=query({args:{limit:v.optional(v.number())},handler:async(c
   id:command.commandId,command:command.command,intent:command.intent,targetApp:command.targetApp,approval:command.approval,status:canonicalCommandStatus(command.status),agent:command.agent,result:command.result,error:command.error,attempt:command.attempt??0,createdAt:command.createdAt,updatedAt:command.updatedAt,startedAt:command.startedAt,completedAt:command.completedAt,archivedAt:command.archivedAt,
   events:(await ctx.db.query("chiefOfStaffCommandEvents").withIndex("by_command_id_created_at",q=>q.eq("commandId",command.commandId)).order("asc").take(30)).map(row=>({fromStatus:row.fromStatus,toStatus:row.toStatus,actor:row.actor,note:row.note,createdAt:row.createdAt}))
 })))}})
+
+export const recentForWorker=internalQuery({args:{limit:v.optional(v.number())},handler:async(ctx,args)=>{const limit=Math.min(50,Math.max(1,args.limit??20));const rows=await ctx.db.query("chiefOfStaffCommands").withIndex("by_created_at").order("desc").take(limit);return rows.map(row=>({commandId:row.commandId,intent:row.intent,targetApp:row.targetApp,status:canonicalCommandStatus(row.status),attempt:row.attempt??0,error:row.error.slice(0,500),result:row.result.slice(0,500),createdAt:row.createdAt,updatedAt:row.updatedAt,completedAt:row.completedAt}))}})
 
 export const decide=mutation({args:{commandId:v.string(),decision:v.union(v.literal("APPROVE"),v.literal("CANCEL"),v.literal("RETRY"))},handler:async(ctx,args)=>{await requireOwner(ctx);const row=await ctx.db.query("chiefOfStaffCommands").withIndex("by_command_id",q=>q.eq("commandId",args.commandId)).unique();if(!row)throw new Error("COMMAND_NOT_FOUND");const from=canonicalCommandStatus(row.status),attempt=row.attempt??0;let to:string
   if(args.decision==="APPROVE"&&from==="WAITING_APPROVAL")to="NEW"
