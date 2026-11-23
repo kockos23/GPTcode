@@ -38,8 +38,7 @@ return [{json:{...command,route}}];`
 const prepareTriageCode=`const command=$('Route command').item.json;const parts=String(command.contextType||'').split('|');if(parts[0]!=='EmailTriage')throw new Error('Neplatný triage kontext');const decode=value=>{try{return decodeURIComponent(String(value||''))}catch{return ''}};const state=parts[1],folder=decode(parts[2]),previousFolder=decode(parts[3]),sourceAccount=decode(parts[4]);if(!['INBOX','ARCHIVED','MOVED'].includes(state))throw new Error('Neplatný cieľový stav');const customLabel=name=>name?'Chief HQ - '+name:'';return [{json:{command,state,folder,previousFolder,sourceAccount,targetLabel:customLabel(folder),previousLabel:customLabel(previousFolder),provider:'imap:'===String(command.contextId||'').slice(0,5)?'IMAP':'GMAIL'}}];`
 const prepareGmailLabelsCode=`const triage=$('Prepare triage').item.json;const labels=Array.isArray($json.labels)?$json.labels:[];const byName=name=>labels.find(label=>label.name===name)?.id||'';const targetId=triage.state==='MOVED'?byName(triage.targetLabel):'';const previousId=triage.previousLabel?byName(triage.previousLabel):'';const createLabel=triage.state==='MOVED'&&!targetId;const addLabelIds=triage.state==='INBOX'?['INBOX']:targetId?[targetId]:[];const removeLabelIds=triage.state==='INBOX'?(previousId?[previousId]:[]):['INBOX'];return [{json:{...triage,createLabel,addLabelIds,removeLabelIds}}];`
 const prepareCreatedLabelCode=`const prepared=$('Prepare Gmail labels').item.json;const id=String($json.id||'');if(!id)throw new Error('Gmail nevytvoril priečinok');return [{json:{...prepared,addLabelIds:[id]}}];`
-const prepareImapMoveCode=`const triage=$('Prepare triage').item.json;const email=$json.email||{};const uid=String(email.providerUid||'').trim();if(!uid)throw new Error('Správa ešte nemá IMAP UID; obnov príjem pošty a skús znova');const targetMailbox=triage.state==='INBOX'?'INBOX':triage.state==='ARCHIVED'?'Archive':triage.targetLabel;const sourceMailbox=triage.state==='INBOX'&&triage.previousLabel?triage.previousLabel:'INBOX';return [{json:{...triage,emailUid:uid,sourceMailbox,targetMailbox}}];`
-const inspectImapFoldersCode=`const prepared=$('Prepare IMAP move').item.json;const target=prepared.targetMailbox.toLowerCase();const exists=$input.all().some(item=>[item.json.path,item.json.name].some(value=>String(value||'').toLowerCase()===target));return [{json:{...prepared,createMailbox:!exists}}];`
+const prepareImapMoveCode=`const triage=$('Prepare triage').item.json;const email=$json.email||{};const uid=String(email.providerUid||'').trim();if(!uid)throw new Error('Správa ešte nemá IMAP UID; obnov príjem pošty a skús znova');const targetMailbox=triage.state==='INBOX'?'INBOX':'Archive';const sourceMailbox=triage.state==='INBOX'?'Archive':'INBOX';return [{json:{...triage,emailUid:uid,sourceMailbox,targetMailbox}}];`
 const prepareDraftCode=`const command=$('Route command').item.json;const message=$json||{};const headers=message.payload?.headers||[];const header=name=>String(headers.find(h=>String(h.name).toLowerCase()===name.toLowerCase())?.value||'');
 const decode=value=>{try{return Buffer.from(String(value||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8')}catch{return ''}};
 const parts=[];const walk=part=>{if(part?.body?.data)parts.push(decode(part.body.data));for(const child of part?.parts||[])walk(child)};walk(message.payload);
@@ -70,12 +69,8 @@ const nodes=[
   http("Complete — Gmail triage",[3420,-440],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Správa bola uprataná priamo v Gmaili.'}`)),
   http("Convex — load IMAP triage email",[2040,-200],post(`${site}/integrations/n8n/chief-of-staff/email/get`,`{emailKey:$json.command.contextId}`)),
   code("Prepare IMAP move",[2270,-200],prepareImapMoveCode),
-  {id:id(),name:"WOF Events IMAP — list folders",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[2500,-200],credentials:{imap:eventsImapCredentials},parameters:{operation:"listMailboxes"}},
-  code("Inspect IMAP folders",[2730,-200],inspectImapFoldersCode),
-  iff("Create IMAP folder?",[2960,-200],"={{ String($json.createMailbox) }}","true"),
-  {id:id(),name:"WOF Events IMAP — create folder",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[3190,-300],credentials:{imap:eventsImapCredentials},parameters:{operation:"createMailbox",mailboxName:"={{ $json.targetMailbox }}"}},
-  {id:id(),name:"WOF Events IMAP — move email",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[3420,-200],credentials:{imap:eventsImapCredentials},parameters:{operation:"moveEmail",mailbox:{mode:"name",value:"={{ $('Prepare IMAP move').item.json.sourceMailbox }}"},emailUid:"={{ $('Prepare IMAP move').item.json.emailUid }}",targetMailbox:{mode:"name",value:"={{ $('Prepare IMAP move').item.json.targetMailbox }}"}}},
-  http("Complete — IMAP triage",[3650,-200],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Správa bola presunutá priamo v schránke WOF Events.'}`)),
+  {id:id(),name:"WOF Events IMAP — move email",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[2500,-200],credentials:{imap:eventsImapCredentials},parameters:{operation:"moveEmail",mailbox:{mode:"name",value:"={{ $json.sourceMailbox }}"},emailUid:"={{ $json.emailUid }}",targetMailbox:{mode:"name",value:"={{ $json.targetMailbox }}"}}},
+  http("Complete — IMAP triage",[2730,-200],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Správa bola presunutá priamo v schránke WOF Events.'}`)),
   iff("Is Gmail draft?",[1580,80],"={{ $json.route }}","DRAFT"),
   http("Gmail — load source message",[1580,-20],{method:"GET",url:"=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{$json.contextId}}?format=full",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",options:{timeout:30000}},gmailCredentials),
   code("Prepare draft prompt",[1810,-20],prepareDraftCode),
@@ -109,11 +104,7 @@ const connections={
   "Use created Gmail label":{main:[[{node:"Gmail — apply triage",type:"main",index:0}]]},
   "Gmail — apply triage":{main:[[{node:"Complete — Gmail triage",type:"main",index:0}]]},
   "Convex — load IMAP triage email":{main:[[{node:"Prepare IMAP move",type:"main",index:0}]]},
-  "Prepare IMAP move":{main:[[{node:"WOF Events IMAP — list folders",type:"main",index:0}]]},
-  "WOF Events IMAP — list folders":{main:[[{node:"Inspect IMAP folders",type:"main",index:0}]]},
-  "Inspect IMAP folders":{main:[[{node:"Create IMAP folder?",type:"main",index:0}]]},
-  "Create IMAP folder?":{main:[[{node:"WOF Events IMAP — create folder",type:"main",index:0}],[{node:"WOF Events IMAP — move email",type:"main",index:0}]]},
-  "WOF Events IMAP — create folder":{main:[[{node:"WOF Events IMAP — move email",type:"main",index:0}]]},
+  "Prepare IMAP move":{main:[[{node:"WOF Events IMAP — move email",type:"main",index:0}]]},
   "WOF Events IMAP — move email":{main:[[{node:"Complete — IMAP triage",type:"main",index:0}]]},
   "Is Gmail draft?":{main:[[{node:"Gmail — load source message",type:"main",index:0}],[{node:"Is WOF IMAP draft?",type:"main",index:0}]]},
   "Gmail — load source message":{main:[[{node:"Prepare draft prompt",type:"main",index:0}]]},
@@ -129,8 +120,9 @@ const connections={
   "WOF Events IMAP — create draft":{main:[[{node:"Complete — WOF draft ready",type:"main",index:0}]]},
 }
 const name="NORA — Command Execution Worker"
-const settings={executionOrder:"v1",timezone:"Europe/Bratislava",errorWorkflow:snapshot.settings?.errorWorkflow,saveDataSuccessExecution:"none",saveDataErrorExecution:"all",saveExecutionProgress:false,executionTimeout:180,callerPolicy:"workflowsFromSameOwner"}
+const settings={executionOrder:"v1",timezone:"Europe/Bratislava",saveDataSuccessExecution:process.env.WORKER_SAVE_SUCCESS==="1"?"all":"none",saveDataErrorExecution:"all",saveExecutionProgress:false,executionTimeout:180,callerPolicy:"workflowsFromSameOwner"}
 const payload={name,nodes,connections,settings}
-const existing=byName(name)
+const existing=byName(name+" v2")??byName(name)
+if(existing)payload.name=existing.name
 const workflow=existing?await api(`/api/v1/workflows/${existing.id}`,{method:"PUT",body:JSON.stringify(payload)}):await api("/api/v1/workflows",{method:"POST",body:JSON.stringify(payload)})
 console.log(JSON.stringify({id:workflow.id,active:workflow.active,nodeCount:workflow.nodes.length,name:workflow.name}))
