@@ -587,6 +587,16 @@ a.event-row:hover { border-color: hsl(var(--magenta)); transform: translateY(-2p
 .auth-card h1 span { color: hsl(var(--magenta)); }
 .auth-copy { max-width: 480px; margin-bottom: 24px; color: hsl(var(--muted)); font-size: 12px; line-height: 1.7; }
 .compact-auth-card .auth-copy { margin-right: auto; margin-left: auto; }
+.auth-input {
+  display: block; width: 100%; min-height: 52px; border: 1px solid hsl(var(--line));
+  border-radius: 12px; padding: 12px 16px; background: hsl(var(--surface));
+  color: hsl(var(--black)); caret-color: hsl(var(--magenta)); font-size: 15px;
+  font-weight: 650; outline: none; transition: border-color .18s ease, box-shadow .18s ease;
+}
+.auth-input::placeholder { color: hsl(var(--muted) / .7); }
+.auth-input:focus { border-color: hsl(var(--lime)); box-shadow: 0 0 0 3px hsl(var(--lime) / .28); }
+.auth-input:disabled { cursor: wait; opacity: .7; }
+.auth-code-input { font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: .28em; }
 .google-auth-actions { display: grid; gap: 10px; }
 .google-auth-button {
   display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: center; gap: 11px;
