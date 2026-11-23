@@ -1,0 +1,25 @@
+name: Configure Convex Auth
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Generate and store missing Convex Auth keys
+        run: node scripts/configure-owner-auth-env.mjs
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_ENV_KEY }}
