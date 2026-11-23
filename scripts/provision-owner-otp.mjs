@@ -29,7 +29,11 @@ const ownerChatId = String(ownerSource?.parameters?.jsCode || "").match(/const o
 const telegramSource = sourceWorkflow.nodes.find((node) =>
   node.type === "n8n-nodes-base.telegram" && node.credentials?.telegramApi,
 )
+const ownerConvexSource = sourceWorkflow.nodes.find((node) =>
+  node.credentials?.httpHeaderAuth?.name === "Chief of Staff HQ — Owner Convex",
+)
 if (!ownerChatId || !telegramSource?.credentials) throw new Error("Owner Telegram configuration is unavailable")
+if (!ownerConvexSource?.credentials) throw new Error("Owner Convex credential is unavailable")
 
 const webhookName = "Prijmi podpísanú OTP požiadavku"
 const validateName = "Convex — over OTP podpis"
@@ -55,6 +59,7 @@ const nodes = [
     type: "n8n-nodes-base.httpRequest",
     typeVersion: 4.2,
     position: [260, 0],
+    credentials: ownerConvexSource.credentials,
     parameters: {
       method: "POST",
       url: "https://calm-alligator-455.eu-west-1.convex.site/auth/otp-delivery/validate",
