@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server"
 import { v } from "convex/values"
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { canRetryCommand, canonicalCommandStatus, isTerminalCommandStatus } from "./commandLifecycleLogic"
+import { parseEmailTriageContext } from "./emailTriageLogic"
 
 const LEASE_MS=15*60*1000
 async function requireOwner(ctx:QueryCtx|MutationCtx){const id=await getAuthUserId(ctx);if(!id)throw new Error("UNAUTHENTICATED");const user=await ctx.db.get(id);if(user?.email?.trim().toLowerCase()!==process.env.OWNER_EMAIL?.trim().toLowerCase())throw new Error("FORBIDDEN")}
@@ -30,7 +31,7 @@ export const start=internalMutation({args:{commandId:v.string(),worker:v.string(
 }})
 
 export const complete=internalMutation({args:{commandId:v.string(),worker:v.string(),attempt:v.number(),outcome:v.union(v.literal("DONE"),v.literal("WAITING_APPROVAL"),v.literal("FAILED")),result:v.optional(v.string()),error:v.optional(v.string())},handler:async(ctx,args)=>{const row=await ctx.db.query("chiefOfStaffCommands").withIndex("by_command_id",q=>q.eq("commandId",args.commandId)).unique();if(!row||row.claimedBy!==args.worker||row.attempt!==args.attempt||canonicalCommandStatus(row.status)!=="RUNNING")return{ok:false,code:"STALE_CLAIM",status:row?canonicalCommandStatus(row.status):""};const now=Date.now();await ctx.db.patch(row._id,{status:args.outcome,result:(args.result??"").slice(0,10000),error:(args.error??"").slice(0,2000),leaseUntil:undefined,completedAt:args.outcome==="DONE"?now:undefined,updatedAt:now});await event(ctx,row.commandId,"RUNNING",args.outcome,args.worker,args.error??"");
-  if(args.outcome==="DONE"&&row.intent==="TRIAGE_EMAIL"&&row.contextType.startsWith("EmailTriage|")){const [,state,encodedFolder,,,encodedSource]=row.contextType.split("|");if(state==="INBOX"||state==="ARCHIVED"||state==="MOVED"){const folder=decodeURIComponent(encodedFolder??"").slice(0,100),sourceAccount=decodeURIComponent(encodedSource??"").slice(0,200);const existing=await ctx.db.query("chiefOfStaffEmailTriage").withIndex("by_email_id",q=>q.eq("emailId",row.contextId)).unique();const record={emailId:row.contextId,state,folder,sourceAccount,updatedAt:now};if(existing)await ctx.db.patch(existing._id,record);else await ctx.db.insert("chiefOfStaffEmailTriage",record)}}
+  if(args.outcome==="DONE"&&row.intent==="TRIAGE_EMAIL"){const parsed=parseEmailTriageContext(row.contextType);if(parsed){const {state,folder,sourceAccount}=parsed;const existing=await ctx.db.query("chiefOfStaffEmailTriage").withIndex("by_email_id",q=>q.eq("emailId",row.contextId)).unique();const record={emailId:row.contextId,state,folder,sourceAccount,updatedAt:now};if(existing)await ctx.db.patch(existing._id,record);else await ctx.db.insert("chiefOfStaffEmailTriage",record)}}
   return{ok:true,code:"OK",status:args.outcome}
 }})
 
