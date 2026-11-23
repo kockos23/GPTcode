@@ -4,10 +4,27 @@ import { internal } from "./_generated/api"
 import { httpAction } from "./_generated/server"
 import { downloadBillduDocument, listBillduDocuments } from "./billdu"
 import { httpCapture, httpContext, httpDigest, httpDigestInput, httpFile, httpLink, httpLookup } from "./ideaVault"
+import { validateOtpDeliveryEnvelope } from "./otpDelivery"
 
 const http = httpRouter()
 
 auth.addHttpRoutes(http)
+
+http.route({
+  path: "/auth/otp-delivery/validate",
+  method: "POST",
+  handler: httpAction(async (_ctx, request) => {
+    const body = await request.json().catch(() => null)
+    const secret = process.env.JWT_PRIVATE_KEY ?? ""
+    const ownerEmail = process.env.OWNER_EMAIL ?? ""
+    const valid = Boolean(secret && ownerEmail) && await validateOtpDeliveryEnvelope(body, { secret, ownerEmail })
+    if (!valid) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    const envelope = body as { email: string; token: string }
+    return Response.json({ ok: true, email: envelope.email, token: envelope.token }, {
+      headers: { "cache-control": "no-store" },
+    })
+  }),
+})
 
 export function constantTimeTextEqual(left: string, right: string): boolean {
   const length = Math.max(left.length, right.length)

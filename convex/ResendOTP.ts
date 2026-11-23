@@ -1,4 +1,7 @@
 import { Email } from "@convex-dev/auth/providers/Email";
+import { createOtpDeliveryEnvelope } from "./otpDelivery";
+
+const OWNER_OTP_WEBHOOK = "https://n8n.viaczakaznikov.sk/webhook/chief-of-staff-owner-otp";
 
 function generateOTP(length: number): string {
   const digits = "0123456789";
@@ -14,18 +17,15 @@ export const ResendOTP = Email({
     return generateOTP(6);
   },
   async sendVerificationRequest({ identifier: email, token }) {
-    const response = await fetch(`${process.env.OTP_ENDPOINT}`, {
+    const signingSecret = process.env.JWT_PRIVATE_KEY;
+    if (!signingSecret) throw new Error("OTP signing is not configured");
+    const envelope = await createOtpDeliveryEnvelope(email, token, signingSecret);
+    const response = await fetch(OWNER_OTP_WEBHOOK, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        email,
-        token,
-        chatId: process.env.CHAT_ID,
-        appName: process.env.APP_NAME || "My App",
-        secretKey: process.env.SECRET_KEY,
-      }),
+      body: JSON.stringify(envelope),
     });
 
     if (!response.ok) {
