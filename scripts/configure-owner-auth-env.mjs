@@ -22,6 +22,8 @@ if (!process.env.CONVEX_DEPLOY_KEY) {
 
 const existingPrivateKey = readEnv("JWT_PRIVATE_KEY")
 const existingJwks = readEnv("JWKS")
+const existingSiteUrl = readEnv("SITE_URL")
+const expectedSiteUrl = "https://kockos23.github.io/GPTcode"
 
 if (Boolean(existingPrivateKey) !== Boolean(existingJwks)) {
   throw new Error("Convex Auth key configuration is incomplete; refusing to rotate only one key")
@@ -29,17 +31,24 @@ if (Boolean(existingPrivateKey) !== Boolean(existingJwks)) {
 
 if (existingPrivateKey && existingJwks) {
   console.log("Convex Auth signing keys are already configured")
-  process.exit(0)
+} else {
+  const keys = await generateKeyPair("RS256")
+  const privateKey = (await exportPKCS8(keys.privateKey)).trimEnd().replace(/\n/g, " ")
+  const publicKey = await exportJWK(keys.publicKey)
+  const jwks = JSON.stringify({ keys: [{ use: "sig", ...publicKey }] })
+
+  for (const [name, value] of [["JWT_PRIVATE_KEY", privateKey], ["JWKS", jwks]]) {
+    const result = convexEnv(["set", name, value])
+    if (result.status !== 0) throw new Error(`Unable to configure ${name}`)
+  }
+  console.log("Convex Auth signing keys configured")
 }
 
-const keys = await generateKeyPair("RS256")
-const privateKey = (await exportPKCS8(keys.privateKey)).trimEnd().replace(/\n/g, " ")
-const publicKey = await exportJWK(keys.publicKey)
-const jwks = JSON.stringify({ keys: [{ use: "sig", ...publicKey }] })
-
-for (const [name, value] of [["JWT_PRIVATE_KEY", privateKey], ["JWKS", jwks]]) {
-  const result = convexEnv(["set", name, value])
-  if (result.status !== 0) throw new Error(`Unable to configure ${name}`)
+if (existingSiteUrl && existingSiteUrl !== expectedSiteUrl) {
+  throw new Error("SITE_URL is already configured with an unexpected value")
 }
-
-console.log("Convex Auth signing keys configured")
+if (!existingSiteUrl) {
+  const result = convexEnv(["set", "SITE_URL", expectedSiteUrl])
+  if (result.status !== 0) throw new Error("Unable to configure SITE_URL")
+  console.log("Convex Auth SITE_URL configured")
+}
