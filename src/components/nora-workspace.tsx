@@ -54,7 +54,7 @@ export function NoraWorkspace({ notify }: { notify:(message:string)=>void }) {
     { key:'later', label:'Bez termínu', tasks:openTasks.filter(task=>!task.deadline) },
   ].filter(group=>group.tasks.length)
   return <div className="page nora-workspace">
-    <div className="page-intro nora-intro"><span className="nora-section-avatar"><img src="/nora-avatar.webp" alt="NORA — Chief of Staff" width={58} height={58}/></span><div><p className="eyebrow">Chief of Staff · osobný inbox</p><h2>NORA</h2><p>Nadiktuj alebo napíš večerný zoznam úloh. NORA ho rozdelí na samostatné položky, zoradí a pripraví ďalší krok. Z úlohy môžeš vytvoriť návrh udalosti; zápis do kalendára ostáva schvaľovaný.</p></div></div>
+    <div className="page-intro nora-intro"><span className="nora-section-avatar"><img src={`${import.meta.env.BASE_URL}nora-avatar.webp`} alt="NORA — Chief of Staff" width={58} height={58}/></span><div><p className="eyebrow">Chief of Staff · osobný inbox</p><h2>NORA</h2><p>Nadiktuj alebo napíš večerný zoznam úloh. NORA ho rozdelí na samostatné položky, zoradí a pripraví ďalší krok. Z úlohy môžeš vytvoriť návrh udalosti; zápis do kalendára ostáva schvaľovaný.</p></div></div>
 
     <section className="panel nora-capture-card">
       <div className="idea-panel-heading"><Plus size={17}/><div><h3>Pridať úlohu</h3><p>V Telegrame môžeš Nore poslať rovnaké zadanie textom alebo hlasovkou.</p></div></div>

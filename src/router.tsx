@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/error-boundary'
 export function getRouter() {
   const router = createTanStackRouter({
     routeTree,
+    basepath: import.meta.env.BASE_URL.replace(/\/$/, '') || '/',
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,

@@ -20,6 +20,7 @@ import '../styles.css'
 import siteMetadata from '../metadata.json'
 
 const rootMeta = siteMetadata['/']
+const publicBase = import.meta.env.BASE_URL
 
 export const Route = createRootRoute({
   head: () => ({
@@ -30,8 +31,8 @@ export const Route = createRootRoute({
       { name: 'description', content: rootMeta.description },
     ],
     links: [
-      { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-      { rel: 'manifest', href: '/manifest.json' },
+      { rel: 'icon', type: 'image/svg+xml', href: `${publicBase}favicon.svg` },
+      { rel: 'manifest', href: `${publicBase}manifest.json` },
     ],
   }),
   shellComponent: RootDocument,

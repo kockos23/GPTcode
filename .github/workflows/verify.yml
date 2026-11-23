@@ -23,6 +23,6 @@ jobs:
       - run: npm run verify
       - run: npm run build:static
         env:
-          VITE_CONVEX_URL: https://coordinated-mongoose-77.eu-west-1.convex.cloud
+          VITE_CONVEX_URL: https://calm-alligator-455.eu-west-1.convex.cloud
           VITE_ENABLE_MACALY_GOOGLE: "false"
           VITE_ENABLE_MACALY_BRIDGE: "false"

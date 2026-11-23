@@ -15,6 +15,7 @@ import errorOverlay from "@visulima/vite-overlay"
 import { macalyTagger } from '@macaly/static-tagger'
 
 const config = defineConfig({
+  base: process.env.VITE_BASE_PATH || '/',
   server: {
     allowedHosts: ['.macaly.dev', '.macaly.app', '.macaly-app.com', '.macaly-user-data.dev', '.e2b.app', '.e2b-juliett.dev'],
   },
