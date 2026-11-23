@@ -22,6 +22,8 @@ const targets = [
   { workflowId: "dgolcuNFPx46cP7j", nodeName: "Convex — over čerstvosť Chief of Staff" },
   { workflowId: "oHAYAp6AOqbBRCuf", nodeName: "Convex — ulož WOF Expo správu" },
   { workflowId: "oY8DseG5Q6q1eOhY", nodeName: "Convex — ulož WOF Events správu" },
+  { workflowId: "Rog0Z5TIQ6qSpzFX", nodeName: "Convex — import bank statement" },
+  { workflowId: "kp5UV1ZLKe5XjPWP", nodeName: "Convex — synchronizuj register" },
 ]
 
 async function api(path, options = {}) {
