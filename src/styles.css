@@ -476,9 +476,13 @@ a.event-row:hover { border-color: hsl(var(--magenta)); transform: translateY(-2p
 @media (max-width:760px){.command-activity-summary{grid-template-columns:auto minmax(0,1fr) auto}.command-activity-summary>small{display:none}.command-activity-summary>button{font-size:0}.command-activity-summary .command-archive{border-left:0;padding-left:0}.command-activity-list{grid-template-columns:1fr}}
 .inbox-feedback { display:flex; align-items:center; gap:7px; margin:0 0 12px; border-radius:8px; padding:10px 12px; background:hsl(var(--lime)/.22); color:hsl(var(--plum)); font-size:9px; font-weight:750; }
 .inbox-zero-actions { align-items:end; }
-.inbox-zero-actions label { display:grid; gap:4px; color:hsl(var(--muted)); font-size:7px; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
-.inbox-zero-actions select { min-width:130px; height:36px; border:1px solid hsl(var(--line)); border-radius:8px; padding:0 9px; background:white; color:hsl(var(--black)); font-size:9px; }
-@media(max-width:640px){.command-modal-backdrop{align-items:end;padding:0}.command-modal{max-height:88vh;border-radius:16px 16px 0 0;padding:17px}.inbox-zero-actions{display:grid;grid-template-columns:1fr 1fr}.inbox-zero-actions>*{min-width:0}.inbox-zero-actions label{grid-column:1/-1}}
+.move-email-control { flex:1 1 100%; display:grid; gap:6px; margin-top:3px; border:1px solid hsl(var(--line)); border-radius:12px; padding:12px; background:hsl(var(--warm)); }
+.move-email-control > label { color:hsl(var(--black)); font-size:9px; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
+.move-email-control > div { display:flex; align-items:stretch; gap:8px; }
+.move-email-control select { flex:0 1 190px; min-width:150px; height:40px; border:1px solid hsl(var(--line)); border-radius:9px; padding:0 10px; background:white; color:hsl(var(--black)); font-size:10px; font-weight:700; }
+.move-email-control .button-secondary { min-width:190px; border-color:hsl(var(--magenta) / .3); color:hsl(var(--plum)); }
+.move-email-control > small { color:hsl(var(--muted)); font-size:9px; line-height:1.45; }
+@media(max-width:640px){.command-modal-backdrop{align-items:end;padding:0}.command-modal{max-height:88vh;border-radius:16px 16px 0 0;padding:17px}.inbox-zero-actions{display:grid;grid-template-columns:1fr 1fr}.inbox-zero-actions>*{min-width:0}.move-email-control{grid-column:1/-1}.move-email-control>div{display:grid}.move-email-control select,.move-email-control .button-secondary{width:100%;min-width:0}}
 .command-mail { min-width: 0; }
 .mail-command-row { overflow: hidden; border-bottom: 1px solid hsl(var(--line)); }
 .mail-command-row > a { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: start; gap: 10px; padding: 13px 0 8px; color: inherit; }
