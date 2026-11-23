@@ -63,6 +63,8 @@ const nodes = [
     parameters: {
       method: "POST",
       url: "https://calm-alligator-455.eu-west-1.convex.site/auth/otp-delivery/validate",
+      authentication: "genericCredentialType",
+      genericAuthType: "httpHeaderAuth",
       sendBody: true,
       specifyBody: "json",
       jsonBody: "={{ JSON.stringify($json.body ?? $json) }}",
