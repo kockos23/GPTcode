@@ -6,6 +6,7 @@ on:
   push:
     branches: [work]
     paths:
+      - convex/**
       - .github/workflows/convex-deploy.yml
 
 permissions:

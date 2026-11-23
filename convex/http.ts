@@ -18,10 +18,26 @@ export function constantTimeTextEqual(left: string, right: string): boolean {
   return difference === 0
 }
 
-function authorizedN8n(request: Request): boolean {
+// The owner-controlled deployment can authenticate n8n without storing the
+// plaintext integration secret in Convex configuration. Only its SHA-256
+// digest is shipped with the functions; the plaintext remains in n8n's
+// encrypted credential store. The environment variable remains supported for
+// deployments that already use it.
+const OWNER_N8N_SECRET_SHA256 = "0edb865c64ec431c1e11512eef12a1f3318001f7363c447652ebab3ea5129235"
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value)
+  const digest = await crypto.subtle.digest("SHA-256", bytes)
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+}
+
+async function authorizedN8n(request: Request): Promise<boolean> {
   const configuredSecret = process.env.N8N_INTEGRATION_SECRET
   const authorization = request.headers.get("authorization") ?? ""
-  return Boolean(configuredSecret) && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)
+  if (configuredSecret && constantTimeTextEqual(authorization, `Bearer ${configuredSecret}`)) return true
+  if (!authorization.startsWith("Bearer ")) return false
+  const suppliedDigest = await sha256Hex(authorization.slice("Bearer ".length))
+  return constantTimeTextEqual(suppliedDigest, OWNER_N8N_SECRET_SHA256)
 }
 
 function authorizedAgent(request: Request): boolean {
@@ -126,7 +142,7 @@ http.route({
   path: "/integrations/n8n/bank-statements",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
@@ -155,7 +171,7 @@ http.route({
   path: "/integrations/n8n/finance-reviews",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
@@ -187,7 +203,7 @@ http.route({
   path: "/integrations/n8n/finance-register",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
@@ -212,7 +228,7 @@ http.route({
   path: "/integrations/n8n/billdu/documents",
   method: "POST",
   handler: httpAction(async (_ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const page = typeof body?.page === "number" && Number.isInteger(body.page) ? body.page : 1
     const limit = typeof body?.limit === "number" && Number.isInteger(body.limit) ? body.limit : 100
@@ -232,7 +248,7 @@ http.route({
   path: "/integrations/n8n/billdu/documents/download",
   method: "POST",
   handler: httpAction(async (_ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const id = typeof body?.id === "string" ? body.id.trim() : ""
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(id)) return Response.json({ ok: false, code: "INVALID_DOCUMENT_ID" }, { status: 400 })
@@ -256,7 +272,7 @@ http.route({
   path: "/integrations/n8n/billdu/imports/claim",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
     const sourceDocumentId = text("sourceDocumentId", 120)
@@ -283,7 +299,7 @@ http.route({
   path: "/integrations/n8n/billdu/imports/complete",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
     const sourceDocumentId = text("sourceDocumentId", 120)
@@ -311,7 +327,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/snapshot",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const collections = ["calendar", "emails", "agents", "workQueue", "tasks", "commands"] as const
     if (!body || collections.some(key => !Array.isArray(body[key]) || (body[key] as unknown[]).length > 500)) {
@@ -333,7 +349,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/email",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const text = (key: string, limit: number) => typeof body?.[key] === "string" ? body[key].trim().slice(0, limit) : ""
     const sourceAccount = text("sourceAccount", 254).toLowerCase()
@@ -362,7 +378,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/email/get",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const emailKey = safeAgentText(body?.emailKey, 600)
     if (!emailKey) return Response.json({ ok: false, code: "INVALID_PAYLOAD" }, { status: 400 })
@@ -376,7 +392,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/commands/claim",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
     const body = await request.json().catch(() => null) as null|Record<string,unknown>
     const worker = safeAgentText(body?.worker, 80)
     const limit = typeof body?.limit === "number" && Number.isInteger(body.limit) ? body.limit : undefined
@@ -390,7 +406,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/commands/start",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
     const body = await request.json().catch(() => null) as null|Record<string,unknown>
     const commandId=safeAgentText(body?.commandId,120),worker=safeAgentText(body?.worker,80)
     const attempt=typeof body?.attempt==="number"&&Number.isInteger(body.attempt)?body.attempt:0
@@ -404,7 +420,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/commands/complete",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok:false, code:"UNAUTHORIZED" }, { status:401 })
     const body = await request.json().catch(() => null) as null|Record<string,unknown>
     const commandId=safeAgentText(body?.commandId,120),worker=safeAgentText(body?.worker,80)
     const attempt=typeof body?.attempt==="number"&&Number.isInteger(body.attempt)?body.attempt:0
@@ -419,7 +435,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/health",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const result = await ctx.runQuery(internal.chiefOfStaff.health, {})
     return Response.json(result, {
       status: result.ok ? 200 : 503,
@@ -432,7 +448,7 @@ http.route({
   path: "/integrations/n8n/chief-of-staff/tasks",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
     const taskId = safeAgentText(body?.taskId, 120)
     const title = safeAgentText(body?.title, 300)
@@ -750,7 +766,7 @@ http.route({
   path: "/integrations/n8n/health",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
+    if (!await authorizedN8n(request)) return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     const result = await ctx.runQuery(internal.financeHealth.snapshot, {})
     return Response.json(result, { status: result.ok ? 200 : 503, headers: { "cache-control": "no-store" } })
   }),
@@ -760,7 +776,7 @@ http.route({
   path: "/integrations/n8n/finance-commands",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const rows = await ctx.runMutation(internal.financeCommands.claimPending, {})
@@ -772,7 +788,7 @@ http.route({
   path: "/integrations/n8n/finance-commands/complete",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
@@ -796,7 +812,7 @@ http.route({
   path: "/integrations/n8n/finance-review-resolutions",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const rows = await ctx.runQuery(internal.financeReviews.listReadyRows, {})
@@ -808,7 +824,7 @@ http.route({
   path: "/integrations/n8n/finance-review-resolutions/complete",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    if (!authorizedN8n(request)) {
+    if (!await authorizedN8n(request)) {
       return Response.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 })
     }
     const body = await request.json().catch(() => null) as null | Record<string, unknown>
