@@ -158,16 +158,28 @@ export const health = internalQuery({
   returns: v.object({
     ok: v.boolean(), code: v.string(), ageMs: v.union(v.null(), v.number()),
     syncedAt: v.union(v.null(), v.number()), sourceErrors: v.array(v.string()),
+    counts: v.object({
+      calendar: v.number(), emails: v.number(), agents: v.number(), workQueue: v.number(),
+      tasks: v.number(), commands: v.number(),
+    }),
   }),
   handler: async (ctx) => {
     const row = await ctx.db.query("chiefOfStaffSnapshots")
       .withIndex("by_cache_key", query => query.eq("cacheKey", "primary")).unique()
-    if (!row) return { ok: false, code: "SNAPSHOT_MISSING", ageMs: null, syncedAt: null, sourceErrors: [] }
+    const emptyCounts = { calendar: 0, emails: 0, agents: 0, workQueue: 0, tasks: 0, commands: 0 }
+    if (!row) return {
+      ok: false, code: "SNAPSHOT_MISSING", ageMs: null, syncedAt: null, sourceErrors: [], counts: emptyCounts,
+    }
     const ageMs = Math.max(0, Date.now() - row.syncedAt)
     const stale = ageMs > 26 * 60 * 60 * 1000
+    const count = (value: unknown) => Array.isArray(value) ? value.length : 0
     return {
       ok: !stale, code: stale ? "SNAPSHOT_STALE" : "OK", ageMs, syncedAt: row.syncedAt,
       sourceErrors: row.sourceErrors,
+      counts: {
+        calendar: count(row.calendar), emails: count(row.emails), agents: count(row.agents),
+        workQueue: count(row.workQueue), tasks: count(row.tasks), commands: count(row.commands),
+      },
     }
   },
 })
