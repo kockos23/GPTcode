@@ -4,8 +4,8 @@ import { Agent, EnvHttpProxyAgent, setGlobalDispatcher } from "undici"
 
 const base = process.env.N8N_BASE_URL?.replace(/\/$/, "")
 const apiKey = process.env.N8N_API_KEY
-const site = process.env.CONVEX_SITE_URL?.replace(/\/$/, "")
-if (!base || !apiKey || !site) throw new Error("Missing n8n/Convex runtime configuration")
+const site = (process.env.OWNER_CONVEX_SITE_URL || "https://calm-alligator-455.eu-west-1.convex.site").replace(/\/$/, "")
+if (!base || !apiKey) throw new Error("Missing n8n runtime configuration")
 
 // Optional DNS-only escape hatch for restricted runtimes. TLS still validates
 // N8N_BASE_URL's hostname; the API key is never sent to an unverified host.
@@ -49,7 +49,11 @@ const sheetsCredentials = existingSync?.nodes.find((node) => node.name === "Shee
   || controlCenter.nodes.find((node) => node.credentials?.googleSheetsOAuth2Api)?.credentials
 const gmailCredentials = existingSync?.nodes.find((node) => node.name === "Gmail — neprečítané pre NORA")?.credentials
 const calendarCredentials = existingSync?.nodes.find((node) => node.credentials?.googleCalendarOAuth2Api)?.credentials
-const convexCredentials = probe.nodes.find((node) => node.credentials?.httpHeaderAuth)?.credentials
+const convexCredentials = existingSync?.nodes.find((node) =>
+  node.credentials?.httpHeaderAuth?.name === "Chief of Staff HQ — Owner Convex"
+)?.credentials || probe.nodes.find((node) =>
+  node.credentials?.httpHeaderAuth?.name === "Chief of Staff HQ — Owner Convex"
+)?.credentials
 if (!sheetsCredentials || !gmailCredentials || !calendarCredentials || !convexCredentials) throw new Error("Required production credentials are not attached")
 
 const spreadsheetId = "17_KPHzy339SO53_ov-Cpg-KscfsYwr-iMkK5ZnmSGEk"
