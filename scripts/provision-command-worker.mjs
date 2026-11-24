@@ -1,5 +1,7 @@
 import crypto from "node:crypto"
 import { EnvHttpProxyAgent,setGlobalDispatcher } from "undici"
+import { assertGmailThreadTriage } from "./gmail-thread-triage.mjs"
+import { imapMoveHelpersSource } from "./imap-triage-move.mjs"
 
 const base=process.env.N8N_BASE_URL?.replace(/\/$/,""),key=process.env.N8N_API_KEY
 const site=(process.env.OWNER_CONVEX_SITE_URL||"https://calm-alligator-455.eu-west-1.convex.site").replace(/\/$/,"")
@@ -26,7 +28,7 @@ if(!eventsImapCredentials)throw new Error("WOF Events IMAP credential reference 
 
 const id=()=>crypto.randomUUID()
 const http=(name,position,parameters,credentials=convexCredentials)=>({id:id(),name,type:"n8n-nodes-base.httpRequest",typeVersion:4.2,position,credentials,parameters})
-const code=(name,position,jsCode)=>({id:id(),name,type:"n8n-nodes-base.code",typeVersion:2,position,parameters:{jsCode}})
+const code=(name,position,jsCode,mode)=>({id:id(),name,type:"n8n-nodes-base.code",typeVersion:2,position,parameters:{...(mode?{mode}:{}),jsCode}})
 const iff=(name,position,leftValue,rightValue)=>({id:id(),name,type:"n8n-nodes-base.if",typeVersion:2.2,position,parameters:{conditions:{options:{caseSensitive:true,typeValidation:"strict",version:2},combinator:"and",conditions:[{id:id(),leftValue,rightValue,operator:{type:"string",operation:"equals"}}]},options:{}}})
 const post=(url,body)=>({method:"POST",url,authentication:"genericCredentialType",genericAuthType:"httpHeaderAuth",sendBody:true,specifyBody:"json",jsonBody:`={{ JSON.stringify(${body}) }}`,options:{timeout:30000}})
 
@@ -39,8 +41,15 @@ const prepareTriageCode=`const command=$('Route command').item.json;const parts=
 const prepareGmailLabelsCode=`const triage=$('Prepare triage').item.json;const labels=Array.isArray($json.labels)?$json.labels:[];const byName=name=>labels.find(label=>label.name===name)?.id||'';const targetId=triage.state==='MOVED'?byName(triage.targetLabel):'';const previousId=triage.previousLabel?byName(triage.previousLabel):'';const createLabel=triage.state==='MOVED'&&!targetId;const addLabelIds=triage.state==='INBOX'?['INBOX']:targetId?[targetId]:[];const removeLabelIds=triage.state==='INBOX'?(previousId?[previousId]:[]):['INBOX'];return [{json:{...triage,createLabel,addLabelIds,removeLabelIds}}];`
 const prepareCreatedLabelCode=`const prepared=$('Prepare Gmail labels').item.json;const id=String($json.id||'');if(!id)throw new Error('Gmail nevytvoril priečinok');return [{json:{...prepared,addLabelIds:[id]}}];`
 const prepareGmailThreadCode=`const base=$('Prepare Gmail labels').item.json;let prepared=base;if(base.createLabel){try{prepared=$('Use created Gmail label').item.json}catch{throw new Error('Chýba vytvorený Gmail priečinok')}}const threadId=String($json.threadId||'');if(!threadId)throw new Error('Gmail nevrátil ID vlákna');return [{json:{...prepared,threadId}}];`
-const verifyGmailTriageCode=`const prepared=$('Prepare Gmail thread update').item.json;const response=$json||{};const messages=Array.isArray(response.messages)?response.messages:[];if(!messages.length)throw new Error('Gmail nevrátil správy upraveného vlákna');const inboxCount=messages.filter(message=>Array.isArray(message.labelIds)&&message.labelIds.includes('INBOX')).length;if(prepared.state==='INBOX'&&inboxCount!==messages.length)throw new Error('Gmail nepotvrdil návrat celého vlákna do Inboxu');if(prepared.state!=='INBOX'&&inboxCount>0)throw new Error('Gmail nepotvrdil archivovanie celého vlákna');return [{json:{...response,verifiedTriageState:prepared.state}}];`
-const prepareImapMoveCode=`const triage=$('Prepare triage').item.json;const email=$json.email||{};const uid=String(email.providerUid||'').trim();if(!uid)throw new Error('Správa ešte nemá IMAP UID; obnov príjem pošty a skús znova');const targetMailbox=triage.state==='INBOX'?'INBOX':'Archive';const sourceMailbox=triage.state==='INBOX'?'Archive':'INBOX';return [{json:{...triage,emailUid:uid,sourceMailbox,targetMailbox}}];`
+const verifyGmailTriageCode=`${assertGmailThreadTriage.toString()}
+const prepared=$('Prepare Gmail thread update').item.json;const response=$json||{};assertGmailThreadTriage(prepared.state,response.messages);return [{json:{...response,verifiedTriageState:prepared.state}}];`
+const imapHelpers=imapMoveHelpersSource()
+const prepareImapMoveCode=`${imapHelpers}
+const triage=$('Prepare triage').item.json;const email=$json.email||{};const request=imapMoveRequest(email,triage.state);if(!request.ok)throw new Error(imapMoveError(request.code));return [{json:{...triage,email,...request}}];`
+const expandImapCandidatesCode=`${imapHelpers}
+const prepared=$('Prepare IMAP move').first().json;const decision=candidateUids($input.first().json,20);if(!decision.ok)throw new Error(imapMoveError(decision.code));return decision.uids.map(uid=>({json:{...prepared,candidateUid:String(uid)}}));`
+const chooseImapMessageCode=`${imapHelpers}
+const prepared=$('Prepare IMAP move').first().json;const candidates=$input.all().map(item=>({uid:item.json.uid,subject:item.json.subject,from:item.json.from,date:item.json.date}));const decision=selectMovedMessage({subject:prepared.subject,sender:prepared.senderAddress,timestamp:prepared.timestamp},candidates);if(!decision.ok)throw new Error(imapMoveError(decision.code));return [{json:{...prepared,emailUid:decision.uid}}];`
 const prepareDraftCode=`const command=$('Route command').item.json;const message=$json||{};const headers=message.payload?.headers||[];const header=name=>String(headers.find(h=>String(h.name).toLowerCase()===name.toLowerCase())?.value||'');
 const decode=value=>{try{return Buffer.from(String(value||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8')}catch{return ''}};
 const parts=[];const walk=part=>{if(part?.body?.data)parts.push(decode(part.body.data));for(const child of part?.parts||[])walk(child)};walk(message.payload);
@@ -74,7 +83,12 @@ const nodes=[
   http("Complete — Gmail triage",[4110,-440],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Gmail potvrdil upratanie celého vlákna.'}`)),
   http("Convex — load IMAP triage email",[2040,-200],post(`${site}/integrations/n8n/chief-of-staff/email/get`,`{emailKey:$json.command.contextId}`)),
   code("Prepare IMAP move",[2270,-200],prepareImapMoveCode),
-  {id:id(),name:"WOF Events IMAP — move email",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[2500,-200],credentials:{imap:eventsImapCredentials},parameters:{operation:"moveEmail",mailbox:{mode:"name",value:"={{ $json.sourceMailbox }}"},emailUid:"={{ $json.emailUid }}",targetMailbox:{mode:"name",value:"={{ $json.targetMailbox }}"}}},
+  iff("Use stored IMAP UID?",[2500,-320],"={{ $json.mode }}","uid"),
+  {id:id(),name:"WOF Events IMAP — search source",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[2730,-80],credentials:{imap:eventsImapCredentials},parameters:{operation:"searchEmails",mailbox:{mode:"name",value:"={{ $json.sourceMailbox }}"},limit:20,searchMode:"advanced",advancedCriteria:{subject:"={{ $json.subject }}",from:"={{ $json.senderAddress }}"}}},
+  code("Expand IMAP candidates",[2960,-80],expandImapCandidatesCode,"runOnceForAllItems"),
+  {id:id(),name:"WOF Events IMAP — read candidate",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[3190,-80],credentials:{imap:eventsImapCredentials},parameters:{operation:"getEmail",mailbox:{mode:"name",value:"={{ $json.sourceMailbox }}"},emailUid:"={{ $json.candidateUid }}"}},
+  code("Choose IMAP message",[3420,-80],chooseImapMessageCode,"runOnceForAllItems"),
+  {id:id(),name:"WOF Events IMAP — move email",type:"n8n-nodes-imap-ai.imap",typeVersion:1,position:[3650,-200],credentials:{imap:eventsImapCredentials},parameters:{operation:"moveEmail",mailbox:{mode:"name",value:"={{ $json.sourceMailbox }}"},emailUid:"={{ $json.emailUid }}",targetMailbox:{mode:"name",value:"={{ $json.targetMailbox }}"}}},
   http("Complete — IMAP triage",[2730,-200],post(`${site}/integrations/n8n/chief-of-staff/commands/complete`,`{commandId:$('Prepare triage').item.json.command.commandId,worker:'NORA_COMMAND_WORKER',attempt:$('Prepare triage').item.json.command.attempt,outcome:'DONE',result:'Správa bola presunutá priamo v schránke WOF Events.'}`)),
   iff("Is Gmail draft?",[1580,80],"={{ $json.route }}","DRAFT"),
   http("Gmail — load source message",[1580,-20],{method:"GET",url:"=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{$json.contextId}}?format=full",authentication:"predefinedCredentialType",nodeCredentialType:"gmailOAuth2",options:{timeout:30000}},gmailCredentials),
@@ -112,7 +126,12 @@ const connections={
   "Gmail — apply triage":{main:[[{node:"Verify Gmail triage",type:"main",index:0}]]},
   "Verify Gmail triage":{main:[[{node:"Complete — Gmail triage",type:"main",index:0}]]},
   "Convex — load IMAP triage email":{main:[[{node:"Prepare IMAP move",type:"main",index:0}]]},
-  "Prepare IMAP move":{main:[[{node:"WOF Events IMAP — move email",type:"main",index:0}]]},
+  "Prepare IMAP move":{main:[[{node:"Use stored IMAP UID?",type:"main",index:0}]]},
+  "Use stored IMAP UID?":{main:[[{node:"WOF Events IMAP — move email",type:"main",index:0}],[{node:"WOF Events IMAP — search source",type:"main",index:0}]]},
+  "WOF Events IMAP — search source":{main:[[{node:"Expand IMAP candidates",type:"main",index:0}]]},
+  "Expand IMAP candidates":{main:[[{node:"WOF Events IMAP — read candidate",type:"main",index:0}]]},
+  "WOF Events IMAP — read candidate":{main:[[{node:"Choose IMAP message",type:"main",index:0}]]},
+  "Choose IMAP message":{main:[[{node:"WOF Events IMAP — move email",type:"main",index:0}]]},
   "WOF Events IMAP — move email":{main:[[{node:"Complete — IMAP triage",type:"main",index:0}]]},
   "Is Gmail draft?":{main:[[{node:"Gmail — load source message",type:"main",index:0}],[{node:"Is WOF IMAP draft?",type:"main",index:0}]]},
   "Gmail — load source message":{main:[[{node:"Prepare draft prompt",type:"main",index:0}]]},
