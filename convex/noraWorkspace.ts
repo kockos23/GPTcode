@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { v } from "convex/values"
+import { readTaskList } from "./chiefOfStaff"
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 
 async function requireOwner(ctx: QueryCtx | MutationCtx) {
@@ -9,6 +10,17 @@ async function requireOwner(ctx: QueryCtx | MutationCtx) {
   const email = user?.email?.trim().toLowerCase()
   if (!email || email !== process.env.OWNER_EMAIL?.trim().toLowerCase()) throw new Error("FORBIDDEN")
 }
+
+export const taskList = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOwner(ctx)
+    const snapshot = await ctx.db.query("chiefOfStaffSnapshots")
+      .withIndex("by_cache_key", query => query.eq("cacheKey", "primary"))
+      .unique()
+    return readTaskList(ctx, snapshot?.tasks)
+  },
+})
 
 export const overview = query({
   args: {},

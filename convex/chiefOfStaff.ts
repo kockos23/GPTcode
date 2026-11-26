@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { internalMutation, internalQuery } from "./_generated/server"
+import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server"
 
 const MAX_COLLECTION = 500
 const ALLOWED_EXTERNAL_ACCOUNTS = new Set([
@@ -36,6 +36,20 @@ export const syncSnapshot = internalMutation({
   },
 })
 
+export async function readTaskList(ctx: QueryCtx, snapshotTasks: unknown) {
+  const nativeTasks = await ctx.db.query("chiefOfStaffTasks").withIndex("by_status").collect()
+  const taskIds = new Set(nativeTasks.map(item => item.taskId))
+  const sheetTasks = Array.isArray(snapshotTasks)
+    ? (snapshotTasks as Array<Record<string, unknown>>).filter(item => !taskIds.has(String(item.id ?? ""))) : []
+  return [...nativeTasks.map(item => ({
+    id: item.taskId, created: new Date(item.createdAt).toISOString(), source: item.source,
+    title: item.title, details: item.details, projectId: item.projectId, owner: item.owner,
+    priority: item.priority, status: item.status, deadline: item.deadline ?? "", reminder: "",
+    recurrence: "NIE", related: "", result: item.result,
+    updated: new Date(item.updatedAt).toISOString(),
+  })), ...sheetTasks].slice(0, MAX_COLLECTION)
+}
+
 export const getSnapshot = internalQuery({
   args: {},
   returns: v.union(v.null(), v.object({
@@ -48,25 +62,15 @@ export const getSnapshot = internalQuery({
       .withIndex("by_cache_key", query => query.eq("cacheKey", "primary"))
       .unique()
     if (!row) return null
-    const [nativeTasks, nativeCommands, externalEmails, emailTriage] = await Promise.all([
-      ctx.db.query("chiefOfStaffTasks").withIndex("by_status").collect(),
+    const [tasks, nativeCommands, externalEmails, emailTriage] = await Promise.all([
+      readTaskList(ctx, row.tasks),
       ctx.db.query("chiefOfStaffCommands").withIndex("by_created_at").order("desc").take(MAX_COLLECTION),
       ctx.db.query("chiefOfStaffExternalEmails").withIndex("by_received_at").order("desc").take(100),
       ctx.db.query("chiefOfStaffEmailTriage").collect(),
     ])
-    const taskIds = new Set(nativeTasks.map(item => item.taskId))
     const commandIds = new Set(nativeCommands.map(item => item.commandId))
-    const sheetTasks = Array.isArray(row.tasks)
-      ? (row.tasks as Array<Record<string, unknown>>).filter(item => !taskIds.has(String(item.id ?? ""))) : []
     const sheetCommands = Array.isArray(row.commands)
       ? (row.commands as Array<Record<string, unknown>>).filter(item => !commandIds.has(String(item.id ?? ""))) : []
-    const tasks = [...nativeTasks.map(item => ({
-      id: item.taskId, created: new Date(item.createdAt).toISOString(), source: item.source,
-      title: item.title, details: item.details, projectId: item.projectId, owner: item.owner,
-      priority: item.priority, status: item.status, deadline: item.deadline ?? "", reminder: "",
-      recurrence: "NIE", related: "", result: item.result,
-      updated: new Date(item.updatedAt).toISOString(),
-    })), ...sheetTasks].slice(0, MAX_COLLECTION)
     const commands = [...nativeCommands.map(item => ({
       id: item.commandId, received: new Date(item.createdAt).toISOString(), channel: item.channel,
       contextType: item.contextType, contextId: item.contextId, command: item.command,
