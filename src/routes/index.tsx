@@ -234,6 +234,7 @@ const navItems: { id: View; label: string; icon: LucideIcon; portrait?:string }[
 function ChiefOfStaffHQ() {
   const refreshLiveBriefing = useAction(api.liveBriefing.refresh)
   const portfolio = useQuery(portfolioApi.overview, {})
+  const personalTasks = useQuery(makeFunctionReference<'query', Record<string, never>, LiveTask[]>('noraWorkspace:taskList'), {})
   const bootstrapPortfolio = useMutation(portfolioApi.bootstrapDefaults)
   const persistDecision = useMutation(portfolioApi.updateDecision)
   const [view, setView] = useState<View>('home')
@@ -315,9 +316,9 @@ function ChiefOfStaffHQ() {
   const portfolioProjects = portfolio?.projects.length ? portfolio.projects : projects
   const portfolioDecisions = portfolio?.decisions.length ? portfolio.decisions : decisions
   const pending = portfolioDecisions.filter(item => item.status === 'Čaká na Tomáša')
-  const openTasks = liveBriefing
-    ? liveBriefing.tasks.filter(item => item.status !== 'HOTOVO' && item.status !== 'ZRUŠENÉ').length
-      + liveBriefing.workQueue.filter(item => item.status !== 'HOTOVO').length
+  const openTasks = personalTasks
+    ? personalTasks.filter(item => item.status !== 'HOTOVO' && item.status !== 'ZRUŠENÉ').length
+      + (liveBriefing?.workQueue.filter(item => item.status !== 'HOTOVO').length ?? 0)
     : aiTasks.filter(item => item.status !== 'Hotové').length
   const snapshotDate = liveBriefing
     ? new Date(liveBriefing.generatedAt).toLocaleDateString('sk-SK')
@@ -360,7 +361,7 @@ function ChiefOfStaffHQ() {
       {view === 'calendar' && <CalendarView live={liveBriefing} go={go}/>}
       {view === 'decisions' && <DecisionsView decisions={portfolioDecisions} projects={portfolioProjects} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
       {view === 'projects' && <ProjectsView projects={portfolioProjects} openProject={setSelectedProject}/>}
-      {view === 'tasks' && <TasksView live={liveBriefing} refreshBriefing={handleRefreshBriefing}/>}
+      {view === 'tasks' && <TasksView live={liveBriefing} personal={personalTasks ?? []} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'nora' && <NoraWorkspace notify={notify}/>}
       {view === 'health' && <HealthWorkspace notify={notify}/>}
       {view === 'household' && <HomeWorkspace notify={notify}/>}
@@ -1137,7 +1138,7 @@ function StaticTasksView() {
   </div>
 }
 
-function TasksView({ live, refreshBriefing }: { live:LiveBriefing|null; refreshBriefing:()=>Promise<void> }) {
+function TasksView({ live, personal, refreshBriefing }: { live:LiveBriefing|null; personal:LiveTask[]; refreshBriefing:()=>Promise<void> }) {
   const createTask=useAction(api.commandCenter.createTask)
   const decideAgentTask=useAction(api.commandCenter.decideAgentTask)
   const approvalBackendReady=true
@@ -1150,7 +1151,6 @@ function TasksView({ live, refreshBriefing }: { live:LiveBriefing|null; refreshB
   const [deadline,setDeadline]=useState('')
   const [saving,setSaving]=useState(false)
   const [feedback,setFeedback]=useState('')
-  const personal=live?.tasks??[]
   const queue=live?.workQueue??[]
   const shownPersonal=personal.filter(task=>filter==='Všetky'||(filter==='Hotovo'?task.status==='HOTOVO':task.status!=='HOTOVO'&&task.status!=='ZRUŠENÉ'))
   const shownQueue=queue.filter(task=>{
