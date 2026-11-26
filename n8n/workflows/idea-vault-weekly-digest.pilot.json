@@ -1,0 +1,290 @@
+{
+  "name": "VERA · Idea Vault — týždenný digest (PILOT)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 40 7 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Každý pondelok 7:40",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "53e5f540-3daf-5efa-a4a6-fe6a4be429cc"
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/ideas/digest-input?days=7",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "name": "Načítaj nápady za týždeň",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "6efe1346-a183-5eeb-bdb7-dce640439879",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "93242ccd-3a77-553e-8f35-bae3f2c7fe76",
+              "leftValue": "={{ $json.captureCount }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Pribudli nápady?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "f1c48e93-4904-5d02-a485-192168ce4e25"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Týždenná syntéza: spája nápady medzi sebou a s mojím profilom.\nconst input = $input.first().json;\nconst items = (input.items || []).map(i => ({\n  id: i.id, title: i.title, category: i.category, summary: i.summary, keyPoints: i.keyPoints,\n  frameworks: i.frameworks, businessIdeas: i.businessIdeas, relevance: i.relevanceScore,\n  tags: i.tags, starred: i.starred, note: i.userNote,\n}));\nconst str = { type: 'string' };\nconst arr = x => ({ type: 'array', items: x });\nconst obj = p => ({ type: 'object', additionalProperties: false, required: Object.keys(p), properties: p });\nconst schema = obj({\n  title: str, summary: str,\n  themes: arr(obj({ name: str, insight: str, captureIds: arr(str) })),\n  topActions: arr(str), businessBets: arr(str), questions: arr(str),\n});\nconst instructions = [\n  'Si VERA, moja kurátorka nápadov (Idea Vault). Dostaneš všetko, čo som za posledný týždeň uložil do trezora nápadov, a môj profil.',\n  'Píš po slovensky, konkrétne, bez všeobecných fráz.',\n  '- title: pomenuj hlavný motív týždňa.',\n  '- summary: 3–5 viet – čo ma tento týždeň ťahalo, aký vzorec vidíš a čo to znamená pre moje projekty.',\n  '- themes: 2–5 tém, ktoré spájajú viac záznamov. insight = čo z ich prepojenia vyplýva (nie zoznam). captureIds iba zo vstupu.',\n  '- topActions: max 3 najhodnotnejšie kroky na budúci týždeň, naviazané na moje projekty.',\n  '- businessBets: max 3 biznis nápady, ktoré vznikajú KOMBINÁCIOU záznamov a mojich projektov.',\n  '- questions: max 3 otázky, ktoré by som si mal položiť.',\n  'Záznamy označené ako obľúbené (starred) a s poznámkou ber ako silnejší signál.',\n  '',\n  'MÔJ PROFIL:',\n  input.promptContext || '',\n].join('\\n');\nreturn [{ json: {\n  periodStart: input.periodStart, periodEnd: input.periodEnd, captureCount: input.captureCount,\n  requestBody: {\n    model: 'gpt-5-mini', instructions,\n    input: [{ role: 'user', content: [{ type: 'input_text', text: JSON.stringify(items) }] }],\n    reasoning: { effort: 'medium' }, max_output_tokens: 8000,\n    text: { format: { type: 'json_schema', name: 'idea_digest', strict: true, schema } },\n  },\n} }];"
+      },
+      "name": "Priprav týždennú syntézu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -100
+      ],
+      "id": "e087e70a-367e-593d-9a01-709988c76c7d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "OpenAI — týždenná syntéza",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        -100
+      ],
+      "id": "913ab790-ed0b-5dd9-8294-a96b805dc7bb",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "const prepared = $('Priprav týždennú syntézu').first().json;\nconst j = $input.first().json || {};\nlet text = j.output_text || '';\nif (!text && Array.isArray(j.output)) text = j.output.flatMap(x => x.content || []).filter(x => x.type === 'output_text').map(x => x.text || '').join('');\nlet digest;\ntry { digest = JSON.parse(text); } catch { throw new Error('Digest: AI nevrátila platný JSON' + (j.error ? ' – ' + (j.error.message || j.error) : '')); }\nreturn [{ json: { payload: { periodStart: prepared.periodStart, periodEnd: prepared.periodEnd, captureCount: prepared.captureCount, digest } } }];"
+      },
+      "name": "Rozparsuj syntézu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -100
+      ],
+      "id": "6e943b4b-8e0d-5555-8ef4-b7ec49aba494"
+    },
+    {
+      "parameters": {
+        "url": "REPLACE_WITH_CONVEX_SITE_URL/ideas/digest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 20000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}"
+      },
+      "name": "Ulož digest (Convex)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        -100
+      ],
+      "id": "c42723f6-333d-5cac-a83e-51198c924dbb",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Rozparsuj syntézu').first().json.payload.digest;\nconst saved = $input.first().json || {};\nconst lines = ['🗂 VERA · týždenný prehľad nápadov', '', d.title, d.summary];\nif (d.themes?.length) lines.push('', 'Témy:', ...d.themes.map(t => '• ' + t.name + ' – ' + t.insight));\nif (d.topActions?.length) lines.push('', 'Na budúci týždeň:', ...d.topActions.map((a, i) => (i + 1) + '. ' + a));\nif (d.businessBets?.length) lines.push('', '🚀 Biznis stávky:', ...d.businessBets.map(b => '• ' + b));\nif (d.questions?.length) lines.push('', '❓ ' + d.questions.join('\\n❓ '));\nif (saved.ok !== true) lines.push('', '⚠️ Digest sa nepodarilo uložiť do dashboardu.');\nreturn [{ json: { text: lines.join('\\n').slice(0, 3900) } }];"
+      },
+      "name": "Zostav správu digestu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        -100
+      ],
+      "id": "fbb3861a-8730-5c71-bfd3-1d4e3d7eb074"
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_OWNER_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "name": "Telegram — pošli digest",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1920,
+        -100
+      ],
+      "id": "909c4587-2cd9-5a3a-92c6-71434a9ba35b",
+      "webhookId": "bd147c00-96f9-5eba-9d8b-8b3f6e33d6c4"
+    }
+  ],
+  "connections": {
+    "Každý pondelok 7:40": {
+      "main": [
+        [
+          {
+            "node": "Načítaj nápady za týždeň",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Načítaj nápady za týždeň": {
+      "main": [
+        [
+          {
+            "node": "Pribudli nápady?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pribudli nápady?": {
+      "main": [
+        [
+          {
+            "node": "Priprav týždennú syntézu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priprav týždennú syntézu": {
+      "main": [
+        [
+          {
+            "node": "OpenAI — týždenná syntéza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — týždenná syntéza": {
+      "main": [
+        [
+          {
+            "node": "Rozparsuj syntézu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rozparsuj syntézu": {
+      "main": [
+        [
+          {
+            "node": "Ulož digest (Convex)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ulož digest (Convex)": {
+      "main": [
+        [
+          {
+            "node": "Zostav správu digestu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zostav správu digestu": {
+      "main": [
+        [
+          {
+            "node": "Telegram — pošli digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Bratislava",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}
