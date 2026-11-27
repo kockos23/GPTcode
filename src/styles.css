@@ -86,6 +86,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 button, input, select, textarea { font: inherit; }
+
+.rpm-brief {
+  margin: 0 0 24px;
+  padding: clamp(18px, 3vw, 32px);
+  border: 1px solid hsl(var(--line));
+  border-radius: 24px;
+  background: linear-gradient(135deg, #f1edf8, #faf7f2);
+  color: #26192f;
+}
+.rpm-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px; margin-bottom: 20px; }
+.rpm-heading h3 { margin: 4px 0 0; font: 750 clamp(24px, 4vw, 36px)/1.1 var(--font-display); }
+.rpm-heading > span { color: #594864; font-size: 12px; font-weight: 700; }
+.rpm-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; align-items: start; }
+.rpm-outcomes { display: grid; gap: 8px; }
+.rpm-outcome, .rpm-agenda { padding: 16px; border-radius: 16px; background: #fff; border: 1px solid #e9e2ec; overflow-wrap: anywhere; }
+.rpm-outcome:first-child { border-inline-start: 4px solid #a61365; }
+.rpm-brief h4 { margin: 0; font-size: 16px; }
+.rpm-brief p:not(.eyebrow) { margin: 6px 0 10px; color: #594864; font-size: 13px; }
+.rpm-agenda ul { margin: 8px 0; padding: 0; list-style: none; }
+.rpm-agenda li { display: grid; gap: 3px; padding: 9px 0; border-bottom: 1px solid #eee8f2; font-size: 13px; }
+.rpm-agenda li small { color: #594864; font-variant-numeric: tabular-nums; }
+.rpm-brief .text-link { min-height: 36px; color: #852051; }
+@media (max-width: 640px) { .rpm-grid { grid-template-columns: 1fr; } }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid hsl(var(--lime));

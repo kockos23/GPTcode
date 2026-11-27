@@ -356,7 +356,7 @@ function ChiefOfStaffHQ() {
 
     <main className="main">
       <Topbar view={view} snapshotDate={snapshotDate}/>
-      {view === 'home' && <HomeView pending={pending} projects={portfolioProjects} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
+      {view === 'home' && <HomeView pending={pending} projects={portfolioProjects} openTasks={openTasks} tasks={personalTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'inbox' && <InboxRadarView live={liveBriefing} go={go} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'calendar' && <CalendarView live={liveBriefing} go={go}/>}
       {view === 'decisions' && <DecisionsView decisions={portfolioDecisions} projects={portfolioProjects} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
@@ -395,7 +395,10 @@ function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {
   return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · {snapshotDate}</div></div>
 }
 
-function HomeView({ pending, projects, openTasks, go, openProject, live, briefingState, refreshBriefing }: { pending:Decision[]; projects:Project[]; openTasks:number; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {
+const bratislavaDay = new Intl.DateTimeFormat('sv-SE', { timeZone:'Europe/Bratislava', year:'numeric', month:'2-digit', day:'2-digit' })
+const bratislavaTime = new Intl.DateTimeFormat('sk-SK', { timeZone:'Europe/Bratislava', hour:'2-digit', minute:'2-digit' })
+
+function HomeView({ pending, projects, openTasks, tasks, go, openProject, live, briefingState, refreshBriefing }: { pending:Decision[]; projects:Project[]; openTasks:number; tasks:LiveTask[]|undefined; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {
   const submitCommand=useAction(api.commandCenter.submitCommand)
   const [commandText,setCommandText]=useState('')
   const [commandContext,setCommandContext]=useState<{type:string;id:string;label:string}|null>(null)
@@ -404,11 +407,30 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
   const [lastCommandId,setLastCommandId]=useState<string>()
   const todayLabel=new Intl.DateTimeFormat('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Bratislava'}).format(new Date())
   const focus=projects.filter(p=>p.priority==='P0').slice(0,3)
+  const today = bratislavaDay.format(new Date())
+  const openPersonalTasks = (tasks ?? []).filter(task=>!['HOTOVO','ZRUŠENÉ'].includes(task.status))
+  const dueTasks = openPersonalTasks
+    .filter(task=>/^\d{4}-\d{2}-\d{2}$/.test(task.deadline) && task.deadline <= today)
+    .sort((a,b)=>a.deadline.localeCompare(b.deadline))
   const dailyOutcomes = [
-    pending[0] ? { label:pending[0].question, run:()=>go('decisions') } : null,
-    focus[0] ? { label:focus[0].nextAction, run:()=>openProject(focus[0]) } : null,
-    { label:openTasks>0?`Vyčistiť ${openTasks} otvorených úloh a pripomienok`:'Pripraviť ďalší pracovný krok', run:()=>go('tasks') },
-  ].filter((item):item is {label:string;run:()=>void}=>Boolean(item)).slice(0,3)
+    ...dueTasks.map(task=>({id:'task-'+task.id, result:task.title,
+      purpose:task.deadline < today?'Uzavrieť záväzok po termíne.':'Dodržať dnešný termín.',
+      action:'Otvoriť úlohy', run:()=>go('tasks')})),
+    ...pending.slice(0,1).map(decision=>({id:'decision-'+decision.id, result:decision.question,
+      purpose:'Dať projektu smer, aby sa mohlo pokračovať.',
+      action:'Otvoriť rozhodnutia', run:()=>go('decisions')})),
+    ...focus.filter(project=>project.nextAction.trim()).map(project=>({id:'project-'+project.id, result:project.nextAction,
+      purpose:'Posunúť projekt s najvyššou prioritou.',
+      action:'Otvoriť projekt', run:()=>openProject(project)})),
+  ].slice(0,3)
+  const freshCalendar = live && bratislavaDay.format(new Date(live.generatedAt)) === today
+  const todayEvents = (freshCalendar ? live.calendar : []).filter(event=>{
+    const start = new Date(event.start)
+    const end = new Date(event.end)
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return false
+    const lastInstant = new Date(Math.max(start.getTime(), end.getTime() - 1))
+    return bratislavaDay.format(start) <= today && bratislavaDay.format(lastInstant) >= today
+  }).sort((a,b)=>Number(b.allDay)-Number(a.allDay) || Date.parse(a.start)-Date.parse(b.start))
   const liveEvents=live?.calendar.map(item=>{
     const start=new Date(item.start)
     return {
@@ -418,7 +440,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
     }
   })
   const displayedEvents=live ? (liveEvents ?? []) : events.map(item=>({...item,url:''}))
-  const personalTasks=(live?.tasks??[]).filter(task=>task.status!=='HOTOVO'&&task.status!=='ZRUŠENÉ').slice(0,5)
+  const personalTasks=openPersonalTasks.slice(0,5)
   const queueCommand=async()=>{
     if(!commandText.trim()) return
     setCommandState('saving')
@@ -441,6 +463,31 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
       <div className={'brief-status '+briefingState}><Sparkles size={16}/><div><strong>Denný briefing</strong><small>{briefingState==='ready'&&live?'Živé zdroje · obnovené '+new Date(live.generatedAt).toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'}):briefingState==='loading'?'Načítavam Gmail, Kalendár a Control Center…':briefingState==='error'?'Obnovenie zlyhalo · skús znova':'Gmail, Kalendár a Drive sú pripojené'}</small></div><button onClick={()=>void refreshBriefing()} disabled={briefingState==='loading'} aria-label="Obnoviť briefing"><RefreshCw className={briefingState==='loading'?'spin':''} size={16}/></button></div>
     </section>
 
+    <section className="rpm-brief" aria-labelledby="rpm-title">
+      <div className="rpm-heading">
+        <div><p className="eyebrow">NORA · Ranný briefing</p><h3 id="rpm-title">Čo dnes posunie deň</h3></div>
+        <span>Výsledok · Dôvod · Akcia</span>
+      </div>
+      <div className="rpm-grid">
+        <div className="rpm-outcomes">
+          {dailyOutcomes.map(item=><article className="rpm-outcome" key={item.id}>
+            <h4>{item.result}</h4><p>{item.purpose}</p>
+            <button className="text-link" onClick={item.run}>{item.action} <ArrowRight size={14}/></button>
+          </article>)}
+          {dailyOutcomes.length === 0 && <p className="rpm-empty">{tasks ? 'Na dnes sa nenašli termíny ani prioritné kroky.' : 'Načítavam úlohy a priority…'}</p>}
+        </div>
+        <div className="rpm-agenda">
+          <h4>Dnes v kalendári</h4>
+          {!freshCalendar ? <p className="rpm-empty">{live ? 'Kalendár čaká na dnešnú synchronizáciu.' : 'Načítavam kalendár…'}</p>
+            : todayEvents.length > 0 ? <ul>{todayEvents.slice(0,4).map(event=><li key={(event.calendarId??'')+':'+event.id}>
+              <small>{event.allDay ? 'Celý deň' : bratislavaTime.format(new Date(event.start))+' – '+bratislavaTime.format(new Date(event.end))}</small>
+              <strong>{event.title}</strong>
+            </li>)}</ul> : <p className="rpm-empty">Na dnes nemáš naplánované udalosti.</p>}
+          <button className="text-link" onClick={()=>go('calendar')}>{todayEvents.length>4?`Všetky udalosti (${todayEvents.length})`:'Otvoriť kalendár'} <ArrowRight size={14}/></button>
+        </div>
+      </div>
+    </section>
+
     <section className="command-center panel" id="command-center">
       <div className="command-heading"><span><Command size={18}/></span><div><p className="eyebrow">Command Center</p><h3>Čo mám urobiť?</h3></div><small>Príkaz sa uloží do spoločnej fronty</small></div>
       {commandContext&&<div className="command-context"><Mail size={14}/><span>E-mail: <strong>{commandContext.label}</strong></span><button onClick={()=>setCommandContext(null)}><X size={13}/></button></div>}
@@ -452,13 +499,6 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
       {commandState==='done'&&<p className="command-feedback success"><CircleCheckBig size={14}/> Príkaz je uložený. Jeho skutočný stav a výsledok vidíš nižšie.</p>}
       {commandState==='error'&&<p className="command-feedback error"><AlertCircle size={14}/> Príkaz sa nepodarilo uložiť. Skús obnoviť zdroje.</p>}
       <CommandActivity highlightId={lastCommandId}/>
-    </section>
-
-    <section className="daily-focus" aria-label="Tri výsledky dňa">
-      <div className="daily-focus-heading"><span><Target size={16}/></span><div><small>3 výsledky dňa</small><strong>Čo dnes skutočne posunie veci</strong></div></div>
-      <div className="daily-focus-items three-items">
-        {dailyOutcomes.map((item,index)=><button key={item.label} onClick={item.run}><b>{String(index+1).padStart(2,'0')}</b><span>{item.label}</span><ArrowRight size={15}/></button>)}
-      </div>
     </section>
 
     <section className="metric-grid three compact-metrics">
