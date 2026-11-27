@@ -12,6 +12,7 @@ import { AgentHandoffWorkspace } from '@/components/agent-handoff-workspace'
 import { SafeEmailBody } from '@/components/safe-email-body'
 import { CommandActivity } from '@/components/command-activity'
 import { emailPreviewForCard, uniqueDisplayEmails } from '@/lib/email-preview'
+import { previewPersonalTasks, taskPriorityClass } from '@/lib/personal-task-preview'
 import { Lightbulb } from 'lucide-react'
 import { api } from '@/convex/_generated/api'
 import {
@@ -356,7 +357,7 @@ function ChiefOfStaffHQ() {
 
     <main className="main">
       <Topbar view={view} snapshotDate={snapshotDate}/>
-      {view === 'home' && <HomeView pending={pending} projects={portfolioProjects} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
+      {view === 'home' && <HomeView pending={pending} projects={portfolioProjects} openTasks={openTasks} go={go} openProject={setSelectedProject} live={liveBriefing} livePersonal={personalTasks} briefingState={briefingState} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'inbox' && <InboxRadarView live={liveBriefing} go={go} refreshBriefing={handleRefreshBriefing}/>}
       {view === 'calendar' && <CalendarView live={liveBriefing} go={go}/>}
       {view === 'decisions' && <DecisionsView decisions={portfolioDecisions} projects={portfolioProjects} editingDecision={editingDecision} setEditingDecision={setEditingDecision} drafts={draftAnswers} setDrafts={setDraftAnswers} update={updateDecision} goProject={project => { setSelectedProject(project) }}/>}
@@ -395,7 +396,7 @@ function Topbar({ view, snapshotDate }: { view:View; snapshotDate:string }) {
   return <div className="topbar"><div><p className="eyebrow">Chief of Staff HQ</p><h1>{labels[view]}</h1></div><div className="snapshot-pill"><span/>Živé riadiace centrum · {snapshotDate}</div></div>
 }
 
-function HomeView({ pending, projects, openTasks, go, openProject, live, briefingState, refreshBriefing }: { pending:Decision[]; projects:Project[]; openTasks:number; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {
+function HomeView({ pending, projects, openTasks, go, openProject, live, livePersonal, briefingState, refreshBriefing }: { pending:Decision[]; projects:Project[]; openTasks:number; go:(view:View)=>void; openProject:(p:Project)=>void; live:LiveBriefing|null; livePersonal:LiveTask[]|undefined; briefingState:BriefingState; refreshBriefing:()=>Promise<void> }) {
   const submitCommand=useAction(api.commandCenter.submitCommand)
   const [commandText,setCommandText]=useState('')
   const [commandContext,setCommandContext]=useState<{type:string;id:string;label:string}|null>(null)
@@ -418,7 +419,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
     }
   })
   const displayedEvents=live ? (liveEvents ?? []) : events.map(item=>({...item,url:''}))
-  const personalTasks=(live?.tasks??[]).filter(task=>task.status!=='HOTOVO'&&task.status!=='ZRUŠENÉ').slice(0,5)
+  const personalTasks=previewPersonalTasks(livePersonal, live?.tasks)
   const queueCommand=async()=>{
     if(!commandText.trim()) return
     setCommandState('saving')
@@ -489,7 +490,7 @@ function HomeView({ pending, projects, openTasks, go, openProject, live, briefin
     <div className="insight-grid">
       <section className="panel">
         <SectionTitle eyebrow="Úlohy a pripomienky" title="Čo nesmie zapadnúť" action={<button className="text-link" onClick={()=>go('tasks')}>Všetky <ChevronRight size={14}/></button>}/>
-        <div className="personal-task-preview">{personalTasks.map(task=><button key={task.id} onClick={()=>go('tasks')}><span className={'task-priority '+task.priority.toLocaleLowerCase('sk').replace('ô','o').replace('é','e')}>{task.priority}</span><div><strong>{task.title}</strong><small>{task.deadline?('do '+task.deadline):task.owner} · {task.status}</small></div><ChevronRight size={15}/></button>)}{personalTasks.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Žiadne otvorené osobné úlohy</strong><p>Novú úlohu môžeš pridať priamo cez kartu Úlohy.</p></div></div>}</div>
+        <div className="personal-task-preview">{personalTasks.map(task=><button key={task.id} onClick={()=>go('tasks')}><span className={'task-priority '+taskPriorityClass(task.priority)}>{typeof task.priority==='string'?task.priority:''}</span><div><strong>{task.title}</strong><small>{task.deadline?('do '+task.deadline):task.owner} · {task.status}</small></div><ChevronRight size={15}/></button>)}{personalTasks.length===0&&<div className="connection-empty"><span><CircleCheckBig size={18}/></span><div><strong>Žiadne otvorené osobné úlohy</strong><p>Novú úlohu môžeš pridať priamo cez kartu Úlohy.</p></div></div>}</div>
       </section>
       <section className="panel cos-actions">
         <SectionTitle eyebrow="Chief of Staff" title="Odporúčané ďalšie kroky"/>
